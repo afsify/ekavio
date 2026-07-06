@@ -1,0 +1,2 @@
+// Controllers entry point
+export {};
