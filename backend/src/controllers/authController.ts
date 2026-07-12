@@ -77,7 +77,18 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       role: user.role,
     };
 
-    res.status(200).json({ accessToken, refreshToken, userId: user._id, tenantId: user.tenantId, role: user.role, user: userResponse });
+    const organization = await Organization.findById(user.tenantId);
+    const theme = organization?.theme || { mode: 'light', primaryColor: '#4F46E5' };
+
+    res.status(200).json({
+      accessToken,
+      refreshToken,
+      userId: user._id,
+      tenantId: user.tenantId,
+      role: user.role,
+      user: userResponse,
+      theme,
+    });
   } catch (error: any) {
     next(new AppError(error.message, 500));
   }

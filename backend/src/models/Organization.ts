@@ -16,6 +16,10 @@ const organizationSchema = new Schema(
       default: "active",
     },
     activeModules: [{ type: String }],
+    theme: {
+      mode: { type: String, enum: ["light", "dark"], default: "light" },
+      primaryColor: { type: String, default: "#4F46E5" },
+    },
   },
   { timestamps: true },
 );
