@@ -22,8 +22,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       root.classList.remove('dark');
     }
 
-    // Inject dynamic primary color CSS variable
-    root.style.setProperty('--primary-color', theme.primaryColor || '#4F46E5');
+    // Inject dynamic primary color CSS variables (--color-primary for Tailwind v4 standards)
+    const primaryColor = theme.primaryColor || '#4F46E5';
+    root.style.setProperty('--color-primary', primaryColor);
+    root.style.setProperty('--primary-color', primaryColor);
   }, [theme.mode, theme.primaryColor]);
 
   return <>{children}</>;

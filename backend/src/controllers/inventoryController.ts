@@ -1,31 +1,20 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { Inventory } from '../models/Inventory.js';
-import { AppError } from '../utils/AppError.js';
+import { createAppError } from '../utils/AppError.js';
+import { addItemService, getInventoryService, getLowStockAlertsService } from '../services/inventoryService.js';
 
 export const addItem = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
-      next(new AppError('Tenant ID missing from request context', 401));
+      next(createAppError('Tenant ID missing from request context', 401));
       return;
     }
 
-    const { itemName, currentStock, lowStockThreshold, price } = req.body;
-
-    const newItem = new Inventory({
-      tenantId,
-      itemName,
-      currentStock,
-      lowStockThreshold,
-      price,
-    });
-
-    await newItem.save();
-
+    const newItem = await addItemService(tenantId, req.body);
     res.status(201).json({ message: 'Inventory item added successfully', data: newItem });
   } catch (error: any) {
-    next(new AppError(error.message, 500));
+    next(createAppError(error.message, 500));
   }
 };
 
@@ -33,15 +22,14 @@ export const getInventory = async (req: AuthenticatedRequest, res: Response, nex
   try {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
-      next(new AppError('Tenant ID missing from request context', 401));
+      next(createAppError('Tenant ID missing from request context', 401));
       return;
     }
 
-    const items = await Inventory.find({ tenantId }).sort({ itemName: 1 });
-
-    res.status(200).json({ data: items });
+    const result = await getInventoryService(tenantId, req.query.page as any, req.query.limit as any);
+    res.status(200).json(result);
   } catch (error: any) {
-    next(new AppError(error.message, 500));
+    next(createAppError(error.message, 500));
   }
 };
 
@@ -49,17 +37,13 @@ export const getLowStockAlerts = async (req: AuthenticatedRequest, res: Response
   try {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
-      next(new AppError('Tenant ID missing from request context', 401));
+      next(createAppError('Tenant ID missing from request context', 401));
       return;
     }
 
-    const lowStockItems = await Inventory.find({
-      tenantId,
-      $expr: { $lte: ['$currentStock', '$lowStockThreshold'] },
-    }).sort({ currentStock: 1 });
-
+    const lowStockItems = await getLowStockAlertsService(tenantId);
     res.status(200).json({ data: lowStockItems });
   } catch (error: any) {
-    next(new AppError(error.message, 500));
+    next(createAppError(error.message, 500));
   }
 };

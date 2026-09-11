@@ -3,8 +3,11 @@
  * Strictly functional login screen leveraging controlled inputs, reusable UI components,
  * and database-driven theme injection upon login.
  */
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import toast from 'react-hot-toast';
 import {
   Phone,
@@ -14,88 +17,59 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { client } from '../api/client';
-import { useAppStore, type UserProfile, type ThemeConfig } from '../store/useAppStore';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { useLogin } from '../hooks/useAuth';
+
+const loginSchema = z.object({
+  phone: z.string().min(1, 'Phone number is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type LoginFormInputs = z.infer<typeof loginSchema>;
 
 export const Login: React.FC = () => {
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [phoneError, setPhoneError] = useState<string | undefined>();
-  const [passwordError, setPasswordError] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormInputs>({
+    resolver: zodResolver(loginSchema),
+  });
 
   const navigate = useNavigate();
-  const login = useAppStore((state) => state.login);
+  const loginMutation = useLogin();
 
-  const validateForm = (): boolean => {
-    let isValid = true;
-    setPhoneError(undefined);
-    setPasswordError(undefined);
-
-    if (!phone.trim()) {
-      setPhoneError('Phone number is required');
-      isValid = false;
-    }
-
-    if (!password.trim()) {
-      setPasswordError('Password is required');
-      isValid = false;
-    }
-
-    return isValid;
+  const onSubmit: SubmitHandler<LoginFormInputs> = (formData) => {
+    loginMutation.mutate(
+      {
+        phone: formData.phone.trim(),
+        password: formData.password,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Signed in to Ekavio!');
+          navigate('/dashboard', { replace: true });
+        },
+        onError: (error: any) => {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            'Authentication failed. Please verify credentials.';
+          toast.error(errorMessage);
+        },
+      }
+    );
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-
-    try {
-      const response = await client.post('/auth/login', {
-        phone: phone.trim(),
-        password,
-      });
-
-      const data = response.data;
-      const accessToken: string = data.accessToken;
-
-      const userPayload: UserProfile = {
-        id: data.user?.id || data.userId || 'unknown-id',
-        name: data.user?.name || 'Authorized Admin',
-        role: data.user?.role || data.role || 'Admin',
-        tenantId: data.user?.tenantId || data.tenantId || 'default-tenant',
-        phone: data.user?.phone || phone.trim(),
-      };
-
-      const themeConfig: ThemeConfig = data.theme || {
-        mode: 'dark',
-        primaryColor: '#4F46E5',
-      };
-
-      login(userPayload, accessToken, themeConfig);
-      toast.success('Signed in to Ekavio!');
-      navigate('/dashboard', { replace: true });
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        'Authentication failed. Please verify credentials.';
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = loginMutation.isPending;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
       {/* Dynamic background glow */}
       <div
-        className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20 animate-pulse"
-        style={{ backgroundColor: 'var(--primary-color, #4F46E5)' }}
+        className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20 animate-pulse transition-colors duration-500"
+        style={{ backgroundColor: 'var(--color-primary, #4F46E5)' }}
       />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-violet-600/20 blur-3xl pointer-events-none" />
 
@@ -103,8 +77,8 @@ export const Login: React.FC = () => {
       <div className="relative w-full max-w-md z-10">
         <div className="text-center mb-8">
           <div
-            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl shadow-lg mb-4 ring-1 ring-white/20"
-            style={{ backgroundColor: 'var(--primary-color, #4F46E5)' }}
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl shadow-lg mb-4 ring-1 ring-white/20 transition-colors duration-300"
+            style={{ backgroundColor: 'var(--color-primary, #4F46E5)' }}
           >
             <Building2 className="w-7 h-7 text-white" />
           </div>
@@ -123,19 +97,15 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <Input
               id="phone"
               label="Phone Number"
               type="tel"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                if (phoneError) setPhoneError(undefined);
-              }}
+              {...register('phone')}
               placeholder="+1 (555) 000-0000"
               icon={<Phone className="h-4 w-4" />}
-              error={phoneError}
+              error={errors.phone?.message}
               disabled={isLoading}
             />
 
@@ -143,22 +113,19 @@ export const Login: React.FC = () => {
               id="password"
               label="Password"
               type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (passwordError) setPasswordError(undefined);
-              }}
+              {...register('password')}
               placeholder="••••••••"
               icon={<Lock className="h-4 w-4" />}
-              error={passwordError}
+              error={errors.password?.message}
               disabled={isLoading}
             />
 
             <Button
               type="submit"
               variant="primary"
+              size="lg"
               isLoading={isLoading}
-              className="w-full mt-2"
+              className="w-full mt-3"
             >
               <span>Sign In to Ekavio</span>
               <ArrowRight className="w-4 h-4" />

@@ -14,9 +14,12 @@ import {
   Sparkles,
   Palette,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { client } from '../api/client';
 
 interface ModuleCardItem {
   id: string;
@@ -42,6 +45,15 @@ export const Dashboard: React.FC = () => {
     queue: true,
   });
 
+  const { data: stats, isLoading: isStatsLoading } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: async () => {
+      const res = await client.get('/analytics/dashboard');
+      return res.data.data;
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
   const modulesList: ModuleCardItem[] = [
     {
       id: 'digital-khata',
@@ -49,7 +61,7 @@ export const Dashboard: React.FC = () => {
       description:
         'Manage ledgers, credit notes, and supplier settlements seamlessly on mobile.',
       category: 'Accounting & Ledger',
-      price: '$15/mo',
+      price: '₹199/mo',
       icon: BookOpenCheck,
       defaultSubscribed: true,
     },
@@ -59,7 +71,7 @@ export const Dashboard: React.FC = () => {
       description:
         'Real-time stock tracking, SKU alerts, barcode scanning, and multi-location warehouses.',
       category: 'Supply Chain',
-      price: '$25/mo',
+      price: '₹199/mo',
       icon: PackageCheck,
       defaultSubscribed: true,
     },
@@ -69,7 +81,7 @@ export const Dashboard: React.FC = () => {
       description:
         'Biometric & geofenced employee check-ins, payroll integration, and shift rosters.',
       category: 'HR & Staff',
-      price: '$12/mo',
+      price: '₹199/mo',
       icon: Users,
       defaultSubscribed: false,
     },
@@ -79,7 +91,7 @@ export const Dashboard: React.FC = () => {
       description:
         'Smart customer tokens, real-time waiting screens, and counter dispatching.',
       category: 'Customer Experience',
-      price: '$20/mo',
+      price: '₹199/mo',
       icon: Clock,
       defaultSubscribed: true,
     },
@@ -110,9 +122,9 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Welcome Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-900 via-slate-900/60 to-slate-950 p-6 sm:p-8 shadow-xl">
+      <div className="relative overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-900 via-slate-900/60 to-slate-950 p-6 sm:p-8 shadow-xl transition-colors duration-300">
         <div
-          className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-15 pointer-events-none"
+          className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl opacity-15 pointer-events-none transition-colors duration-500"
           style={{ backgroundColor: theme.primaryColor }}
         />
 
@@ -153,6 +165,106 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Live Analytics StatCards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <Card interactive className="flex flex-col">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-blue-500/20 text-blue-400">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Active Queue</p>
+              <h3 className="text-2xl font-bold text-white">
+                {isStatsLoading ? '...' : (stats?.totalQueue || 0)}
+              </h3>
+            </div>
+          </div>
+        </Card>
+
+        <Card interactive className="flex flex-col">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-rose-500/20 text-rose-400">
+              <PackageCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Low Stock Alerts</p>
+              <h3 className="text-2xl font-bold text-white">
+                {isStatsLoading ? '...' : (stats?.lowStockItems || 0)}
+              </h3>
+            </div>
+          </div>
+        </Card>
+
+        <Card interactive className="flex flex-col">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-emerald-500/20 text-emerald-400">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Staff Present</p>
+              <h3 className="text-2xl font-bold text-white">
+                {isStatsLoading ? '...' : (stats?.presentStaff || 0)}
+              </h3>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Visual Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card className="flex flex-col h-96">
+          <h3 className="text-sm font-medium text-slate-400 mb-4">Revenue (Last 7 Days)</h3>
+          <div className="flex-1 w-full min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[
+                { name: 'Mon', revenue: 4000 },
+                { name: 'Tue', revenue: 3000 },
+                { name: 'Wed', revenue: 2000 },
+                { name: 'Thu', revenue: 2780 },
+                { name: 'Fri', revenue: 1890 },
+                { name: 'Sat', revenue: 2390 },
+                { name: 'Sun', revenue: 3490 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value}`} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Bar dataKey="revenue" fill={theme.primaryColor} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="flex flex-col h-96">
+          <h3 className="text-sm font-medium text-slate-400 mb-4">Daily Queue Customers</h3>
+          <div className="flex-1 w-full min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={[
+                { name: 'Mon', customers: 40 },
+                { name: 'Tue', customers: 30 },
+                { name: 'Wed', customers: 45 },
+                { name: 'Thu', customers: 50 },
+                { name: 'Fri', customers: 65 },
+                { name: 'Sat', customers: 85 },
+                { name: 'Sun', customers: 90 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.75rem' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Line type="monotone" dataKey="customers" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', strokeWidth: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
       {/* Modules Grid */}
       <div>
         <h2 className="text-lg font-bold text-white mb-4">
@@ -169,7 +281,7 @@ export const Dashboard: React.FC = () => {
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md"
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-colors"
                         style={{
                           backgroundColor: `${theme.primaryColor}25`,
                           color: theme.primaryColor,
@@ -192,7 +304,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                   </div>
 
-                  <p className="text-sm text-slate-400 leading-relaxed mb-6">
+                  <p className="text-sm text-slate-400 leading-relaxed mb-4">
                     {mod.description}
                   </p>
                 </div>
@@ -202,8 +314,8 @@ export const Dashboard: React.FC = () => {
                     {isSubscribed ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        <span className="text-xs font-semibold text-emerald-400">
-                          Active Subscription
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                          Active
                         </span>
                       </>
                     ) : (
@@ -214,10 +326,11 @@ export const Dashboard: React.FC = () => {
                   </div>
 
                   <Button
-                    variant={isSubscribed ? 'outline' : 'primary'}
+                    variant={isSubscribed ? 'secondary' : 'primary'}
+                    size="sm"
                     onClick={() => handleToggleSubscribe(mod.id, mod.title)}
                   >
-                    {isSubscribed ? 'Manage / Settings' : 'Subscribe'}
+                    {isSubscribed ? 'Active' : 'Subscribe Now (₹199/mo)'}
                   </Button>
                 </div>
               </Card>

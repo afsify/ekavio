@@ -1,0 +1,24 @@
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/ekavio
+      - PORT=5000
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

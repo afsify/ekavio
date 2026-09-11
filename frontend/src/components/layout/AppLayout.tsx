@@ -1,13 +1,14 @@
 /**
  * Mobile-First App Layout (`AppLayout`)
- * Functional layout wrapper providing a Top App Bar, main scrollable area,
- * and native-style Bottom Navigation Bar for seamless mobile UX.
+ * Functional layout wrapper providing a Top App Bar, main scrollable area with Outlet support,
+ * and native-style Bottom Navigation Bar (Home, Khata, Attendance, Settings).
  */
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
-  LayoutGrid,
-  BarChart3,
+  Home,
+  BookOpenCheck,
+  Users,
   Settings,
   LogOut,
   Building2,
@@ -19,7 +20,7 @@ import { useAppStore } from '../../store/useAppStore';
 import toast from 'react-hot-toast';
 
 export interface AppLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
@@ -43,28 +44,38 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   const navItems = [
-    { label: 'Modules', path: '/dashboard', icon: LayoutGrid },
-    { label: 'Analytics', path: '/dashboard?tab=analytics', icon: BarChart3 },
-    { label: 'Profile', path: '/dashboard?tab=profile', icon: User },
+    { label: 'Home', path: '/dashboard', icon: Home },
+    { label: 'Khata', path: '/dashboard?module=digital-khata', icon: BookOpenCheck },
+    { label: 'Attendance', path: '/dashboard?module=attendance', icon: Users },
     { label: 'Settings', path: '/dashboard?tab=settings', icon: Settings },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
       {/* Top App Bar */}
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-xl px-4 h-16 flex items-center justify-between">
         <div
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2.5 cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl bg-[var(--primary-color,#4F46E5)] flex items-center justify-center shadow-md shadow-indigo-500/25">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md transition-colors"
+            style={{ backgroundColor: 'var(--color-primary, #4F46E5)' }}
+          >
             <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
             <span className="font-bold tracking-tight text-white text-base">
               Ekavio
             </span>
-            <span className="ml-1.5 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-[var(--primary-color,#4F46E5)]/20 text-[var(--primary-color,#818cf8)] border border-[var(--primary-color,#4F46E5)]/30">
+            <span
+              className="ml-1.5 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border transition-colors"
+              style={{
+                backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                color: 'var(--color-primary, #818cf8)',
+                borderColor: 'var(--color-primary, #4F46E5)',
+              }}
+            >
               Mobile
             </span>
           </div>
@@ -73,10 +84,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <div className="flex items-center gap-2">
           {user && (
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/60 border border-slate-700/60 text-xs text-slate-300">
-              <User className="w-3.5 h-3.5 text-[var(--primary-color,#818cf8)]" />
+              <User
+                className="w-3.5 h-3.5"
+                style={{ color: 'var(--color-primary, #818cf8)' }}
+              />
               <span className="font-medium">{user.name || user.phone}</span>
               <span className="text-slate-500">|</span>
-              <span className="uppercase text-[10px] font-bold text-[var(--primary-color,#818cf8)]">
+              <span
+                className="uppercase text-[10px] font-bold"
+                style={{ color: 'var(--color-primary, #818cf8)' }}
+              >
                 {user.role}
               </span>
             </div>
@@ -109,7 +126,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
-        {children}
+        {children || <Outlet />}
       </main>
 
       {/* Native-Style Bottom Navigation Bar */}
@@ -124,9 +141,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
                   isActive
-                    ? 'text-[var(--primary-color,#818cf8)] font-semibold'
+                    ? 'font-bold'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                style={isActive ? { color: 'var(--color-primary, #818cf8)' } : undefined}
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-[11px] mt-1">{item.label}</span>

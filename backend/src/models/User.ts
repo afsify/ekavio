@@ -12,6 +12,20 @@ const userSchema = new Schema(
     phone: { type: String, required: true },
     password: { type: String }, // Hashed password
     role: { type: String, enum: ["admin", "staff"], default: "staff" },
+    assignments: [
+      {
+        tenantId: {
+          type: Schema.Types.ObjectId,
+          ref: "Organization",
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ["admin", "staff", "hr", "owner"],
+          required: true,
+        },
+      },
+    ],
   },
   { timestamps: true },
 );

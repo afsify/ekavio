@@ -4,6 +4,11 @@ import type { InferSchemaType } from "mongoose";
 const organizationSchema = new Schema(
   {
     name: { type: String, required: true },
+    parentId: {
+      type: Schema.Types.ObjectId,
+      ref: "ParentOrganization",
+      index: true,
+    },
     type: { type: String, required: true }, // e.g., 'shop', 'clinic', 'salon'
     billingCycle: {
       type: String,
@@ -14,6 +19,9 @@ const organizationSchema = new Schema(
       type: String,
       enum: ["active", "inactive", "suspended"],
       default: "active",
+    },
+    nextBillingDate: {
+      type: Date,
     },
     activeModules: [{ type: String }],
     theme: {

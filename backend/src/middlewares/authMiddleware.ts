@@ -36,10 +36,37 @@ export const authenticate = async (
       process.env.JWT_SECRET || "fallback_secret",
     ) as JwtPayload;
 
+    const requestedTenantId = req.headers['x-tenant-id'] as string;
+    let finalTenantId = decoded.tenantId as string;
+    let finalRole = decoded.role as string;
+
+    if (requestedTenantId && requestedTenantId !== finalTenantId) {
+      // Dynamic import to avoid circular dependencies if any, but since it's middleware we can just import User
+      const { User } = await import("../models/User.js");
+      const userRecord = await User.findById(decoded.id);
+      
+      if (!userRecord) {
+        res.status(401).json({ message: "User not found" });
+        return;
+      }
+
+      const assignment = userRecord.assignments?.find(
+        (a) => a.tenantId.toString() === requestedTenantId
+      );
+
+      if (!assignment) {
+        res.status(403).json({ message: "Access denied to this tenant" });
+        return;
+      }
+
+      finalTenantId = requestedTenantId;
+      finalRole = assignment.role;
+    }
+
     req.user = {
       id: decoded.id as string,
-      tenantId: decoded.tenantId as string,
-      role: decoded.role as string,
+      tenantId: finalTenantId,
+      role: finalRole,
     };
 
     next();

@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { registerAdmin, login } from "../controllers/authController.js";
+import { registerAdmin, login, updateTheme, refreshToken } from "../controllers/authController.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
-import { registerSchema, loginSchema } from "../schemas/authSchemas.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { registerSchema, loginSchema, updateThemeSchema } from "../schemas/authSchemas.js";
 
 const router = Router();
 
@@ -122,5 +123,64 @@ router.post("/register", validateRequest(registerSchema), registerAdmin);
  *         description: Internal server error
  */
 router.post("/login", validateRequest(loginSchema), login);
+
+/**
+ * @openapi
+ * /auth/theme:
+ *   put:
+ *     summary: Update organization theme configuration (Protected)
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               mode:
+ *                 type: string
+ *                 enum: [light, dark]
+ *               primaryColor:
+ *                 type: string
+ *                 example: "#4F46E5"
+ *     responses:
+ *       200:
+ *         description: Theme updated successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.put("/theme", authenticate as any, validateRequest(updateThemeSchema), updateTheme as any);
+router.patch("/theme", authenticate as any, validateRequest(updateThemeSchema), updateTheme as any);
+
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh access token using a refresh token
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully refreshed tokens
+ *       400:
+ *         description: Refresh token required
+ *       401:
+ *         description: Invalid or expired refresh token
+ */
+router.post("/refresh", refreshToken as any);
 
 export default router;

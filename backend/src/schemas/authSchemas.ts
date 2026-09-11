@@ -12,3 +12,8 @@ export const loginSchema = z.object({
   phone: z.string({ message: 'Phone is required' }).min(1, 'Phone cannot be empty'),
   password: z.string({ message: 'Password is required' }).min(1, 'Password cannot be empty'),
 });
+
+export const updateThemeSchema = z.object({
+  mode: z.enum(['light', 'dark']).optional(),
+  primaryColor: z.string().optional(),
+});

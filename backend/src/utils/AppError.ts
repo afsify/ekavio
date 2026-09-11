@@ -1,19 +1,19 @@
 export class AppError extends Error {
   statusCode: number;
-  status: 'fail' | 'error';
+  status: "fail" | "error";
   isOperational: boolean;
 
   constructor(message: string, statusCode: number) {
     super(message);
     this.statusCode = statusCode;
-    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+    this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
     this.isOperational = true;
 
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
-// Define the type using intersection instead of extending a class
+// Define the type using an intersection instead of extending a class
 export type AppErrorType = Error & {
   statusCode: number;
   status: "fail" | "error";

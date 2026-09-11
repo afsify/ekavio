@@ -1,15 +1,18 @@
 @import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+@theme {
+  --color-primary: var(--color-primary, #4F46E5);
+}
 
 @layer base {
   :root {
+    --color-primary: #4F46E5;
+    --primary-color: #4F46E5;
     color-scheme: dark;
   }
 
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white m-0 min-h-screen;
+    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white m-0 min-h-screen transition-colors duration-300;
   }
 }
 

@@ -36,9 +36,21 @@ export const getTenantLedger = async (req: AuthenticatedRequest, res: Response, 
       return;
     }
 
-    const entries = await Ledger.find({ tenantId }).sort({ createdAt: -1 });
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
 
-    res.status(200).json({ data: entries });
+    const query = { tenantId };
+
+    const totalDocs = await Ledger.countDocuments(query);
+    const totalPages = Math.ceil(totalDocs / limit);
+
+    const entries = await Ledger.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({ data: entries, totalDocs, totalPages });
   } catch (error: any) {
     next(createAppError(error.message, 500));
   }

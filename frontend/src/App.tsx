@@ -3,19 +3,34 @@
  * Functional React component configuring BrowserRouter, ThemeProvider wrapper,
  * Protected routes, and Toast notifications.
  */
-import React from 'react';
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import { useAppStore } from './store/useAppStore';
-import { ThemeProvider } from './components/ThemeProvider';
-import { AppLayout } from './components/layout/AppLayout';
-import { Login } from './pages/Login';
-import { Dashboard } from './pages/Dashboard';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { useAppStore } from "./store/useAppStore";
+import { ThemeProvider } from "./components/ThemeProvider";
+import { AdminLayout } from "./components/layout/AdminLayout";
+import { PublicLayout } from "./components/layout/PublicLayout";
+import { Login } from "./pages/Login";
+
+const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const LedgerPage = React.lazy(() => import("./pages/Ledger/LedgerPage"));
+const AttendancePage = React.lazy(
+  () => import("./pages/Attendance/AttendancePage"),
+);
+const QueuePage = React.lazy(() => import("./pages/Queue/QueuePage"));
+const InventoryPage = React.lazy(
+  () => import("./pages/Inventory/InventoryPage"),
+);
+const ChatPage = React.lazy(() => import("./pages/Chat/ChatPage"));
+const CorporateDashboard = React.lazy(
+  () => import("./pages/Corporate/CorporateDashboard"),
+);
+const StaffManagementPage = React.lazy(
+  () => import("./pages/Staff/StaffManagementPage"),
+);
+const SettingsPage = React.lazy(() => import("./pages/Settings/SettingsPage"));
+const BillingPage = React.lazy(() => import("./pages/Billing/BillingPage"));
+const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -31,6 +46,47 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   return <>{children}</>;
 };
 
+interface ModuleGuardProps {
+  module: string;
+  children: React.ReactNode;
+}
+
+const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
+  const user = useAppStore((state) => state.user);
+
+  if (!user?.activeModules?.includes(module)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)] p-6 text-center">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md shadow-2xl">
+          <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Upgrade Required</h2>
+          <p className="text-slate-400 mb-6">
+            Your current plan doesn't include access to the <span className="text-indigo-400 font-semibold capitalize">{module}</span> module.
+          </p>
+          <a
+            href="/billing"
+            className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200"
+          >
+            Upgrade Plan
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-slate-950">
+    <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+  </div>
+);
+
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
@@ -39,33 +95,142 @@ export const App: React.FC = () => {
           position="top-right"
           toastOptions={{
             style: {
-              background: '#0f172a',
-              color: '#f8fafc',
-              border: '1px solid #334155',
+              background: "#0f172a",
+              color: "#f8fafc",
+              border: "1px solid #334155",
             },
             success: {
               iconTheme: {
-                primary: '#10b981',
-                secondary: '#f8fafc',
+                primary: "#10b981",
+                secondary: "#f8fafc",
               },
             },
           }}
         />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Dashboard />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <React.Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <Dashboard />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ledger"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module="ledger">
+                      <LedgerPage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/attendance"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module="attendance">
+                      <AttendancePage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/queue"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module="queue">
+                      <QueuePage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module="inventory">
+                      <InventoryPage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module="chat">
+                      <ChatPage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/corporate"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <CorporateDashboard />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <BillingPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <StaffManagementPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <SettingsPage />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <PublicLayout>
+                  <LandingPage />
+                </PublicLayout>
+              }
+            />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </React.Suspense>
       </BrowserRouter>
     </ThemeProvider>
   );

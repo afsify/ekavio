@@ -1,4 +1,10 @@
 /**
+ * @deprecated
+ * This custom hook is deprecated in favor of TanStack Query (React Query).
+ * Please use `useQuery` for GET requests and `useMutation` for POST, PUT, DELETE requests.
+ * TanStack Query handles caching, background refetching, and loading states automatically,
+ * which is crucial for React Native portability and overall application performance.
+ *
  * Generic CRUD Custom Hook (`useApi`)
  * Strictly functional React hook designed for reusable RESTful API operations.
  * Fully typed with generics and commented for seamless React Native portability.
