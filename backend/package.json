@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/config.test.ts tests/health.test.ts",
+    "test": "tsx --test tests/config.test.ts tests/health.test.ts tests/authSession.test.ts tests/profileSession.test.ts tests/authMiddleware.test.ts tests/frontendStorage.test.ts",
     "build": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "start": "node dist/server.js"
   },

@@ -21,7 +21,8 @@ export const addStaff = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ success: false, message: 'Forbidden. Admin role required.' });
     }
 
-    const { name, phone, password, role } = req.body;
+    const { name, password, role } = req.body;
+    const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : req.body.phone;
 
     const existingUser = await User.findOne({ phone, tenantId });
     if (existingUser) {

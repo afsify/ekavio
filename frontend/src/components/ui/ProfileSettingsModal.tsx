@@ -3,6 +3,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 import { AdvancedModal } from './AdvancedModal';
@@ -10,6 +11,7 @@ import { Input } from './Input';
 import { Button } from './Button';
 import { client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
+import { useAppStore } from '../../store/useAppStore';
 
 const passwordSchema = z.object({
   oldPassword: z.string().min(1, 'Old password is required'),
@@ -28,6 +30,8 @@ interface ProfileSettingsModalProps {
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
+  const clearSession = useAppStore((state) => state.clearSession);
   const {
     register,
     handleSubmit,
@@ -46,9 +50,11 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
       return response.data;
     },
     onSuccess: () => {
-      toast.success('Password changed successfully');
+      clearSession();
+      toast.success('Password changed. Sign in again to continue.');
       reset();
       onClose();
+      navigate('/login', { replace: true });
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error, 'Failed to change password'));

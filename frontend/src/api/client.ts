@@ -1,136 +1,111 @@
-/**
- * Ekavio API Client Configuration
- * Strictly functional Axios instance with Authorization header interceptor and 401 response handling
- */
-import axios, { type InternalAxiosRequestConfig } from "axios";
-import { useAppStore } from "../store/useAppStore";
-import { frontendConfig } from "../config/env";
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { frontendConfig } from '../config/env';
+import { useAppStore, type SessionPayload } from '../store/useAppStore';
+
+const sessionClient = axios.create({
+  baseURL: frontendConfig.apiUrl,
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
 
 export const client = axios.create({
   baseURL: frontendConfig.apiUrl,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
-/**
- * Request Interceptor
- * Automatically injects JWT accessToken from Zustand store or localStorage into Authorization header
- */
-client.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const accessToken =
-      useAppStore.getState().token ||
-      localStorage.getItem("accessToken") ||
-      localStorage.getItem("token");
+client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const { token, activeTenantId } = useAppStore.getState();
 
-    const activeTenantId = useAppStore.getState().activeTenantId;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
-    if (accessToken && config.headers) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
-    }
+  if (activeTenantId) {
+    config.headers['x-tenant-id'] = activeTenantId;
+  }
 
-    if (activeTenantId && config.headers) {
-      config.headers["x-tenant-id"] = activeTenantId;
-    }
+  return config;
+});
 
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
-let isRefreshing = false;
 interface FailedRequest {
   resolve: (token: string) => void;
   reject: (reason?: unknown) => void;
 }
 
+type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
+let isRefreshing = false;
 let failedQueue: FailedRequest[] = [];
 
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else if (token) {
-      prom.resolve(token);
+const processQueue = (error: unknown, token?: string) => {
+  for (const pendingRequest of failedQueue) {
+    if (error || !token) {
+      pendingRequest.reject(error ?? new Error('Session refresh failed'));
     } else {
-      prom.reject(new Error("Token refresh completed without an access token"));
+      pendingRequest.resolve(token);
     }
-  });
+  }
   failedQueue = [];
+};
+
+export const restoreSession = async (): Promise<SessionPayload> => {
+  const response = await sessionClient.post<SessionPayload>('/auth/refresh');
+  return response.data;
+};
+
+export const requestLogout = async (): Promise<void> => {
+  await sessionClient.post('/auth/logout');
 };
 
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as RetryableRequestConfig | undefined;
+    const requestUrl = String(originalRequest?.url ?? '');
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (
-        originalRequest.url?.includes("/auth/refresh") ||
-        originalRequest.url?.includes("/auth/login")
-      ) {
-        useAppStore.getState().logout();
-        if (
-          typeof window !== "undefined" &&
-          window.location.pathname !== "/login"
-        ) {
-          window.location.href = "/login";
-        }
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        return new Promise<string>((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return client(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshToken =
-          useAppStore.getState().refreshToken ||
-          localStorage.getItem("refreshToken");
-        if (!refreshToken) {
-          throw new Error("No refresh token available");
-        }
-
-        const { data } = await axios.post(
-          `${client.defaults.baseURL}/auth/refresh`,
-          { refreshToken },
-        );
-
-        useAppStore.getState().setTokens(data.accessToken, data.refreshToken);
-
-        processQueue(null, data.accessToken);
-
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-        return client(originalRequest);
-      } catch (err) {
-        processQueue(err, null);
-        useAppStore.getState().logout();
-        if (
-          typeof window !== "undefined" &&
-          window.location.pathname !== "/login"
-        ) {
-          window.location.href = "/login";
-        }
-        return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
-      }
+    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    if (
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/refresh') ||
+      requestUrl.includes('/auth/logout')
+    ) {
+      useAppStore.getState().clearSession();
+      return Promise.reject(error);
+    }
+
+    if (isRefreshing) {
+      originalRequest._retry = true;
+      return new Promise<string>((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then((accessToken) => {
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return client(originalRequest);
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      const payload = await restoreSession();
+      useAppStore.getState().establishSession(payload);
+      processQueue(undefined, payload.accessToken);
+      originalRequest.headers.Authorization = `Bearer ${payload.accessToken}`;
+      return client(originalRequest);
+    } catch (refreshError) {
+      processQueue(refreshError);
+      useAppStore.getState().clearSession();
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
   },
 );
 

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Home, LayoutDashboard, Settings, Users, X, LogOut, MessageSquare, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,7 +17,26 @@ interface SidebarProps {
 
 export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = useAppStore((state) => state.user);
+  const logout = useAppStore((state) => state.logout);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+    try {
+      await logout();
+      toast.success('Signed out successfully');
+    } catch {
+      toast.error('Signed out locally, but the server session could not be revoked');
+    } finally {
+      setIsSigningOut(false);
+      onClose();
+      navigate('/login', { replace: true });
+    }
+  };
 
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -94,13 +114,15 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </nav>
 
         <div className="p-4 border-t border-slate-800/80 shrink-0">
-          <Link
-            to="/login"
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors font-medium"
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={isSigningOut}
+            className="flex w-full items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors font-medium"
           >
             <LogOut className="w-5 h-5" />
-            Sign Out
-          </Link>
+            {isSigningOut ? 'Signing Out...' : 'Sign Out'}
+          </button>
         </div>
       </aside>
     </>

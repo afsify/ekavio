@@ -32,10 +32,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
-    toast.success('Signed out successfully');
-    navigate('/login', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Signed out successfully');
+    } catch {
+      toast.error('Signed out locally, but the server session could not be revoked');
+    } finally {
+      navigate('/login', { replace: true });
+    }
   };
 
   const toggleThemeMode = () => {
@@ -114,7 +119,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
           {/* Logout button */}
           <button
-            onClick={handleLogout}
+            onClick={() => void handleLogout()}
             aria-label="Logout"
             className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-rose-400 transition-colors flex items-center gap-1.5 text-xs font-medium"
           >

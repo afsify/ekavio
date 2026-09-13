@@ -1,75 +1,68 @@
-import type { Response, NextFunction } from 'express';
+import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import bcrypt from 'bcryptjs';
+import { getRuntimeConfig } from '../config/env.js';
 import { User } from '../models/User.js';
+import { changePasswordService } from '../services/profileService.js';
+import { clearRefreshCookie } from '../utils/authCookies.js';
 
 export const updateProfile = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { name } = req.body;
-    const userId = req.user?.id;
+    const { name } = request.body;
+    const userId = request.user?.id;
 
     if (!name) {
-      res.status(400).json({ success: false, message: 'Name is required' });
+      response.status(400).json({ success: false, message: 'Name is required' });
       return;
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { name },
-      { new: true }
+      { new: true },
     ).select('-password');
 
     if (!updatedUser) {
-      res.status(404).json({ success: false, message: 'User not found' });
+      response.status(404).json({ success: false, message: 'User not found' });
       return;
     }
 
-    res.json({
-      success: true,
-      data: updatedUser
-    });
+    response.json({ success: true, data: updatedUser });
   } catch (error) {
     next(error);
   }
 };
 
 export const changePassword = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    const userId = req.user?.id;
+    const { oldPassword, newPassword } = request.body;
+    const userId = request.user?.id;
 
     if (!oldPassword || !newPassword) {
-      res.status(400).json({ success: false, message: 'Both old and new passwords are required' });
+      response.status(400).json({
+        success: false,
+        message: 'Both old and new passwords are required',
+      });
       return;
     }
 
-    const user = await User.findById(userId);
-    if (!user || !user.password) {
-      res.status(404).json({ success: false, message: 'User not found or password not set' });
+    if (!userId) {
+      response.status(401).json({ success: false, message: 'Authentication required' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) {
-      res.status(400).json({ success: false, message: 'Invalid old password' });
-      return;
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    await user.save();
-
-    res.json({
+    await changePasswordService(userId, oldPassword, newPassword);
+    clearRefreshCookie(response, getRuntimeConfig());
+    response.json({
       success: true,
-      message: 'Password changed successfully'
+      message: 'Password changed successfully. Sign in again to continue.',
     });
   } catch (error) {
     next(error);

@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 establishes deterministic install, lint, typecheck, test, build, health, and local-container foundations without changing business workflows.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations. V2-02 adds short-lived memory-only access JWTs and revocable, rotating server-side refresh sessions without changing business workflows.
 
 ## Prerequisites
 
@@ -22,6 +22,8 @@ Copy-Item frontend/.env.example frontend/.env
 The committed examples contain development-only values. Replace all secrets for any shared or production environment. Backend startup validates `NODE_ENV`, `PORT`, `MONGO_URI`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, and `SOCKET_ALLOWED_ORIGINS`. Comma-separate multiple allowed origins.
 
 The frontend requires `VITE_API_URL` (including `/api`) and `VITE_SOCKET_URL`. Vite embeds both values at build time.
+
+`REFRESH_TOKEN_SECRET` is used as the key for hashing opaque refresh credentials; it is not a browser-visible token. Keep it independent from `JWT_SECRET` and use strong unique values outside local development.
 
 ## Install dependencies
 
@@ -48,6 +50,14 @@ npm.cmd run dev
 ```
 
 The examples use `http://localhost:5000` for the backend and `http://localhost:5173` for Vite.
+
+## Authentication sessions
+
+The browser receives the refresh credential only as the `ekavio_refresh` HttpOnly cookie. The frontend sends cookies with credentialed login, refresh, and logout requests and keeps the 15-minute access JWT only in application memory. On startup it attempts `/api/auth/refresh`; an HTTP 401 is the expected logged-out result when no valid cookie exists.
+
+The refresh cookie uses `SameSite=Lax`, is scoped to `/api/auth`, and expires after seven days. `Secure` is intentionally disabled for `NODE_ENV=development` and `NODE_ENV=test` so localhost HTTP works. Production must use HTTPS; production cookies always enable `Secure`. Backend CORS still accepts only `HTTP_ALLOWED_ORIGINS`, so configure the exact frontend origin rather than a wildcard.
+
+Logout calls `POST /api/auth/logout`, revokes the server session, clears the cookie, and clears the in-memory client state. A successful password change revokes all of that user's refresh sessions and requires sign-in again. Do not add access or refresh credentials to browser storage when extending the frontend.
 
 ## Quality gates
 

@@ -17,5 +17,6 @@
 - Every implementation milestone ends with lint, typecheck, tests, build, diff review, and the exact results.
 - Architecture decisions live in repository ADRs.
 - Completed milestone: V2-00 established the inspection-only repository baseline and architecture records.
-- Current milestone: V2-01 Engineering Foundation.
-- V2-01 establishes deterministic backend and frontend scripts, validated environment configuration, health/readiness checks, explicit CORS origins, production build/start lifecycles, persistent local MongoDB Compose configuration, SPA routing, and CI quality gates while preserving existing business behavior.
+- Completed milestone: V2-01 established deterministic backend and frontend scripts, validated environment configuration, health/readiness checks, explicit CORS origins, production build/start lifecycles, persistent local MongoDB Compose configuration, SPA routing, and CI quality gates while preserving existing business behavior.
+- Current milestone: V2-02 Secure Identity & Session Foundation.
+- V2-02 replaces browser-persisted access and refresh JWTs with short-lived memory-only access JWTs and revocable, rotating MongoDB refresh sessions delivered through an HttpOnly cookie. It also makes logout and password-change revocation explicit and rejects ambiguous duplicate-phone login without changing the existing tenant or authorization model.

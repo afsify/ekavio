@@ -88,6 +88,17 @@ const PageLoader = () => (
 );
 
 export const App: React.FC = () => {
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const isBootstrapping = useAppStore((state) => state.isBootstrapping);
+
+  if (isBootstrapping) {
+    return (
+      <ThemeProvider>
+        <PageLoader />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <BrowserRouter>
@@ -109,7 +120,10 @@ export const App: React.FC = () => {
         />
         <React.Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route
+              path="/login"
+              element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
+            />
             <Route
               path="/dashboard"
               element={

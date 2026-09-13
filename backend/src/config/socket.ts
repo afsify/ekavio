@@ -23,9 +23,18 @@ export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => 
     try {
       const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
 
+      if (
+        typeof decoded.id !== 'string' ||
+        typeof decoded.tenantId !== 'string' ||
+        typeof decoded.sessionId !== 'string'
+      ) {
+        throw new Error('Invalid access token claims');
+      }
+
       // Attach tenantId to the socket object for later access
       socket.data.tenantId = decoded.tenantId;
       socket.data.userId = decoded.id;
+      socket.data.sessionId = decoded.sessionId;
       next();
     } catch {
       return next(new Error('Authentication error: Invalid token'));

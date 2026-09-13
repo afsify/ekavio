@@ -8,6 +8,7 @@ export type AuthenticatedRequest = Request & {
     id: string;
     tenantId: string;
     role: string;
+    sessionId: string;
   };
 };
 
@@ -33,6 +34,14 @@ export const authenticate = async (
 
     // Functionally verify and decode the token
     const decoded = jwt.verify(token, getRuntimeConfig().jwtSecret) as JwtPayload;
+    if (
+      typeof decoded.id !== 'string' ||
+      typeof decoded.tenantId !== 'string' ||
+      typeof decoded.role !== 'string' ||
+      typeof decoded.sessionId !== 'string'
+    ) {
+      throw new Error('Invalid access token claims');
+    }
 
     const requestedTenantId = req.headers['x-tenant-id'] as string;
     let finalTenantId = decoded.tenantId as string;
@@ -65,6 +74,7 @@ export const authenticate = async (
       id: decoded.id as string,
       tenantId: finalTenantId,
       role: finalRole,
+      sessionId: decoded.sessionId,
     };
 
     next();

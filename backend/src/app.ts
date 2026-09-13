@@ -53,7 +53,10 @@ export const createApp = ({
 
   app.use(helmet());
   app.use(compression());
-  app.use(cors({ origin: createOriginPolicy(config.httpAllowedOrigins) }));
+  app.use(cors({
+    origin: createOriginPolicy(config.httpAllowedOrigins),
+    credentials: true,
+  }));
   app.use(express.json());
 
   app.use('/health', createHealthRouter(isReady));

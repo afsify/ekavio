@@ -27,7 +27,16 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   notifications: [],
 
   connectSocket: (token: string) => {
-    if (get().socket?.connected) return;
+    const existingSocket = get().socket;
+    if (existingSocket) {
+      existingSocket.auth = { token };
+      if (existingSocket.connected) {
+        existingSocket.disconnect().connect();
+      } else {
+        existingSocket.connect();
+      }
+      return;
+    }
 
     const socket = io(frontendConfig.socketUrl, {
       auth: {

@@ -1,5 +1,11 @@
 import { Router, type RequestHandler } from "express";
-import { registerAdmin, login, updateTheme, refreshToken } from "../controllers/authController.js";
+import {
+  registerAdmin,
+  login,
+  logout,
+  refreshSession,
+  updateTheme,
+} from "../controllers/authController.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 import { registerSchema, loginSchema, updateThemeSchema } from "../schemas/authSchemas.js";
@@ -72,7 +78,7 @@ router.post("/register", validateRequest(registerSchema), registerAdmin);
  * @openapi
  * /auth/login:
  *   post:
- *     summary: Authenticate user and return JWT access & refresh tokens
+ *     summary: Authenticate user and create a revocable refresh session
  *     tags:
  *       - Auth
  *     requestBody:
@@ -95,7 +101,7 @@ router.post("/register", validateRequest(registerSchema), registerAdmin);
  *                 example: secret123
  *     responses:
  *       200:
- *         description: Successful login returning tokens and user info
+ *         description: Successful login returning an access token and safe user context; the refresh credential is set as an HttpOnly cookie
  *         content:
  *           application/json:
  *             schema:
@@ -104,9 +110,6 @@ router.post("/register", validateRequest(registerSchema), registerAdmin);
  *                 accessToken:
  *                   type: string
  *                   description: Short-lived JWT access token (15m)
- *                 refreshToken:
- *                   type: string
- *                   description: Long-lived JWT refresh token (7d)
  *                 userId:
  *                   type: string
  *                 tenantId:
@@ -169,28 +172,28 @@ router.patch(
  * @openapi
  * /auth/refresh:
  *   post:
- *     summary: Refresh access token using a refresh token
+ *     summary: Rotate the HttpOnly refresh session and issue a new access token
  *     tags:
  *       - Auth
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - refreshToken
- *             properties:
- *               refreshToken:
- *                 type: string
  *     responses:
  *       200:
- *         description: Successfully refreshed tokens
- *       400:
- *         description: Refresh token required
+ *         description: Successfully rotated the refresh cookie and returned a new access token and safe user context
  *       401:
- *         description: Invalid or expired refresh token
+ *         description: Missing, invalid, revoked, or expired refresh session
  */
-router.post("/refresh", refreshToken as RequestHandler);
+router.post("/refresh", refreshSession as RequestHandler);
+
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     summary: Revoke the current refresh session and clear its HttpOnly cookie
+ *     tags:
+ *       - Auth
+ *     responses:
+ *       200:
+ *         description: Logout completed; repeated requests are safe
+ */
+router.post("/logout", logout as RequestHandler);
 
 export default router;
