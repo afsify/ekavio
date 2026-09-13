@@ -13,12 +13,13 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { client } from '../../api/client';
 import { exportToCSV } from '../../utils/exportUtils';
+import { getErrorMessage } from '../../api/errors';
 
 const inventorySchema = z.object({
   itemName: z.string().min(1, 'Item name is required'),
-  currentStock: z.number({ invalid_type_error: 'Must be a number' }).min(0, 'Cannot be negative'),
-  lowStockThreshold: z.number({ invalid_type_error: 'Must be a number' }).min(0, 'Cannot be negative'),
-  price: z.number({ invalid_type_error: 'Must be a number' }).min(0, 'Cannot be negative'),
+  currentStock: z.number({ error: 'Must be a number' }).min(0, 'Cannot be negative'),
+  lowStockThreshold: z.number({ error: 'Must be a number' }).min(0, 'Cannot be negative'),
+  price: z.number({ error: 'Must be a number' }).min(0, 'Cannot be negative'),
 });
 
 type InventoryFormInputs = z.infer<typeof inventorySchema>;
@@ -63,8 +64,8 @@ export const InventoryPage: React.FC = () => {
       setIsModalOpen(false);
       reset();
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add item');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to add item'));
     },
   });
 
@@ -78,11 +79,12 @@ export const InventoryPage: React.FC = () => {
       header: 'Current Stock', 
       accessor: 'currentStock', 
       sortable: true,
-      cell: ({ value, row }: { value: number; row: InventoryItem }) => {
-        const isLowStock = value <= row.lowStockThreshold;
+      cell: ({ value, row }: { value: unknown; row: InventoryItem }) => {
+        const currentStock = Number(value);
+        const isLowStock = currentStock <= row.lowStockThreshold;
         return (
           <span className={`font-bold ${isLowStock ? 'text-rose-400' : 'text-slate-300'}`}>
-            {value}
+            {currentStock}
           </span>
         );
       }
@@ -92,7 +94,7 @@ export const InventoryPage: React.FC = () => {
       header: 'Price', 
       accessor: 'price', 
       sortable: true,
-      cell: ({ value }: { value: number }) => `₹${value.toFixed(2)}`
+      cell: ({ value }: { value: unknown }) => `₹${Number(value).toFixed(2)}`
     },
   ];
 

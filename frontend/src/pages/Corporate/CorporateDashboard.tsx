@@ -30,7 +30,7 @@ export const CorporateDashboard: React.FC = () => {
       try {
         const response = await client.get('/corporate/billing/defaultParent');
         return response.data.data as CorporateBilling;
-      } catch (e) {
+      } catch {
         // Fallback mock data if endpoint is unseeded
         return {
           parentOrgName: 'Ekavio Enterprises HQ',
@@ -54,7 +54,7 @@ export const CorporateDashboard: React.FC = () => {
       header: 'Revenue', 
       accessor: 'totalRevenue', 
       sortable: true,
-      cell: ({ value }: { value: number }) => `₹${value.toLocaleString()}`
+      cell: ({ value }: { value: unknown }) => `₹${Number(value).toLocaleString()}`
     },
     { 
       header: 'Staff', 
@@ -64,9 +64,9 @@ export const CorporateDashboard: React.FC = () => {
     {
       header: 'Modules',
       accessor: 'activeModules',
-      cell: ({ value }: { value: string[] }) => (
+      cell: ({ value }: { value: unknown }) => (
         <div className="flex gap-1 flex-wrap">
-          {value.map(mod => (
+          {(Array.isArray(value) ? value.map(String) : []).map(mod => (
             <span key={mod} className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] uppercase rounded-full border border-slate-700">
               {mod}
             </span>
@@ -77,11 +77,11 @@ export const CorporateDashboard: React.FC = () => {
     {
       header: 'Status',
       accessor: 'status',
-      cell: ({ value }: { value: string }) => (
+      cell: ({ value }: { value: unknown }) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-          value === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+          String(value) === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
         }`}>
-          {value}
+          {String(value)}
         </span>
       )
     }

@@ -13,7 +13,9 @@
 - WhatsApp API, SMS, payment-gateway automation, and paid AI are optional adapters, not core dependencies.
 - Backend authorization is mandatory. Frontend menu hiding is never authorization.
 - Tenant isolation, permissions, entitlements, money correctness, stock correctness, backups, and tests take priority over feature count.
-- Use one feature branch per milestone.
+- Solo-development workflow uses main directly. Before high-risk milestones, create a checkpoint tag. Keep one milestone per coherent commit where practical, start only from a clean working tree, and push only after lint, typecheck, tests, build, Docker validation, and diff review pass.
 - Every implementation milestone ends with lint, typecheck, tests, build, diff review, and the exact results.
 - Architecture decisions live in repository ADRs.
-- Current milestone: V2-00 baseline only. It documents the repository without changing application behavior.
+- Completed milestone: V2-00 established the inspection-only repository baseline and architecture records.
+- Current milestone: V2-01 Engineering Foundation.
+- V2-01 establishes deterministic backend and frontend scripts, validated environment configuration, health/readiness checks, explicit CORS origins, production build/start lifecycles, persistent local MongoDB Compose configuration, SPA routing, and CI quality gates while preserving existing business behavior.

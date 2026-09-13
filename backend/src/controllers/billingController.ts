@@ -7,8 +7,6 @@ export const getInvoices = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const tenantId = req.user?.tenantId;
-    
     // Mock invoices since we don't have a real Billing DB model setup yet
     const mockInvoices = [
       {

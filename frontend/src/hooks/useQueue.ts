@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../api/errors';
+
+interface NewQueueToken {
+  customerName: string;
+  phone: string;
+  serviceType: string;
+  tokenNumber?: string;
+}
 
 export const queueKeys = {
   all: ['queue'] as const,
@@ -21,7 +29,7 @@ export const useCreateToken = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newToken: any) => {
+    mutationFn: async (newToken: NewQueueToken) => {
       const response = await client.post('/queue', newToken);
       return response.data;
     },
@@ -29,8 +37,8 @@ export const useCreateToken = () => {
       toast.success('Token created successfully');
       queryClient.invalidateQueries({ queryKey: queueKeys.all });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create token');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to create token'));
     },
   });
 };
@@ -47,8 +55,8 @@ export const useUpdateTokenStatus = () => {
       toast.success('Token status updated');
       queryClient.invalidateQueries({ queryKey: queueKeys.all });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update token status');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to update token status'));
     },
   });
 };

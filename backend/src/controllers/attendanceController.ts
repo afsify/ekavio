@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { Attendance } from '../models/Attendance.js';
-import { createAppError } from '../utils/AppError.js';
+import { createAppError, getErrorMessage } from '../utils/AppError.js';
 
 export const markAttendance = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -28,8 +28,8 @@ export const markAttendance = async (req: AuthenticatedRequest, res: Response, n
     );
 
     res.status(200).json({ message: 'Attendance marked successfully', data: attendance });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
@@ -58,7 +58,7 @@ export const getDailyAttendance = async (req: AuthenticatedRequest, res: Respons
     }).populate('userId', 'name phone role').sort({ createdAt: -1 });
 
     res.status(200).json({ data: records });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };

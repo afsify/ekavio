@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import { frontendConfig } from '../config/env';
 
 export interface NotificationPayload {
   id: string;
@@ -20,8 +21,6 @@ export interface SocketState {
   clearNotifications: () => void;
 }
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
   isConnected: false,
@@ -30,7 +29,7 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   connectSocket: (token: string) => {
     if (get().socket?.connected) return;
 
-    const socket = io(SOCKET_URL, {
+    const socket = io(frontendConfig.socketUrl, {
       auth: {
         token,
       },

@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../api/errors';
+
+interface NewInventoryItem {
+  itemName: string;
+  currentStock: number;
+  lowStockThreshold: number;
+  price: number;
+}
 
 export const inventoryKeys = {
   all: ['inventory'] as const,
@@ -32,7 +40,7 @@ export const useAddInventoryItem = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newItem: any) => {
+    mutationFn: async (newItem: NewInventoryItem) => {
       const response = await client.post('/inventory', newItem);
       return response.data;
     },
@@ -40,8 +48,8 @@ export const useAddInventoryItem = () => {
       toast.success('Item added successfully');
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add item');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to add item'));
     },
   });
 };

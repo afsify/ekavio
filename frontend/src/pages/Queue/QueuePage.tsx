@@ -12,6 +12,7 @@ import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { client } from '../../api/client';
+import { getErrorMessage } from '../../api/errors';
 import { useSocketStore } from '../../store/useSocketStore';
 
 const queueSchema = z.object({
@@ -76,8 +77,8 @@ export const QueuePage: React.FC = () => {
       setIsModalOpen(false);
       reset();
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create token');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to create token'));
     },
   });
 
@@ -90,8 +91,8 @@ export const QueuePage: React.FC = () => {
       toast.success('Status updated');
       queryClient.invalidateQueries({ queryKey: ['queue'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update status');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to update status'));
     },
   });
 
@@ -146,15 +147,16 @@ export const QueuePage: React.FC = () => {
       header: 'Status',
       accessor: 'status',
       sortable: true,
-      cell: ({ value }: { value: string }) => {
+      cell: ({ value }: { value: unknown }) => {
+        const status = String(value);
         let colors = 'bg-slate-500/20 text-slate-400';
-        if (value === 'waiting') colors = 'bg-amber-500/20 text-amber-400';
-        if (value === 'serving') colors = 'bg-blue-500/20 text-blue-400';
-        if (value === 'completed') colors = 'bg-emerald-500/20 text-emerald-400';
+        if (status === 'waiting') colors = 'bg-amber-500/20 text-amber-400';
+        if (status === 'serving') colors = 'bg-blue-500/20 text-blue-400';
+        if (status === 'completed') colors = 'bg-emerald-500/20 text-emerald-400';
 
         return (
           <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${colors}`}>
-            {value}
+            {status}
           </span>
         );
       },

@@ -13,7 +13,7 @@ export interface Column<T> {
   header: string;
   accessor: keyof T | string;
   sortable?: boolean;
-  cell?: (props: { value: any; row: T; index: number }) => React.ReactNode;
+  cell?: (props: { value: unknown; row: T; index: number }) => React.ReactNode;
 }
 
 export interface AdvancedTableProps<T> {
@@ -30,7 +30,20 @@ export interface AdvancedTableProps<T> {
   className?: string;
 }
 
-export const AdvancedTable = <T extends Record<string, any>>({
+const getCellValue = <T extends object>(row: T, accessor: keyof T | string): unknown =>
+  (row as Record<string, unknown>)[String(accessor)];
+
+const compareValues = (left: unknown, right: unknown): number => {
+  if (typeof left === 'number' && typeof right === 'number') {
+    return left - right;
+  }
+  if (typeof left === 'string' && typeof right === 'string') {
+    return left < right ? -1 : left > right ? 1 : 0;
+  }
+  return 0;
+};
+
+export const AdvancedTable = <T extends object>({
   columns,
   data,
   loading = false,
@@ -66,11 +79,11 @@ export const AdvancedTable = <T extends Record<string, any>>({
 
     if (sortConfig) {
       result.sort((a, b) => {
-        const aVal = a[sortConfig.key];
-        const bVal = b[sortConfig.key];
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
+        const comparison = compareValues(
+          getCellValue(a, sortConfig.key),
+          getCellValue(b, sortConfig.key),
+        );
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
       });
     }
     return result;
@@ -173,8 +186,8 @@ export const AdvancedTable = <T extends Record<string, any>>({
                   {columns.map((col, colIdx) => (
                     <td key={colIdx} className="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
                       {col.cell
-                        ? col.cell({ value: (row as any)[col.accessor], row, index: rowIdx })
-                        : (row as any)[col.accessor] ?? <span className="text-slate-500">--</span>}
+                        ? col.cell({ value: getCellValue(row, col.accessor), row, index: rowIdx })
+                        : getCellValue(row, col.accessor) as React.ReactNode ?? <span className="text-slate-500">--</span>}
                     </td>
                   ))}
                 </tr>

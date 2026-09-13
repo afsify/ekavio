@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import { registerAdmin, login, updateTheme, refreshToken } from "../controllers/authController.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
@@ -152,8 +152,18 @@ router.post("/login", validateRequest(loginSchema), login);
  *       401:
  *         description: Unauthorized
  */
-router.put("/theme", authenticate as any, validateRequest(updateThemeSchema), updateTheme as any);
-router.patch("/theme", authenticate as any, validateRequest(updateThemeSchema), updateTheme as any);
+router.put(
+  "/theme",
+  authenticate as RequestHandler,
+  validateRequest(updateThemeSchema),
+  updateTheme as RequestHandler,
+);
+router.patch(
+  "/theme",
+  authenticate as RequestHandler,
+  validateRequest(updateThemeSchema),
+  updateTheme as RequestHandler,
+);
 
 /**
  * @openapi
@@ -181,6 +191,6 @@ router.patch("/theme", authenticate as any, validateRequest(updateThemeSchema), 
  *       401:
  *         description: Invalid or expired refresh token
  */
-router.post("/refresh", refreshToken as any);
+router.post("/refresh", refreshToken as RequestHandler);
 
 export default router;

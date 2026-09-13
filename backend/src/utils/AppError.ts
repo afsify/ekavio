@@ -36,3 +36,6 @@ export const createAppError = (
 
   return error;
 };
+
+export const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'Internal Server Error';

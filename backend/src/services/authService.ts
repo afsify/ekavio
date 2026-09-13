@@ -3,8 +3,28 @@ import { User } from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../utils/AppError.js';
+import { getRuntimeConfig } from '../config/env.js';
+import type { JwtPayload } from 'jsonwebtoken';
 
-export const registerAdminService = async (data: any) => {
+interface RegisterAdminInput {
+  orgName: string;
+  orgType: string;
+  userName: string;
+  phone: string;
+  password: string;
+}
+
+interface LoginInput {
+  phone: string;
+  password: string;
+}
+
+interface ThemeInput {
+  mode?: 'light' | 'dark';
+  primaryColor?: string;
+}
+
+export const registerAdminService = async (data: RegisterAdminInput) => {
   const { orgName, orgType, userName, phone, password } = data;
 
   const organization = new Organization({
@@ -38,7 +58,7 @@ export const registerAdminService = async (data: any) => {
   return { organization, user: userResponse };
 };
 
-export const loginService = async (data: any) => {
+export const loginService = async (data: LoginInput) => {
   const { phone, password } = data;
 
   const user = await User.findOne({ phone });
@@ -58,8 +78,10 @@ export const loginService = async (data: any) => {
     role: user.role,
   };
 
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET || 'default_secret', { expiresIn: '15m' });
-  const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET || 'default_refresh_secret', { expiresIn: '7d' });
+  const config = getRuntimeConfig();
+
+  const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '15m' });
+  const refreshToken = jwt.sign(payload, config.refreshTokenSecret, { expiresIn: '7d' });
 
   const userResponse = {
     id: user._id,
@@ -83,7 +105,7 @@ export const loginService = async (data: any) => {
   };
 };
 
-export const updateThemeService = async (tenantId: string, data: any) => {
+export const updateThemeService = async (tenantId: string, data: ThemeInput) => {
   const { mode, primaryColor } = data;
 
   const organization = await Organization.findById(tenantId);
@@ -107,7 +129,8 @@ export const refreshTokenService = async (token: string) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET || 'default_refresh_secret') as any;
+    const config = getRuntimeConfig();
+    const decoded = jwt.verify(token, config.refreshTokenSecret) as JwtPayload & { id: string };
     
     const user = await User.findById(decoded.id);
     if (!user) {
@@ -120,14 +143,14 @@ export const refreshTokenService = async (token: string) => {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET || 'default_secret', { expiresIn: '15m' });
-    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET || 'default_refresh_secret', { expiresIn: '7d' });
+    const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(payload, config.refreshTokenSecret, { expiresIn: '7d' });
 
     return {
       accessToken,
       refreshToken,
     };
-  } catch (error) {
+  } catch {
     throw new AppError('Invalid or expired refresh token', 401);
   }
 };

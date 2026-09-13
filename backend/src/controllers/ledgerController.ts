@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { Ledger } from '../models/Ledger.js';
-import { createAppError } from '../utils/AppError.js';
+import { createAppError, getErrorMessage } from '../utils/AppError.js';
 
 export const addEntry = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -23,8 +23,8 @@ export const addEntry = async (req: AuthenticatedRequest, res: Response, next: N
     });
 
     res.status(201).json({ message: 'Ledger entry added successfully', data: newEntry });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
@@ -51,7 +51,7 @@ export const getTenantLedger = async (req: AuthenticatedRequest, res: Response, 
       .limit(limit);
 
     res.status(200).json({ data: entries, totalDocs, totalPages });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };

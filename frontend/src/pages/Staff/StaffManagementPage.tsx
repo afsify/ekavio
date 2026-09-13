@@ -12,6 +12,7 @@ import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { client } from '../../api/client';
+import { getErrorMessage } from '../../api/errors';
 import { useAppStore } from '../../store/useAppStore';
 
 const staffSchema = z.object({
@@ -65,8 +66,8 @@ export const StaffManagementPage: React.FC = () => {
       setIsModalOpen(false);
       reset();
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to add staff');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to add staff'));
     },
   });
 
@@ -79,8 +80,8 @@ export const StaffManagementPage: React.FC = () => {
       toast.success('Staff member deleted successfully!');
       queryClient.invalidateQueries({ queryKey: ['staff'] });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete staff');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to delete staff'));
     },
   });
 
@@ -95,18 +96,18 @@ export const StaffManagementPage: React.FC = () => {
       header: 'Role', 
       accessor: 'role', 
       sortable: true,
-      cell: ({ value }: { value: string }) => (
+      cell: ({ value }: { value: unknown }) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-          value === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
+          String(value) === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
         }`}>
-          {value}
+          {String(value)}
         </span>
       )
     },
     { 
       header: 'Joined', 
       accessor: 'createdAt',
-      cell: ({ value }: { value: string }) => new Date(value).toLocaleDateString()
+      cell: ({ value }: { value: unknown }) => new Date(String(value)).toLocaleDateString()
     },
     {
       header: 'Actions',

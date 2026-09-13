@@ -2,7 +2,7 @@ import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { ParentOrganization } from '../models/ParentOrganization.js';
 import { Organization } from '../models/Organization.js';
-import { createAppError } from '../utils/AppError.js';
+import { createAppError, getErrorMessage } from '../utils/AppError.js';
 
 export const createParentOrg = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -23,8 +23,8 @@ export const createParentOrg = async (req: AuthenticatedRequest, res: Response, 
     await parentOrg.save();
 
     res.status(201).json({ message: 'Parent organization created successfully', data: parentOrg });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
@@ -56,14 +56,14 @@ export const linkChildOrg = async (req: AuthenticatedRequest, res: Response, nex
     }
 
     res.status(200).json({ message: 'Organization linked successfully', data: childOrg });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
 export const getConsolidatedBilling = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { parentId } = req.params;
+    const parentId = req.params.parentId as string;
 
     const parentOrg = await ParentOrganization.findById(parentId);
     if (!parentOrg) {
@@ -76,7 +76,7 @@ export const getConsolidatedBilling = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
-    const childOrgs = await Organization.find({ parentId } as any);
+    const childOrgs = await Organization.find({ parentId });
     
     // Assume each active module costs ₹199/month for this demonstration
     const MODULE_COST = 199;
@@ -101,7 +101,7 @@ export const getConsolidatedBilling = async (req: AuthenticatedRequest, res: Res
         billingDetails
       }
     });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };

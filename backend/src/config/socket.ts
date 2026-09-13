@@ -1,13 +1,14 @@
 import { Server as SocketIOServer } from 'socket.io';
 import type { Server as HTTPServer } from 'http';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
+import type { RuntimeConfig } from './env.js';
 
 let io: SocketIOServer;
 
-export const setupSocket = (server: HTTPServer): void => {
+export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => {
   io = new SocketIOServer(server, {
     cors: {
-      origin: '*', // Adjust to specific origin in production
+      origin: config.socketAllowedOrigins,
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
     },
   });
@@ -20,16 +21,13 @@ export const setupSocket = (server: HTTPServer): void => {
     }
 
     try {
-      const decoded = jwt.verify(
-        token,
-        process.env.JWT_SECRET || 'fallback_secret'
-      ) as JwtPayload;
+      const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
 
       // Attach tenantId to the socket object for later access
       socket.data.tenantId = decoded.tenantId;
       socket.data.userId = decoded.id;
       next();
-    } catch (err) {
+    } catch {
       return next(new Error('Authentication error: Invalid token'));
     }
   });
@@ -52,7 +50,7 @@ export const setupSocket = (server: HTTPServer): void => {
 /**
  * Helper function to emit events to a specific tenant room
  */
-export const emitToTenant = (tenantId: string, event: string, data: any): void => {
+export const emitToTenant = (tenantId: string, event: string, data: unknown): void => {
   if (io) {
     io.to(tenantId).emit(event, data);
   } else {

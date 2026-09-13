@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, LayoutDashboard, Settings, Users, Box, X, LogOut, MessageSquare, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
+import { Home, LayoutDashboard, Settings, Users, X, LogOut, MessageSquare, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAppStore } from '../../store/useAppStore';

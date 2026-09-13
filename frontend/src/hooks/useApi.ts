@@ -11,6 +11,7 @@
  */
 import { useState, useCallback } from 'react';
 import { client } from '../api/client';
+import { getErrorMessage } from '../api/errors';
 
 export interface UseApiResponse<T> {
   data: T | null;
@@ -30,14 +31,6 @@ export function useApi<T = unknown>(endpoint: string): UseApiResponse<T> {
   /**
    * Helper function to extract friendly error message
    */
-  const extractErrorMessage = (err: any): string => {
-    return (
-      err.response?.data?.message ||
-      err.message ||
-      'An unexpected API error occurred'
-    );
-  };
-
   /**
    * GET request to fetch resource data
    */
@@ -48,8 +41,8 @@ export function useApi<T = unknown>(endpoint: string): UseApiResponse<T> {
       const response = await client.get<T>(endpoint);
       setData(response.data);
       return response.data;
-    } catch (err: any) {
-      const msg = extractErrorMessage(err);
+    } catch (err: unknown) {
+      const msg = getErrorMessage(err, 'An unexpected API error occurred');
       setError(msg);
       return null;
     } finally {
@@ -67,8 +60,8 @@ export function useApi<T = unknown>(endpoint: string): UseApiResponse<T> {
       try {
         const response = await client.post<R>(endpoint, payload);
         return response.data;
-      } catch (err: any) {
-        const msg = extractErrorMessage(err);
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, 'An unexpected API error occurred');
         setError(msg);
         throw err;
       } finally {
@@ -89,8 +82,8 @@ export function useApi<T = unknown>(endpoint: string): UseApiResponse<T> {
         const url = `${endpoint.replace(/\/$/, '')}/${id}`;
         const response = await client.put<R>(url, payload);
         return response.data;
-      } catch (err: any) {
-        const msg = extractErrorMessage(err);
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, 'An unexpected API error occurred');
         setError(msg);
         throw err;
       } finally {
@@ -111,8 +104,8 @@ export function useApi<T = unknown>(endpoint: string): UseApiResponse<T> {
         const url = `${endpoint.replace(/\/$/, '')}/${id}`;
         const response = await client.delete<R>(url);
         return response.data;
-      } catch (err: any) {
-        const msg = extractErrorMessage(err);
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, 'An unexpected API error occurred');
         setError(msg);
         throw err;
       } finally {

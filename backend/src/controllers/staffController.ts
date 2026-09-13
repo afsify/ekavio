@@ -1,4 +1,4 @@
-import type { Response, NextFunction } from 'express';
+import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
@@ -41,7 +41,7 @@ export const addStaff = async (req: AuthenticatedRequest, res: Response) => {
 
     await newUser.save();
 
-    const userObj = newUser.toObject() as any;
+    const userObj = newUser.toObject();
     delete userObj.password;
 
     res.status(201).json({ success: true, data: userObj });

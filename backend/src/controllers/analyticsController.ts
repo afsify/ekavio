@@ -3,7 +3,7 @@ import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { Queue } from '../models/Queue.js';
 import { Inventory } from '../models/Inventory.js';
 import { Attendance } from '../models/Attendance.js';
-import { createAppError } from '../utils/AppError.js';
+import { createAppError, getErrorMessage } from '../utils/AppError.js';
 
 export const getDashboardStats = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -45,7 +45,7 @@ export const getDashboardStats = async (req: AuthenticatedRequest, res: Response
         presentStaff: staffPresentCount,
       },
     });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };

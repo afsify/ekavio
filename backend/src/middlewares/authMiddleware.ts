@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
+import { getRuntimeConfig } from "../config/env.js";
 
 // Using a Type Intersection instead of OOP interface extending
 export type AuthenticatedRequest = Request & {
@@ -31,10 +32,7 @@ export const authenticate = async (
     }
 
     // Functionally verify and decode the token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "fallback_secret",
-    ) as JwtPayload;
+    const decoded = jwt.verify(token, getRuntimeConfig().jwtSecret) as JwtPayload;
 
     const requestedTenantId = req.headers['x-tenant-id'] as string;
     let finalTenantId = decoded.tenantId as string;
@@ -70,7 +68,7 @@ export const authenticate = async (
     };
 
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ message: "Invalid or expired token" });
   }
 };

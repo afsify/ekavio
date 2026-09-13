@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
-import { createAppError } from "../utils/AppError.js";
+import { createAppError, getErrorMessage } from "../utils/AppError.js";
 import { createTokenService, getQueueService, updateTokenStatusService } from "../services/queueService.js";
 
 export const createToken = async (
@@ -19,8 +19,8 @@ export const createToken = async (
     res
       .status(201)
       .json({ message: "Token created successfully", data: queueEntry });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
@@ -36,10 +36,14 @@ export const getQueue = async (
       return;
     }
 
-    const result = await getQueueService(tenantId, req.query.page as any, req.query.limit as any);
+    const result = await getQueueService(
+      tenantId,
+      req.query.page as string | undefined,
+      req.query.limit as string | undefined,
+    );
     res.status(200).json(result);
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };
 
@@ -71,7 +75,7 @@ export const updateTokenStatus = async (
         message: "Token status updated successfully",
         data: updatedToken,
       });
-  } catch (error: any) {
-    next(createAppError(error.message, 500));
+  } catch (error: unknown) {
+    next(createAppError(getErrorMessage(error), 500));
   }
 };

@@ -2,11 +2,16 @@ import { useMutation } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { useAppStore, type UserProfile, type ThemeConfig } from '../store/useAppStore';
 
+interface LoginCredentials {
+  phone: string;
+  password: string;
+}
+
 export const useLogin = () => {
   const loginAction = useAppStore((state) => state.login);
 
   return useMutation({
-    mutationFn: async (credentials: any) => {
+    mutationFn: async (credentials: LoginCredentials) => {
       const response = await client.post('/auth/login', credentials);
       return response.data;
     },

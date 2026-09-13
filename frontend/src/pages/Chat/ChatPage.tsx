@@ -45,7 +45,7 @@ export const ChatPage: React.FC = () => {
       try {
         const res = await client.get('/chat/contacts');
         return res.data.data as ChatContact[];
-      } catch (e) {
+      } catch {
         return [
           { id: 'user_1', name: 'John Doe', role: 'Store Manager', unreadCount: 2 },
           { id: 'user_2', name: 'Jane Smith', role: 'Cashier' },
@@ -63,7 +63,7 @@ export const ChatPage: React.FC = () => {
       try {
         const res = await client.get(`/chat/${activeContactId}`);
         return res.data.data as ChatMessage[];
-      } catch (e) {
+      } catch {
         return [];
       }
     },
@@ -131,7 +131,9 @@ export const ChatPage: React.FC = () => {
       // Optional: Backup persist to DB
       try {
         await client.post('/chat', payload);
-      } catch (e) {}
+      } catch {
+        // Chat persistence is optional until the backend route is implemented.
+      }
     },
     onSuccess: () => {
       reset();

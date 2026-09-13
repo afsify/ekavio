@@ -1,6 +1,13 @@
 import { Queue } from '../models/Queue.js';
 
-export const createTokenService = async (tenantId: string, data: any) => {
+interface QueueTokenInput {
+  customerName: string;
+  phone: string;
+  serviceType: string;
+  tokenNumber?: string;
+}
+
+export const createTokenService = async (tenantId: string, data: QueueTokenInput) => {
   const { customerName, phone, serviceType, tokenNumber: customTokenNumber } = data;
 
   const count = await Queue.countDocuments({ tenantId });
@@ -20,11 +27,14 @@ export const createTokenService = async (tenantId: string, data: any) => {
 };
 
 export const getQueueService = async (tenantId: string, pageStr?: string, limitStr?: string) => {
-  const page = parseInt(pageStr as string) || 1;
-  const limit = parseInt(limitStr as string) || 10;
+  const page = parseInt(pageStr ?? '') || 1;
+  const limit = parseInt(limitStr ?? '') || 10;
   const skip = (page - 1) * limit;
 
-  const query: any = { tenantId, status: { $in: ['waiting', 'serving'] } };
+  const query = {
+    tenantId,
+    status: { $in: ['waiting', 'serving'] as const },
+  };
 
   const totalDocs = await Queue.countDocuments(query);
   const totalPages = Math.ceil(totalDocs / limit);
@@ -39,7 +49,7 @@ export const getQueueService = async (tenantId: string, pageStr?: string, limitS
 
 export const updateTokenStatusService = async (tenantId: string, tokenId: string, status: string) => {
   const updatedToken = await Queue.findOneAndUpdate(
-    { _id: tokenId, tenantId } as any,
+    { _id: tokenId, tenantId },
     { status },
     { new: true, runValidators: true }
   );

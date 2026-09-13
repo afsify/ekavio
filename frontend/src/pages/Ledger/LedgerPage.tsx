@@ -4,7 +4,7 @@ import { AdvancedTable } from '../../components/ui/AdvancedTable';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Wallet, TrendingUp, TrendingDown, Download } from 'lucide-react';
+import { BookOpenCheck, TrendingUp, TrendingDown, Download } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,10 +24,12 @@ const mockLedgerData: LedgerEntry[] = [
   { id: '2', date: '2023-10-26', customerName: 'Jane Smith', type: 'debit', amount: 200, description: 'Purchase items' },
 ];
 
+const createMockLedgerId = (): string => Math.random().toString();
+
 const newEntrySchema = z.object({
   customerName: z.string().min(1, 'Customer name is required'),
   type: z.enum(['credit', 'debit']),
-  amount: z.number({ invalid_type_error: 'Amount must be a number' }).min(1, 'Amount must be greater than 0'),
+  amount: z.number({ error: 'Amount must be a number' }).min(1, 'Amount must be greater than 0'),
   description: z.string().optional(),
 });
 
@@ -49,9 +51,9 @@ export const LedgerPage: React.FC = () => {
       header: 'Type', 
       accessor: 'type', 
       sortable: true,
-      cell: ({ value }: { value: string }) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${value === 'credit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-          {value.toUpperCase()}
+      cell: ({ value }: { value: unknown }) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${String(value) === 'credit' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+          {String(value).toUpperCase()}
         </span>
       )
     },
@@ -59,14 +61,14 @@ export const LedgerPage: React.FC = () => {
       header: 'Amount', 
       accessor: 'amount', 
       sortable: true,
-      cell: ({ value }: { value: number }) => `₹${value.toFixed(2)}`
+      cell: ({ value }: { value: unknown }) => `₹${Number(value).toFixed(2)}`
     },
     { header: 'Description', accessor: 'description' },
   ];
 
   const onSubmit = (formData: NewEntryFormInputs) => {
     const newEntry: LedgerEntry = {
-      id: Math.random().toString(),
+      id: createMockLedgerId(),
       date: new Date().toISOString().split('T')[0],
       ...formData,
       description: formData.description || ''

@@ -1,38 +1,65 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build:
+  foundation:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout Code
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
 
-      - name: Install Backend Dependencies
-        working-directory: ./backend
-        run: npm install
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
 
-      - name: Type Check Backend
-        working-directory: ./backend
-        run: npx tsc --noEmit
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint
 
-      - name: Install Frontend Dependencies
-        working-directory: ./frontend
-        run: npm install
+      - name: Typecheck backend
+        working-directory: backend
+        run: npm run typecheck
 
-      - name: Type Check Frontend
-        working-directory: ./frontend
-        run: npx tsc --noEmit
+      - name: Test backend
+        working-directory: backend
+        run: npm test
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Typecheck frontend
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_URL: http://localhost:5000/api
+          VITE_SOCKET_URL: http://localhost:5000
+        run: npm run build
+
+      - name: Validate Docker Compose
+        run: docker compose config

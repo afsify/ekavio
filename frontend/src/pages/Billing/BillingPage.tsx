@@ -17,6 +17,8 @@ interface Invoice {
   plan: string;
 }
 
+const nextBillingDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString();
+
 export const BillingPage: React.FC = () => {
   const user = useAppStore((state) => state.user);
 
@@ -49,20 +51,20 @@ export const BillingPage: React.FC = () => {
     { 
       header: 'Date', 
       accessor: 'date',
-      cell: ({ value }: { value: string }) => new Date(value).toLocaleDateString()
+      cell: ({ value }: { value: unknown }) => new Date(String(value)).toLocaleDateString()
     },
     { header: 'Plan', accessor: 'plan' },
     { 
       header: 'Amount', 
       accessor: 'amount',
-      cell: ({ value }: { value: number }) => `₹${value.toLocaleString()}`
+      cell: ({ value }: { value: unknown }) => `₹${Number(value).toLocaleString()}`
     },
     {
       header: 'Status',
       accessor: 'status',
-      cell: ({ value }: { value: string }) => (
+      cell: ({ value }: { value: unknown }) => (
         <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium uppercase tracking-wider">
-          {value}
+          {String(value)}
         </span>
       )
     }
@@ -98,7 +100,7 @@ export const BillingPage: React.FC = () => {
             <CheckCircle2 className="w-3 h-3" /> Active
           </span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">Your next billing cycle is on {new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+        <p className="text-xs text-slate-500 mt-2">Your next billing cycle is on {nextBillingDate}</p>
       </div>
 
       <div className="pt-4 border-t border-slate-800">

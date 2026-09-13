@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Info, AlertTriangle } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Bell, Info, AlertTriangle } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { client } from '../../api/client';
@@ -10,7 +10,8 @@ export const NotificationBell: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const socket = useSocketStore((state) => state.socket);
-  const addNotification = useSocketStore((state) => state.notifications); // state.notifications is an array, we can use it to store local if needed. Or just rely on query data.
+  const socketNotifications = useSocketStore((state) => state.notifications);
+  const markSocketNotificationAsRead = useSocketStore((state) => state.markAsRead);
 
   // Fetch initial notifications
   const { data: notificationsData } = useQuery({
@@ -19,7 +20,7 @@ export const NotificationBell: React.FC = () => {
       try {
         const response = await client.get('/notifications');
         return response.data.data as NotificationPayload[];
-      } catch (error) {
+      } catch {
         // Fallback for missing backend route as discussed
         return [];
       }
@@ -27,19 +28,17 @@ export const NotificationBell: React.FC = () => {
     initialData: [],
   });
 
-  // Local state to merge socket notifications with fetched notifications
-  const [localNotifications, setLocalNotifications] = useState<NotificationPayload[]>([]);
-
-  useEffect(() => {
-    if (notificationsData) {
-      setLocalNotifications(notificationsData);
-    }
-  }, [notificationsData]);
+  const localNotifications = useMemo(() => {
+    const socketIds = new Set(socketNotifications.map((notification) => notification.id));
+    return [
+      ...socketNotifications,
+      ...notificationsData.filter((notification) => !socketIds.has(notification.id)),
+    ];
+  }, [notificationsData, socketNotifications]);
 
   useEffect(() => {
     if (socket) {
       const handleNewNotification = (notification: NotificationPayload) => {
-        setLocalNotifications((prev) => [notification, ...prev]);
         toast.custom((t) => (
           <div
             className={`${
@@ -94,21 +93,32 @@ export const NotificationBell: React.FC = () => {
   const unreadCount = localNotifications.filter((n) => !n.isRead).length;
 
   const markAsRead = async (id: string) => {
-    setLocalNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    markSocketNotificationAsRead(id);
+    queryClient.setQueryData<NotificationPayload[]>(
+      ['notifications'],
+      (notifications = []) => notifications.map((notification) =>
+        notification.id === id ? { ...notification, isRead: true } : notification
+      ),
     );
     try {
       await client.patch(`/notifications/${id}/read`);
-    } catch (e) {
+    } catch {
       // ignore
     }
   };
 
   const markAllAsRead = async () => {
-    setLocalNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    socketNotifications.forEach((notification) => markSocketNotificationAsRead(notification.id));
+    queryClient.setQueryData<NotificationPayload[]>(
+      ['notifications'],
+      (notifications = []) => notifications.map((notification) => ({
+        ...notification,
+        isRead: true,
+      })),
+    );
     try {
       await client.patch('/notifications/read-all');
-    } catch (e) {
+    } catch {
       // ignore
     }
   };

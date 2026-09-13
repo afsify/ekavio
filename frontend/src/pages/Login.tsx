@@ -20,6 +20,7 @@ import {
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useLogin } from '../hooks/useAuth';
+import { getErrorMessage } from '../api/errors';
 
 const loginSchema = z.object({
   phone: z.string().min(1, 'Phone number is required'),
@@ -51,12 +52,8 @@ export const Login: React.FC = () => {
           toast.success('Signed in to Ekavio!');
           navigate('/dashboard', { replace: true });
         },
-        onError: (error: any) => {
-          const errorMessage =
-            error.response?.data?.message ||
-            error.message ||
-            'Authentication failed. Please verify credentials.';
-          toast.error(errorMessage);
+        onError: (error: unknown) => {
+          toast.error(getErrorMessage(error, 'Authentication failed. Please verify credentials.'));
         },
       }
     );

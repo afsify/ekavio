@@ -4,9 +4,10 @@
  */
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useAppStore } from "../store/useAppStore";
+import { frontendConfig } from "../config/env";
 
 export const client = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: frontendConfig.apiUrl,
   headers: {
     "Content-Type": "application/json",
   },
@@ -41,14 +42,21 @@ client.interceptors.request.use(
 );
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
+interface FailedRequest {
+  resolve: (token: string) => void;
+  reject: (reason?: unknown) => void;
+}
 
-const processQueue = (error: any, token: string | null = null) => {
+let failedQueue: FailedRequest[] = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
-    } else {
+    } else if (token) {
       prom.resolve(token);
+    } else {
+      prom.reject(new Error("Token refresh completed without an access token"));
     }
   });
   failedQueue = [];
@@ -75,7 +83,7 @@ client.interceptors.response.use(
       }
 
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {

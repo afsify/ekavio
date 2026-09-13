@@ -1,32 +1,34 @@
-export const exportToCSV = (data: any[], filename: string) => {
+export const exportToCSV = <T extends object>(data: T[], filename: string) => {
   if (!data || !data.length) {
     return;
   }
 
   // Extract headers
-  const headers = Object.keys(data[0]);
+  const firstRow = data[0] as Record<string, unknown>;
+  const headers = Object.keys(firstRow);
   
   // Format rows
   const csvRows = [];
   csvRows.push(headers.join(',')); // Add headers row
 
   for (const row of data) {
+    const record = row as Record<string, unknown>;
     const values = headers.map(header => {
-      let val = row[header];
-      if (val === null || val === undefined) {
-        val = '';
+      const value = record[header];
+      if (value === null || value === undefined) {
+        return '';
       }
-      
-      // Escape quotes and wrap strings in quotes if they contain commas
-      if (typeof val === 'string') {
-        val = val.replace(/"/g, '""');
-        if (val.search(/("|,|\n)/g) >= 0) {
-          val = `"${val}"`;
-        }
-      } else if (typeof val === 'object') {
-        val = `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+
+      if (typeof value === 'string') {
+        const escaped = value.replace(/"/g, '""');
+        return escaped.search(/("|,|\n)/g) >= 0 ? `"${escaped}"` : escaped;
       }
-      return val;
+
+      if (typeof value === 'object') {
+        return `"${JSON.stringify(value).replace(/"/g, '""')}"`;
+      }
+
+      return String(value);
     });
     csvRows.push(values.join(','));
   }

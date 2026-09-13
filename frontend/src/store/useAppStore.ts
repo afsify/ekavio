@@ -23,7 +23,7 @@ export interface UserProfile {
   activeModules?: string[];
   tenant?: {
     activeModules?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

@@ -10,7 +10,7 @@ function cn(...inputs: ClassValue[]) {
 export interface AdvancedSearchSelectProps<T> {
   options: T[];
   value: T | T[] | null;
-  onChange: (value: any) => void;
+  onChange: (value: T | T[] | null) => void;
   displayKey: keyof T;
   valueKey?: keyof T;
   label?: string;
@@ -22,7 +22,7 @@ export interface AdvancedSearchSelectProps<T> {
   error?: string;
 }
 
-export const AdvancedSearchSelect = <T extends Record<string, any>>({
+export const AdvancedSearchSelect = <T extends Record<string, unknown>>({
   options,
   value,
   onChange,

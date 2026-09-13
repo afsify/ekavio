@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { AdvancedModal } from './AdvancedModal';
 import { Input } from './Input';
 import { Button } from './Button';
 import { client } from '../../api/client';
+import { getErrorMessage } from '../../api/errors';
 
 const passwordSchema = z.object({
   oldPassword: z.string().min(1, 'Old password is required'),
@@ -49,8 +50,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
       reset();
       onClose();
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to change password');
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Failed to change password'));
     },
   });
 

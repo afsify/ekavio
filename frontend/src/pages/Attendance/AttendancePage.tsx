@@ -31,8 +31,8 @@ export const AttendancePage: React.FC = () => {
       header: 'Status', 
       accessor: 'status', 
       sortable: true,
-      cell: ({ value }: { value: string }) => {
-        switch (value) {
+      cell: ({ value }: { value: unknown }) => {
+        switch (String(value)) {
           case 'present':
             return <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">Present</span>;
           case 'absent':

@@ -1,7 +1,13 @@
 import { Inventory } from '../models/Inventory.js';
-import { createAppError } from '../utils/AppError.js';
 
-export const addItemService = async (tenantId: string, data: any) => {
+interface InventoryItemInput {
+  itemName: string;
+  currentStock: number;
+  lowStockThreshold: number;
+  price: number;
+}
+
+export const addItemService = async (tenantId: string, data: InventoryItemInput) => {
   const { itemName, currentStock, lowStockThreshold, price } = data;
 
   const newItem = new Inventory({
@@ -17,8 +23,8 @@ export const addItemService = async (tenantId: string, data: any) => {
 };
 
 export const getInventoryService = async (tenantId: string, pageStr?: string, limitStr?: string) => {
-  const page = parseInt(pageStr as string) || 1;
-  const limit = parseInt(limitStr as string) || 10;
+  const page = parseInt(pageStr ?? '') || 1;
+  const limit = parseInt(limitStr ?? '') || 10;
   const skip = (page - 1) * limit;
 
   const query = { tenantId };
