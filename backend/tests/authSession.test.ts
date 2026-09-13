@@ -23,6 +23,7 @@ import {
 } from '../src/services/sessionService.js';
 import { AppError } from '../src/utils/AppError.js';
 import { setRefreshCookie } from '../src/utils/authCookies.js';
+import { permissionsForRole } from '../src/services/authorizationPolicy.js';
 
 initializeRuntimeConfig({
   NODE_ENV: 'test',
@@ -114,18 +115,42 @@ const buildContext = (user: IdentityUser): AuthContext => {
     orgName: assignment.tenantId === 'tenant-2' ? 'Second Tenant' : undefined,
   }));
   const activeModules = ['queue'];
+  const role = user.role === 'admin' ? 'admin' as const : 'staff' as const;
+  const permissions = permissionsForRole(role);
+  const memberships = [{
+    id: 'membership-1',
+    organizationId: user.tenantId,
+    tenantId: user.tenantId,
+    orgName: 'Primary Tenant',
+    role,
+    status: 'active' as const,
+    branchIds: ['branch-1'],
+    branches: [{ id: 'branch-1', name: 'Main', code: 'main' }],
+    activeModules,
+  }];
 
   return {
     userId: user.id,
     tenantId: user.tenantId,
-    role: user.role,
+    organizationId: user.tenantId,
+    membershipId: 'membership-1',
+    branchId: 'branch-1',
+    role,
+    permissions,
+    platformOperator: false,
+    memberships,
     user: {
       id: user.id,
       tenantId: user.tenantId,
-      role: user.role,
+      organizationId: user.tenantId,
+      membershipId: 'membership-1',
+      branchId: 'branch-1',
+      role,
+      permissions,
       ...(user.name ? { name: user.name } : {}),
       phone: user.phone,
       assignments,
+      memberships,
       activeModules,
       tenant: { activeModules },
     },
@@ -163,7 +188,7 @@ const createHarness = ({
     identities,
     sessions,
     verifyPassword: async (password, passwordHash) => password === passwordHash,
-    signAccessToken: (user, sessionId) => `access.${user.id}.${sessionId}`,
+    signAccessToken: (authContext, sessionId) => `access.${authContext.userId}.${sessionId}`,
   });
 
   return { repository, service };

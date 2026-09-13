@@ -2,19 +2,16 @@ import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { Ledger } from '../models/Ledger.js';
 import { createAppError, getErrorMessage } from '../utils/AppError.js';
+import { organizationScope, requireAuthorizationContext } from '../utils/tenantScope.js';
 
 export const addEntry = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      next(createAppError('Tenant ID missing from request context', 401));
-      return;
-    }
+    const context = requireAuthorizationContext(req);
 
     const { customerName, phone, amount, type, description } = req.body;
 
     const newEntry = await Ledger.create({
-      tenantId,
+      tenantId: context.organizationId,
       customerName,
       phone,
       amount,
@@ -30,17 +27,13 @@ export const addEntry = async (req: AuthenticatedRequest, res: Response, next: N
 
 export const getTenantLedger = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      next(createAppError('Tenant ID missing from request context', 401));
-      return;
-    }
+    const context = requireAuthorizationContext(req);
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    const query = { tenantId };
+    const query = organizationScope(context);
 
     const totalDocs = await Ledger.countDocuments(query);
     const totalPages = Math.ceil(totalDocs / limit);

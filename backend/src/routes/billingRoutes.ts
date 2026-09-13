@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getInvoices, createPaymentOrder } from '../controllers/billingController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       500:
  *         description: Internal server error
  */
-router.get('/invoices', getInvoices);
+router.get('/invoices', requirePermission(permissions.BILLING_READ), getInvoices);
 
 /**
  * @openapi
@@ -54,6 +55,6 @@ router.get('/invoices', getInvoices);
  *       500:
  *         description: Internal server error
  */
-router.post('/create-order', createPaymentOrder);
+router.post('/create-order', requirePermission(permissions.BILLING_MANAGE), createPaymentOrder);
 
 export default router;

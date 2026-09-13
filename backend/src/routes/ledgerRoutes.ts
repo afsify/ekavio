@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { addEntry, getTenantLedger } from '../controllers/ledgerController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 import { requireModule } from '../middlewares/tenantMiddleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { addLedgerEntrySchema } from '../schemas/ledgerSchemas.js';
@@ -64,7 +65,7 @@ router.use(requireModule('khata'));
  *       500:
  *         description: Internal server error
  */
-router.post('/', validateRequest(addLedgerEntrySchema), addEntry);
+router.post('/', requirePermission(permissions.LEDGER_MANAGE), validateRequest(addLedgerEntrySchema), addEntry);
 
 /**
  * @openapi
@@ -94,6 +95,6 @@ router.post('/', validateRequest(addLedgerEntrySchema), addEntry);
  *       500:
  *         description: Internal server error
  */
-router.get('/', getTenantLedger);
+router.get('/', requirePermission(permissions.LEDGER_READ), getTenantLedger);
 
 export default router;

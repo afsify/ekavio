@@ -44,15 +44,15 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: 'queue' },
     { name: 'Ledger', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: 'ledger' },
     { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: 'attendance' },
-    { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, adminOnly: true },
+    { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },
     { name: 'Messages', path: '/chat', icon: <MessageSquare className="w-5 h-5" />, module: 'chat' },
-    { name: 'Corporate HQ', path: '/corporate', icon: <Building2 className="w-5 h-5" /> },
-    { name: 'Staff', path: '/staff', icon: <UserCog className="w-5 h-5" /> },
-    { name: 'Settings', path: '/settings', icon: <Settings className="w-5 h-5" /> },
+    { name: 'Corporate HQ', path: '/corporate', icon: <Building2 className="w-5 h-5" />, permission: 'corporate.manage' },
+    { name: 'Staff', path: '/staff', icon: <UserCog className="w-5 h-5" />, permission: 'staff.read' },
+    { name: 'Settings', path: '/settings', icon: <Settings className="w-5 h-5" />, permission: 'organization.manage' },
   ];
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (item.adminOnly && user?.role !== 'admin') return false;
+    if (item.permission && !user?.permissions?.includes(item.permission)) return false;
     if (item.module && !user?.activeModules?.includes(item.module)) return false;
     return true;
   });

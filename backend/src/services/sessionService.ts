@@ -131,6 +131,13 @@ const parseCredential = (
   return { sessionId, secret };
 };
 
+export const getSessionIdFromRefreshCredential = (
+  refreshCredential: string | undefined,
+): string | undefined => {
+  if (!refreshCredential) return undefined;
+  return parseCredential(refreshCredential)?.sessionId;
+};
+
 const hashesMatch = (left: string, right: string): boolean => {
   const leftBuffer = Buffer.from(left, 'hex');
   const rightBuffer = Buffer.from(right, 'hex');

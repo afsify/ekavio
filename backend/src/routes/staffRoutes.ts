@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getStaff, addStaff, deleteStaff } from '../controllers/staffController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.use(authenticate);
  *       500:
  *         description: Internal server error
  */
-router.get('/', getStaff);
+router.get('/', requirePermission(permissions.STAFF_READ), getStaff);
 
 /**
  * @openapi
@@ -68,7 +69,7 @@ router.get('/', getStaff);
  *       500:
  *         description: Internal server error
  */
-router.post('/', addStaff);
+router.post('/', requirePermission(permissions.STAFF_MANAGE), addStaff);
 
 /**
  * @openapi
@@ -96,6 +97,6 @@ router.post('/', addStaff);
  *       500:
  *         description: Internal server error
  */
-router.delete('/:id', deleteStaff);
+router.delete('/:id', requirePermission(permissions.STAFF_MANAGE), deleteStaff);
 
 export default router;

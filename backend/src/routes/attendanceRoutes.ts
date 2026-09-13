@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { markAttendance, getDailyAttendance } from '../controllers/attendanceController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 import { requireModule } from '../middlewares/tenantMiddleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { markAttendanceSchema } from '../schemas/attendanceSchemas.js';
@@ -56,7 +57,7 @@ router.use(requireModule('attendance'));
  *       500:
  *         description: Internal server error
  */
-router.post('/', validateRequest(markAttendanceSchema), markAttendance);
+router.post('/', requirePermission(permissions.ATTENDANCE_MANAGE), validateRequest(markAttendanceSchema), markAttendance);
 
 /**
  * @openapi
@@ -97,6 +98,6 @@ router.post('/', validateRequest(markAttendanceSchema), markAttendance);
  *       500:
  *         description: Internal server error
  */
-router.get('/', getDailyAttendance);
+router.get('/', requirePermission(permissions.ATTENDANCE_READ), getDailyAttendance);
 
 export default router;

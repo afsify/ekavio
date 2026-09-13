@@ -81,6 +81,14 @@ const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
   return <>{children}</>;
 };
 
+const PermissionGuard: React.FC<{ permission: string; children: React.ReactNode }> = ({
+  permission,
+  children,
+}) => {
+  const permissions = useAppStore((state) => state.user?.permissions ?? []);
+  return permissions.includes(permission) ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen bg-slate-950">
     <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
@@ -199,7 +207,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <CorporateDashboard />
+                    <PermissionGuard permission="corporate.manage"><CorporateDashboard /></PermissionGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -209,7 +217,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <BillingPage />
+                    <PermissionGuard permission="billing.read"><BillingPage /></PermissionGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -219,7 +227,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <StaffManagementPage />
+                    <PermissionGuard permission="staff.read"><StaffManagementPage /></PermissionGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -229,7 +237,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <SettingsPage />
+                    <PermissionGuard permission="organization.manage"><SettingsPage /></PermissionGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }

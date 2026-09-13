@@ -3,6 +3,7 @@ import type { InferSchemaType } from "mongoose";
 
 const userSchema = new Schema(
   {
+    // Legacy compatibility fields. Membership is the authorization source of truth.
     tenantId: {
       type: Schema.Types.ObjectId,
       ref: "Organization",
@@ -26,6 +27,12 @@ const userSchema = new Schema(
         },
       },
     ],
+    platformRole: {
+      type: String,
+      enum: ['operator'],
+      default: null,
+      select: false,
+    },
   },
   { timestamps: true },
 );

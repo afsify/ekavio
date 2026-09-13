@@ -1,4 +1,5 @@
 import { Inventory } from '../models/Inventory.js';
+import { organizationScope, type OrganizationContext } from '../utils/tenantScope.js';
 
 interface InventoryItemInput {
   itemName: string;
@@ -7,11 +8,11 @@ interface InventoryItemInput {
   price: number;
 }
 
-export const addItemService = async (tenantId: string, data: InventoryItemInput) => {
+export const addItemService = async (context: OrganizationContext, data: InventoryItemInput) => {
   const { itemName, currentStock, lowStockThreshold, price } = data;
 
   const newItem = new Inventory({
-    tenantId,
+    tenantId: context.organizationId,
     itemName,
     currentStock,
     lowStockThreshold,
@@ -22,12 +23,12 @@ export const addItemService = async (tenantId: string, data: InventoryItemInput)
   return newItem;
 };
 
-export const getInventoryService = async (tenantId: string, pageStr?: string, limitStr?: string) => {
+export const getInventoryService = async (context: OrganizationContext, pageStr?: string, limitStr?: string) => {
   const page = parseInt(pageStr ?? '') || 1;
   const limit = parseInt(limitStr ?? '') || 10;
   const skip = (page - 1) * limit;
 
-  const query = { tenantId };
+  const query = organizationScope(context);
 
   const totalDocs = await Inventory.countDocuments(query);
   const totalPages = Math.ceil(totalDocs / limit);
@@ -40,9 +41,9 @@ export const getInventoryService = async (tenantId: string, pageStr?: string, li
   return { data: items, totalDocs, totalPages };
 };
 
-export const getLowStockAlertsService = async (tenantId: string) => {
+export const getLowStockAlertsService = async (context: OrganizationContext) => {
   const lowStockItems = await Inventory.find({
-    tenantId,
+    ...organizationScope(context),
     $expr: { $lte: ['$currentStock', '$lowStockThreshold'] },
   }).sort({ currentStock: 1 });
 

@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations. V2-02 adds short-lived memory-only access JWTs and revocable, rotating server-side refresh sessions without changing business workflows.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, and V2-03 adds explicit organization memberships, branch context, and backend permission enforcement.
 
 ## Prerequisites
 
@@ -58,6 +58,26 @@ The browser receives the refresh credential only as the `ekavio_refresh` HttpOnl
 The refresh cookie uses `SameSite=Lax`, is scoped to `/api/auth`, and expires after seven days. `Secure` is intentionally disabled for `NODE_ENV=development` and `NODE_ENV=test` so localhost HTTP works. Production must use HTTPS; production cookies always enable `Secure`. Backend CORS still accepts only `HTTP_ALLOWED_ORIGINS`, so configure the exact frontend origin rather than a wildcard.
 
 Logout calls `POST /api/auth/logout`, revokes the server session, clears the cookie, and clears the in-memory client state. A successful password change revokes all of that user's refresh sessions and requires sign-in again. Do not add access or refresh credentials to browser storage when extending the frontend.
+
+Every protected HTTP request and Socket.IO connection now validates the access token's server session and resolves an active Membership. `x-tenant-id` and `x-branch-id` are context requests, not authority: the backend accepts them only when the user has an active membership and branch assignment. The frontend reconnects realtime transport after a server-validated context switch so the old organization room is left.
+
+Permissions and modules remain intentionally separate. Permissions come from the active membership role and determine what a user may do. `activeModules` is retained only as the existing organization capability compatibility value; commercial entitlement design belongs to V2-04.
+
+## Authorization compatibility backfill
+
+Existing development data still contains legacy `User.tenantId`, `User.role`, and assignment fields. Preview the deterministic Membership/default-Branch migration from the backend directory:
+
+```powershell
+npm.cmd run authz:backfill
+```
+
+After reviewing the dry-run result, apply it with:
+
+```powershell
+npm.cmd run authz:backfill -- --apply
+```
+
+The command is idempotent. It creates at most one `main` Branch per organization and one Membership per user/organization, never changes an existing membership, and stops before writes when a legacy user has conflicting roles for the same organization or references a missing organization. Login performs the same compatibility check for that single user, allowing existing unambiguous single-tenant accounts to continue working. Back up production data and run the dry-run before applying in any shared environment.
 
 ## Quality gates
 

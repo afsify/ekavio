@@ -15,7 +15,7 @@ export const client = axios.create({
 });
 
 client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const { token, activeTenantId } = useAppStore.getState();
+  const { token, activeTenantId, activeBranchId } = useAppStore.getState();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,6 +23,9 @@ client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
   if (activeTenantId) {
     config.headers['x-tenant-id'] = activeTenantId;
+  }
+  if (activeBranchId) {
+    config.headers['x-branch-id'] = activeBranchId;
   }
 
   return config;
@@ -49,8 +52,16 @@ const processQueue = (error: unknown, token?: string) => {
   failedQueue = [];
 };
 
-export const restoreSession = async (): Promise<SessionPayload> => {
-  const response = await sessionClient.post<SessionPayload>('/auth/refresh');
+export const restoreSession = async (selection: {
+  organizationId?: string;
+  branchId?: string;
+} = {}): Promise<SessionPayload> => {
+  const response = await sessionClient.post<SessionPayload>('/auth/refresh', undefined, {
+    headers: {
+      ...(selection.organizationId ? { 'x-tenant-id': selection.organizationId } : {}),
+      ...(selection.branchId ? { 'x-branch-id': selection.branchId } : {}),
+    },
+  });
   return response.data;
 };
 
@@ -91,7 +102,11 @@ client.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const payload = await restoreSession();
+      const { activeTenantId, activeBranchId } = useAppStore.getState();
+      const payload = await restoreSession({
+        ...(activeTenantId ? { organizationId: activeTenantId } : {}),
+        ...(activeBranchId ? { branchId: activeBranchId } : {}),
+      });
       useAppStore.getState().establishSession(payload);
       processQueue(undefined, payload.accessToken);
       originalRequest.headers.Authorization = `Bearer ${payload.accessToken}`;

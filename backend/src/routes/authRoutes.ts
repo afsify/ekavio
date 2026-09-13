@@ -7,7 +7,8 @@ import {
   updateTheme,
 } from "../controllers/authController.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+import { authenticate, requirePermission } from "../middlewares/authMiddleware.js";
+import { permissions } from '../services/authorizationPolicy.js';
 import { registerSchema, loginSchema, updateThemeSchema } from "../schemas/authSchemas.js";
 
 const router = Router();
@@ -158,12 +159,14 @@ router.post("/login", validateRequest(loginSchema), login);
 router.put(
   "/theme",
   authenticate as RequestHandler,
+  requirePermission(permissions.ORGANIZATION_MANAGE) as RequestHandler,
   validateRequest(updateThemeSchema),
   updateTheme as RequestHandler,
 );
 router.patch(
   "/theme",
   authenticate as RequestHandler,
+  requirePermission(permissions.ORGANIZATION_MANAGE) as RequestHandler,
   validateRequest(updateThemeSchema),
   updateTheme as RequestHandler,
 );

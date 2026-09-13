@@ -1,14 +1,15 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { getRuntimeConfig } from '../config/env.js';
+import { Branch } from '../models/Branch.js';
+import { Membership, type MembershipRole } from '../models/Membership.js';
 import { Organization } from '../models/Organization.js';
 import { User } from '../models/User.js';
-import { getRuntimeConfig } from '../config/env.js';
-import { runtimeRefreshSessions } from './sessionService.js';
-import type {
-  RefreshSessionManager,
-  SessionMetadata,
-} from './sessionService.js';
 import { AppError } from '../utils/AppError.js';
+import { permissionsForRole, type Permission } from './authorizationPolicy.js';
+import { ensureLegacyAuthorizationForUser } from './authorizationBackfillService.js';
+import { getSessionIdFromRefreshCredential, runtimeRefreshSessions } from './sessionService.js';
+import type { RefreshSessionManager, SessionMetadata } from './sessionService.js';
 
 interface RegisterAdminInput {
   orgName: string;
@@ -41,15 +42,39 @@ export interface IdentityUser {
   phone: string;
   passwordHash: string;
   assignments: IdentityAssignment[];
+  platformOperator?: boolean;
+}
+
+export interface BranchContext {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface MembershipContext {
+  id: string;
+  organizationId: string;
+  tenantId: string;
+  orgName?: string;
+  role: MembershipRole;
+  status: 'active';
+  branchIds: string[];
+  branches: BranchContext[];
+  activeModules: string[];
 }
 
 export interface PublicUser {
   id: string;
   tenantId: string;
-  role: string;
+  organizationId: string;
+  membershipId: string;
+  branchId?: string;
+  role: MembershipRole;
+  permissions: Permission[];
   name?: string;
   phone: string;
   assignments: Array<IdentityAssignment & { orgName?: string }>;
+  memberships: MembershipContext[];
   activeModules: string[];
   tenant: { activeModules: string[] };
 }
@@ -57,7 +82,13 @@ export interface PublicUser {
 export interface AuthContext {
   userId: string;
   tenantId: string;
-  role: string;
+  organizationId: string;
+  membershipId: string;
+  branchId?: string;
+  role: MembershipRole;
+  permissions: Permission[];
+  platformOperator: boolean;
+  memberships: MembershipContext[];
   user: PublicUser;
   assignments: PublicUser['assignments'];
   activeModules: string[];
@@ -73,16 +104,24 @@ export interface AuthResult {
   refreshCredential: string;
 }
 
+export interface AuthContextSelection {
+  organizationId?: string;
+  branchId?: string;
+}
+
 export interface IdentityRepository {
   findByPhone(phone: string): Promise<IdentityUser[]>;
   findById(userId: string): Promise<IdentityUser | null>;
-  buildContext(user: IdentityUser): Promise<AuthContext>;
+  buildContext(user: IdentityUser, selection?: AuthContextSelection): Promise<AuthContext>;
 }
 
 export interface AuthService {
   login(data: LoginInput, metadata?: SessionMetadata): Promise<AuthResult>;
-  refresh(refreshCredential: string): Promise<AuthResult>;
-  logout(refreshCredential: string | undefined): Promise<void>;
+  refresh(
+    refreshCredential: string,
+    selection?: AuthContextSelection,
+  ): Promise<AuthResult>;
+  logout(refreshCredential: string | undefined): Promise<string | undefined>;
   revokeUserSessions(userId: string): Promise<void>;
 }
 
@@ -90,7 +129,8 @@ export interface AuthServiceDependencies {
   identities: IdentityRepository;
   sessions: RefreshSessionManager;
   verifyPassword: (password: string, passwordHash: string) => Promise<boolean>;
-  signAccessToken: (user: IdentityUser, sessionId: string) => string;
+  signAccessToken: (context: AuthContext, sessionId: string) => string;
+  prepareAuthorization?: (userId: string) => Promise<void>;
 }
 
 export const normalizeLoginPhone = (phone: string): string => phone.trim();
@@ -106,39 +146,93 @@ const toIdentityUser = (user: InstanceType<typeof User>): IdentityUser => ({
     tenantId: String(assignment.tenantId),
     role: assignment.role,
   })),
+  platformOperator: user.platformRole === 'operator',
 });
 
 export const mongooseIdentityRepository: IdentityRepository = {
   async findByPhone(phone) {
-    const users = await User.find({ phone }).limit(2);
+    const users = await User.find({ phone }).select('+platformRole').limit(2);
     return users.map(toIdentityUser);
   },
 
   async findById(userId) {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+platformRole');
     return user ? toIdentityUser(user) : null;
   },
 
-  async buildContext(user) {
-    const tenantIds = [
-      user.tenantId,
-      ...user.assignments.map((assignment) => assignment.tenantId),
-    ];
-    const organizations = await Organization.find({ _id: { $in: tenantIds } });
+  async buildContext(user, selection = {}) {
+    const membershipDocuments = await Membership.find({
+      userId: user.id,
+      status: 'active',
+    }).lean();
+
+    if (membershipDocuments.length === 0) {
+      throw new AppError('No active organization membership', 403);
+    }
+
+    const organizationIds = membershipDocuments.map((membership) =>
+      String(membership.organizationId),
+    );
+    const organizations = await Organization.find({ _id: { $in: organizationIds } }).lean();
     const organizationById = new Map(
       organizations.map((organization) => [String(organization._id), organization]),
     );
-    const primaryOrganization = organizationById.get(user.tenantId);
-    const activeModules = [...(primaryOrganization?.activeModules ?? [])];
-    const assignments = user.assignments
-      .filter((assignment) => assignment.tenantId !== user.tenantId)
-      .map((assignment) => {
-        const organization = organizationById.get(assignment.tenantId);
-        return {
-          ...assignment,
-          ...(organization?.name ? { orgName: organization.name } : {}),
-        };
+    const branchIds = membershipDocuments.flatMap((membership) =>
+      membership.branchIds.map(String),
+    );
+    const branches = await Branch.find({
+      _id: { $in: branchIds },
+      organizationId: { $in: organizationIds },
+      status: 'active',
+    }).lean();
+    const branchById = new Map(branches.map((branch) => [String(branch._id), branch]));
+
+    const memberships: MembershipContext[] = membershipDocuments.flatMap((membership) => {
+      const organizationId = String(membership.organizationId);
+      const organization = organizationById.get(organizationId);
+      if (!organization) return [];
+      const availableBranches = membership.branchIds.flatMap((branchId) => {
+        const branch = branchById.get(String(branchId));
+        if (!branch || String(branch.organizationId) !== organizationId) return [];
+        return [{ id: String(branch._id), name: branch.name, code: branch.code }];
       });
+      return [{
+        id: String(membership._id),
+        organizationId,
+        tenantId: organizationId,
+        ...(organization.name ? { orgName: organization.name } : {}),
+        role: membership.role,
+        status: 'active' as const,
+        branchIds: availableBranches.map((branch) => branch.id),
+        branches: availableBranches,
+        activeModules: [...(organization.activeModules ?? [])],
+      }];
+    });
+
+    const requestedOrganizationId = selection.organizationId ?? user.tenantId;
+    const activeMembership = memberships.find(
+      (membership) => membership.organizationId === requestedOrganizationId,
+    );
+    if (!activeMembership) {
+      throw new AppError('Access denied to this organization', 403);
+    }
+
+    let branchId = selection.branchId;
+    if (branchId && !activeMembership.branchIds.includes(branchId)) {
+      throw new AppError('Access denied to this branch', 403);
+    }
+    branchId ??= activeMembership.branchIds[0];
+
+    const primaryOrganization = organizationById.get(activeMembership.organizationId);
+    const activeModules = [...activeMembership.activeModules];
+    const permissions = permissionsForRole(activeMembership.role);
+    const assignments = memberships
+      .filter((membership) => membership.organizationId !== activeMembership.organizationId)
+      .map((membership) => ({
+        tenantId: membership.organizationId,
+        role: membership.role,
+        ...(membership.orgName ? { orgName: membership.orgName } : {}),
+      }));
     const theme = primaryOrganization?.theme
       ? {
           mode: primaryOrganization.theme.mode,
@@ -147,19 +241,30 @@ export const mongooseIdentityRepository: IdentityRepository = {
       : { mode: 'light' as const, primaryColor: '#4F46E5' };
     const publicUser: PublicUser = {
       id: user.id,
-      tenantId: user.tenantId,
-      role: user.role,
+      tenantId: activeMembership.organizationId,
+      organizationId: activeMembership.organizationId,
+      membershipId: activeMembership.id,
+      ...(branchId ? { branchId } : {}),
+      role: activeMembership.role,
+      permissions,
       ...(user.name ? { name: user.name } : {}),
       phone: user.phone,
       assignments,
+      memberships,
       activeModules,
       tenant: { activeModules },
     };
 
     return {
       userId: user.id,
-      tenantId: user.tenantId,
-      role: user.role,
+      tenantId: activeMembership.organizationId,
+      organizationId: activeMembership.organizationId,
+      membershipId: activeMembership.id,
+      ...(branchId ? { branchId } : {}),
+      role: activeMembership.role,
+      permissions,
+      platformOperator: user.platformOperator === true,
+      memberships,
       user: publicUser,
       assignments,
       activeModules,
@@ -172,12 +277,13 @@ const runtimeDependencies: AuthServiceDependencies = {
   identities: mongooseIdentityRepository,
   sessions: runtimeRefreshSessions,
   verifyPassword: bcrypt.compare,
-  signAccessToken: (user, sessionId) =>
+  prepareAuthorization: ensureLegacyAuthorizationForUser,
+  signAccessToken: (context, sessionId) =>
     jwt.sign(
       {
-        id: user.id,
-        tenantId: user.tenantId,
-        role: user.role,
+        id: context.userId,
+        tenantId: context.organizationId,
+        role: context.role,
         sessionId,
       },
       getRuntimeConfig().jwtSecret,
@@ -190,15 +296,12 @@ export const createAuthService = ({
   sessions,
   verifyPassword,
   signAccessToken,
+  prepareAuthorization = async () => undefined,
 }: AuthServiceDependencies): AuthService => ({
   async login(data, metadata) {
     const phone = normalizeLoginPhone(data.phone);
     const matches = await identities.findByPhone(phone);
-
-    if (matches.length === 0) {
-      throw new AppError('Invalid credentials', 401);
-    }
-
+    if (matches.length === 0) throw new AppError('Invalid credentials', 401);
     if (matches.length > 1) {
       throw new AppError(
         'Multiple accounts use this phone number. Account migration is required before sign-in.',
@@ -207,48 +310,45 @@ export const createAuthService = ({
     }
 
     const user = matches[0];
-    if (!user) {
+    if (!user || !(await verifyPassword(data.password, user.passwordHash))) {
       throw new AppError('Invalid credentials', 401);
     }
 
-    const passwordMatches = await verifyPassword(data.password, user.passwordHash);
-    if (!passwordMatches) {
-      throw new AppError('Invalid credentials', 401);
-    }
-
+    await prepareAuthorization(user.id);
     const context = await identities.buildContext(user);
     const session = await sessions.create(user.id, metadata);
-
     return {
       refreshCredential: session.refreshCredential,
       response: {
-        accessToken: signAccessToken(user, session.sessionId),
+        accessToken: signAccessToken(context, session.sessionId),
         ...context,
       },
     };
   },
 
-  async refresh(refreshCredential) {
+  async refresh(refreshCredential, selection) {
     const session = await sessions.rotate(refreshCredential);
     const user = await identities.findById(session.userId);
-
     if (!user) {
       await sessions.revoke(session.refreshCredential);
       throw new AppError('Invalid refresh session', 401);
     }
 
-    const context = await identities.buildContext(user);
+    await prepareAuthorization(user.id);
+    const context = await identities.buildContext(user, selection);
     return {
       refreshCredential: session.refreshCredential,
       response: {
-        accessToken: signAccessToken(user, session.sessionId),
+        accessToken: signAccessToken(context, session.sessionId),
         ...context,
       },
     };
   },
 
   async logout(refreshCredential) {
+    const sessionId = getSessionIdFromRefreshCredential(refreshCredential);
     await sessions.revoke(refreshCredential);
+    return sessionId;
   },
 
   async revokeUserSessions(userId) {
@@ -261,28 +361,36 @@ export const authService = createAuthService(runtimeDependencies);
 export const registerAdminService = async (data: RegisterAdminInput) => {
   const { orgName, orgType, userName, password } = data;
   const phone = normalizeLoginPhone(data.phone);
-
-  const organization = new Organization({
+  const organization = await Organization.create({
     name: orgName,
     type: orgType,
     activeModules: ['queue'],
   });
-
-  await organization.save();
-
+  const branch = await Branch.create({
+    organizationId: organization._id,
+    name: 'Main',
+    code: 'main',
+    status: 'active',
+  });
   const hashedPassword = await bcrypt.hash(password, 10);
-  const adminUser = new User({
+  const adminUser = await User.create({
     tenantId: organization._id,
     name: userName,
     phone,
     password: hashedPassword,
     role: 'admin',
   });
-
-  await adminUser.save();
+  await Membership.create({
+    userId: adminUser._id,
+    organizationId: organization._id,
+    role: 'admin',
+    status: 'active',
+    branchIds: [branch._id],
+  });
 
   return {
     organization,
+    branch,
     user: {
       id: adminUser._id,
       tenantId: adminUser.tenantId,
@@ -293,19 +401,14 @@ export const registerAdminService = async (data: RegisterAdminInput) => {
   };
 };
 
-export const updateThemeService = async (tenantId: string, data: ThemeInput) => {
-  const { mode, primaryColor } = data;
-  const organization = await Organization.findById(tenantId);
-
-  if (!organization) {
-    throw new AppError('Organization not found', 404);
-  }
-
+export const updateThemeService = async (organizationId: string, data: ThemeInput) => {
+  const organization = await Organization.findOne({ _id: organizationId });
+  if (!organization) throw new AppError('Organization not found', 404);
   organization.theme = {
-    mode: mode || organization.theme?.mode || 'light',
-    primaryColor: primaryColor || organization.theme?.primaryColor || '#4F46E5',
+    mode: data.mode || organization.theme?.mode || 'light',
+    primaryColor:
+      data.primaryColor || organization.theme?.primaryColor || '#4F46E5',
   };
-
   await organization.save();
   return organization.theme;
 };

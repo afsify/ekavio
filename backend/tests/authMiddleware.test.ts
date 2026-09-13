@@ -3,21 +3,28 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import test, { type TestContext } from 'node:test';
 import express from 'express';
-import jwt from 'jsonwebtoken';
-import { initializeRuntimeConfig } from '../src/config/env.js';
 import {
-  authenticate,
+  createAuthenticate,
   type AuthenticatedRequest,
 } from '../src/middlewares/authMiddleware.js';
+import { permissionsForRole } from '../src/services/authorizationPolicy.js';
 
-const config = initializeRuntimeConfig({
-  NODE_ENV: 'test',
-  PORT: '5000',
-  MONGO_URI: 'mongodb://localhost:27017/not-used-by-auth-middleware-tests',
-  JWT_SECRET: 'auth-middleware-test-jwt-secret',
-  REFRESH_TOKEN_SECRET: 'auth-middleware-test-refresh-secret',
-  HTTP_ALLOWED_ORIGINS: 'http://localhost:5173',
-  SOCKET_ALLOWED_ORIGINS: 'http://localhost:5173',
+const authenticate = createAuthenticate({
+  verifyAccessToken: () => ({
+    userId: 'user-1',
+    defaultOrganizationId: 'tenant-1',
+    sessionId: 'session-1',
+  }),
+  resolveContext: async (claims) => ({
+    userId: claims.userId,
+    sessionId: claims.sessionId,
+    organizationId: claims.defaultOrganizationId,
+    membershipId: 'membership-1',
+    role: 'admin',
+    permissions: permissionsForRole('admin'),
+    platformOperator: false,
+    branchId: 'branch-1',
+  }),
 });
 
 const startProtectedServer = async (context: TestContext): Promise<string> => {
@@ -33,27 +40,15 @@ const startProtectedServer = async (context: TestContext): Promise<string> => {
       server.close((error) => (error ? reject(error) : resolve()));
     }),
   );
-
   const address = server.address() as AddressInfo;
   return `http://127.0.0.1:${address.port}`;
 };
 
-test('a valid short-lived access JWT authenticates a protected request', async (context) => {
+test('a valid access JWT path resolves live session and membership context', async (context) => {
   const baseUrl = await startProtectedServer(context);
-  const token = jwt.sign(
-    {
-      id: 'user-1',
-      tenantId: 'tenant-1',
-      role: 'admin',
-      sessionId: 'session-1',
-    },
-    config.jwtSecret,
-    { expiresIn: '15m' },
-  );
   const response = await fetch(`${baseUrl}/protected`, {
-    headers: { authorization: `Bearer ${token}` },
+    headers: { authorization: 'Bearer test-access-token' },
   });
-
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     user: {
@@ -63,4 +58,9 @@ test('a valid short-lived access JWT authenticates a protected request', async (
       sessionId: 'session-1',
     },
   });
+});
+
+test('an unauthenticated protected request is denied', async (context) => {
+  const baseUrl = await startProtectedServer(context);
+  assert.equal((await fetch(`${baseUrl}/protected`)).status, 401);
 });

@@ -5,7 +5,7 @@ import { Organization } from '../models/Organization.js';
 export const requireModule = (moduleName: string) => {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const tenantId = req.user?.tenantId;
+      const tenantId = req.auth?.organizationId;
 
       if (!tenantId) {
         res.status(401).json({ message: 'Tenant ID missing from request context' });

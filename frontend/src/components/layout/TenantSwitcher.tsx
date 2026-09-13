@@ -1,50 +1,78 @@
-import React from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useAppStore } from "../../store/useAppStore";
+import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { useAppStore } from '../../store/useAppStore';
 
 export const TenantSwitcher: React.FC = () => {
   const queryClient = useQueryClient();
-  const { user, activeTenantId, setActiveTenant } = useAppStore();
+  const { user, activeTenantId, activeBranchId, setActiveTenant, setActiveBranch } =
+    useAppStore();
+  const [switching, setSwitching] = useState(false);
+  const memberships = user?.memberships ?? [];
+  const activeMembership = memberships.find(
+    (membership) => membership.organizationId === activeTenantId,
+  );
 
-  // If the user doesn't have multiple assignments, don't show the switcher
-  if (!user?.assignments || user.assignments.length === 0) {
-    return null;
-  }
+  if (memberships.length === 0) return null;
 
-  // Combine default tenant and assignments to create the list of options
-  const allTenants = [
-    { tenantId: user.tenantId, orgName: "Default Organization (Primary)" },
-    ...user.assignments,
-  ];
+  const switchTenant = async (organizationId: string) => {
+    setSwitching(true);
+    const changed = await setActiveTenant(organizationId);
+    setSwitching(false);
+    if (!changed) {
+      toast.error('You no longer have access to that workspace');
+      return;
+    }
+    await queryClient.invalidateQueries();
+  };
 
-  const handleTenantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newTenantId = e.target.value;
-    setActiveTenant(newTenantId);
-
-    // Invalidate all queries to refetch data for the new tenant instantly
-    queryClient.invalidateQueries();
+  const switchBranch = async (branchId: string) => {
+    setSwitching(true);
+    const changed = await setActiveBranch(branchId);
+    setSwitching(false);
+    if (!changed) {
+      toast.error('You no longer have access to that branch');
+      return;
+    }
+    await queryClient.invalidateQueries();
   };
 
   return (
-    <div className="flex flex-col space-y-1">
-      <label
-        htmlFor="tenant-switcher"
-        className="text-xs font-semibold uppercase tracking-wider text-slate-300"
-      >
-        Active Workspace
-      </label>
-      <select
-        id="tenant-switcher"
-        value={activeTenantId || user.tenantId}
-        onChange={handleTenantChange}
-        className="block w-full rounded-xl border border-slate-700/80 bg-slate-900/70 py-2 px-3 text-sm text-white focus:border-indigo-500 focus:ring-indigo-500/20 focus:outline-none shadow-inner transition duration-200"
-      >
-        {allTenants.map((t, idx) => (
-          <option key={`${t.tenantId}-${idx}`} value={t.tenantId}>
-            {t.orgName || `Workspace ${idx + 1}`}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-col space-y-2">
+      {memberships.length > 1 && (
+        <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+          Active Workspace
+          <select
+            aria-label="Active workspace"
+            value={activeTenantId ?? user?.tenantId}
+            disabled={switching}
+            onChange={(event) => void switchTenant(event.target.value)}
+            className="mt-1 block w-full rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-white"
+          >
+            {memberships.map((membership) => (
+              <option key={membership.id} value={membership.organizationId}>
+                {membership.orgName ?? 'Workspace'}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(activeMembership?.branches.length ?? 0) > 1 && (
+        <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+          Active Branch
+          <select
+            aria-label="Active branch"
+            value={activeBranchId ?? ''}
+            disabled={switching}
+            onChange={(event) => void switchBranch(event.target.value)}
+            className="mt-1 block w-full rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-white"
+          >
+            {activeMembership?.branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 };

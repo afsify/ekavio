@@ -4,6 +4,7 @@ import { getRuntimeConfig } from '../config/env.js';
 import { User } from '../models/User.js';
 import { changePasswordService } from '../services/profileService.js';
 import { clearRefreshCookie } from '../utils/authCookies.js';
+import { disconnectUserSockets } from '../config/socket.js';
 
 export const updateProfile = async (
   request: AuthenticatedRequest,
@@ -59,6 +60,7 @@ export const changePassword = async (
     }
 
     await changePasswordService(userId, oldPassword, newPassword);
+    disconnectUserSockets(userId);
     clearRefreshCookie(response, getRuntimeConfig());
     response.json({
       success: true,

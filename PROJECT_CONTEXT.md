@@ -18,5 +18,6 @@
 - Architecture decisions live in repository ADRs.
 - Completed milestone: V2-00 established the inspection-only repository baseline and architecture records.
 - Completed milestone: V2-01 established deterministic backend and frontend scripts, validated environment configuration, health/readiness checks, explicit CORS origins, production build/start lifecycles, persistent local MongoDB Compose configuration, SPA routing, and CI quality gates while preserving existing business behavior.
-- Current milestone: V2-02 Secure Identity & Session Foundation.
-- V2-02 replaces browser-persisted access and refresh JWTs with short-lived memory-only access JWTs and revocable, rotating MongoDB refresh sessions delivered through an HttpOnly cookie. It also makes logout and password-change revocation explicit and rejects ambiguous duplicate-phone login without changing the existing tenant or authorization model.
+- Completed milestone: V2-02 replaced browser-persisted access and refresh JWTs with short-lived memory-only access JWTs and revocable, rotating MongoDB refresh sessions delivered through an HttpOnly cookie. It also made logout and password-change revocation explicit and rejects ambiguous duplicate-phone login.
+- Current milestone: V2-03 Authorization, Tenant Isolation & Branch Context.
+- V2-03 makes active Membership records the authorization source of truth, adds organization-owned Branch context, centralizes role-to-permission policy, distinguishes platform operators from organization administrators, validates every access JWT against its server session, and applies the same membership context to HTTP and Socket.IO. Commercial entitlements remain a separate V2-04 concern.

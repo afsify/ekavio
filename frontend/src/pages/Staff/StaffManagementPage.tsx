@@ -155,7 +155,7 @@ export const StaffManagementPage: React.FC = () => {
         loading={isLoading}
         title="Organization Staff"
         description="List of all users with access to your tenant workspace."
-        onAdd={currentUser?.role === 'admin' ? () => setIsModalOpen(true) : undefined}
+        onAdd={currentUser?.permissions?.includes('staff.manage') ? () => setIsModalOpen(true) : undefined}
         searchPlaceholder="Search staff..."
       />
 

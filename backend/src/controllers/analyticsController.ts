@@ -4,24 +4,22 @@ import { Queue } from '../models/Queue.js';
 import { Inventory } from '../models/Inventory.js';
 import { Attendance } from '../models/Attendance.js';
 import { createAppError, getErrorMessage } from '../utils/AppError.js';
+import { organizationScope, requireAuthorizationContext } from '../utils/tenantScope.js';
 
 export const getDashboardStats = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const tenantId = req.user?.tenantId;
-    if (!tenantId) {
-      next(createAppError('Tenant ID missing from request context', 401));
-      return;
-    }
+    const context = requireAuthorizationContext(req);
+    const scope = organizationScope(context);
 
     // 1. Total active queue tokens
     const activeTokensCount = await Queue.countDocuments({
-      tenantId,
+      ...scope,
       status: { $in: ['waiting', 'serving'] },
     });
 
     // 2. Count of low stock items
     const lowStockCount = await Inventory.countDocuments({
-      tenantId,
+      ...scope,
       $expr: { $lte: ['$currentStock', '$lowStockThreshold'] },
     });
 
@@ -33,7 +31,7 @@ export const getDashboardStats = async (req: AuthenticatedRequest, res: Response
     endOfDay.setHours(23, 59, 59, 999);
 
     const staffPresentCount = await Attendance.countDocuments({
-      tenantId,
+      ...scope,
       date: { $gte: startOfDay, $lte: endOfDay },
       status: 'present',
     });

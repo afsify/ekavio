@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { addItem, getInventory, getLowStockAlerts } from '../controllers/inventoryController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 import { requireModule } from '../middlewares/tenantMiddleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { addItemSchema } from '../schemas/inventorySchemas.js';
@@ -59,7 +60,7 @@ router.use(requireModule('inventory'));
  *       500:
  *         description: Internal server error
  */
-router.post('/', validateRequest(addItemSchema), addItem);
+router.post('/', requirePermission(permissions.INVENTORY_MANAGE), validateRequest(addItemSchema), addItem);
 
 /**
  * @openapi
@@ -89,7 +90,7 @@ router.post('/', validateRequest(addItemSchema), addItem);
  *       500:
  *         description: Internal server error
  */
-router.get('/', getInventory);
+router.get('/', requirePermission(permissions.INVENTORY_READ), getInventory);
 
 /**
  * @openapi
@@ -119,6 +120,6 @@ router.get('/', getInventory);
  *       500:
  *         description: Internal server error
  */
-router.get('/low-stock', getLowStockAlerts);
+router.get('/low-stock', requirePermission(permissions.INVENTORY_READ), getLowStockAlerts);
 
 export default router;

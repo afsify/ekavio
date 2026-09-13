@@ -1,9 +1,57 @@
-import { Server as SocketIOServer } from 'socket.io';
-import type { Server as HTTPServer } from 'http';
+import type { Server as HTTPServer } from 'node:http';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
+import { Server as SocketIOServer } from 'socket.io';
 import type { RuntimeConfig } from './env.js';
+import {
+  resolveAuthorizationContext,
+  type AccessIdentityClaims,
+  type AuthorizationContext,
+  type ContextSelection,
+} from '../services/requestContextService.js';
 
-let io: SocketIOServer;
+let io: SocketIOServer | undefined;
+
+export interface RealtimeAuthorizationDependencies {
+  verifyToken(token: string): AccessIdentityClaims;
+  resolveContext(
+    claims: AccessIdentityClaims,
+    selection?: ContextSelection,
+  ): Promise<AuthorizationContext>;
+}
+
+export const organizationRoom = (organizationId: string): string =>
+  `organization:${organizationId}`;
+export const branchRoom = (branchId: string): string => `branch:${branchId}`;
+export const authorizationRooms = (context: AuthorizationContext): string[] => [
+  organizationRoom(context.organizationId),
+  ...(context.branchId ? [branchRoom(context.branchId)] : []),
+];
+
+export const createRealtimeAuthorizer = ({
+  verifyToken,
+  resolveContext,
+}: RealtimeAuthorizationDependencies) => {
+  return async (input: {
+    token?: unknown;
+    organizationId?: unknown;
+    branchId?: unknown;
+  }): Promise<AuthorizationContext> => {
+    if (typeof input.token !== 'string' || !input.token.trim()) {
+      throw new Error('Authentication error: Token missing');
+    }
+    if (input.organizationId !== undefined && typeof input.organizationId !== 'string') {
+      throw new Error('Authentication error: Invalid organization context');
+    }
+    if (input.branchId !== undefined && typeof input.branchId !== 'string') {
+      throw new Error('Authentication error: Invalid branch context');
+    }
+    const claims = verifyToken(input.token);
+    return resolveContext(claims, {
+      ...(input.organizationId ? { organizationId: input.organizationId } : {}),
+      ...(input.branchId ? { branchId: input.branchId } : {}),
+    });
+  };
+};
 
 export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => {
   io = new SocketIOServer(server, {
@@ -13,16 +61,9 @@ export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => 
     },
   });
 
-  // Socket Authentication Middleware
-  io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) {
-      return next(new Error('Authentication error: Token missing'));
-    }
-
-    try {
+  const authorizeRealtime = createRealtimeAuthorizer({
+    verifyToken(token) {
       const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
-
       if (
         typeof decoded.id !== 'string' ||
         typeof decoded.tenantId !== 'string' ||
@@ -30,39 +71,56 @@ export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => 
       ) {
         throw new Error('Invalid access token claims');
       }
+      return {
+        userId: decoded.id,
+        defaultOrganizationId: decoded.tenantId,
+        sessionId: decoded.sessionId,
+      };
+    },
+    resolveContext: resolveAuthorizationContext,
+  });
 
-      // Attach tenantId to the socket object for later access
-      socket.data.tenantId = decoded.tenantId;
-      socket.data.userId = decoded.id;
-      socket.data.sessionId = decoded.sessionId;
+  io.use(async (socket, next) => {
+    try {
+      const context = await authorizeRealtime({
+        token: socket.handshake.auth?.token,
+        organizationId: socket.handshake.auth?.organizationId,
+        branchId: socket.handshake.auth?.branchId,
+      });
+      socket.data.authorization = context;
       next();
     } catch {
-      return next(new Error('Authentication error: Invalid token'));
+      next(new Error('Authentication error: Unauthorized context'));
     }
   });
 
   io.on('connection', (socket) => {
-    const tenantId = socket.data.tenantId;
-
-    if (tenantId) {
-      // Join the room specific to the tenant
-      socket.join(tenantId);
-      console.log(`Socket ${socket.id} joined tenant room: ${tenantId}`);
+    const context = socket.data.authorization as AuthorizationContext | undefined;
+    if (!context) {
+      socket.disconnect(true);
+      return;
     }
 
-    socket.on('disconnect', () => {
-      console.log(`Socket ${socket.id} disconnected`);
-    });
+    void socket.join(authorizationRooms(context));
   });
 };
 
-/**
- * Helper function to emit events to a specific tenant room
- */
-export const emitToTenant = (tenantId: string, event: string, data: unknown): void => {
-  if (io) {
-    io.to(tenantId).emit(event, data);
-  } else {
-    console.warn('Socket.io not initialized. Cannot emit event.');
+export const disconnectUserSockets = (userId: string): void => {
+  if (!io) return;
+  for (const socket of io.sockets.sockets.values()) {
+    const context = socket.data.authorization as AuthorizationContext | undefined;
+    if (context?.userId === userId) socket.disconnect(true);
   }
+};
+
+export const disconnectSessionSockets = (sessionId: string): void => {
+  if (!io) return;
+  for (const socket of io.sockets.sockets.values()) {
+    const context = socket.data.authorization as AuthorizationContext | undefined;
+    if (context?.sessionId === sessionId) socket.disconnect(true);
+  }
+};
+
+export const emitToTenant = (tenantId: string, event: string, data: unknown): void => {
+  if (io) io.to(organizationRoom(tenantId)).emit(event, data);
 };

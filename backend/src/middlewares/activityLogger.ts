@@ -12,16 +12,14 @@ export const activityLogger = (action: string) => {
       // Only log successful actions by default (e.g., status 2xx or 3xx)
       if (res.statusCode >= 200 && res.statusCode < 400) {
         try {
-          if (req.user?.tenantId && req.user?.id) {
+          if (req.auth) {
             const logEntry = new ActivityLog({
-              tenantId: req.user.tenantId,
-              userId: req.user.id,
+              tenantId: req.auth.organizationId,
+              userId: req.auth.userId,
               action,
               details: {
                 method: req.method,
                 originalUrl: req.originalUrl,
-                body: req.method !== 'GET' ? req.body : undefined,
-                query: req.query,
               },
               ipAddress: req.ip || req.socket.remoteAddress,
             });

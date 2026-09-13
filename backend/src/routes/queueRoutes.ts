@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createToken, getQueue, updateTokenStatus } from '../controllers/queueController.js';
-import { authenticate } from '../middlewares/authMiddleware.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { permissions } from '../services/authorizationPolicy.js';
 import { requireModule } from '../middlewares/tenantMiddleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { createTokenSchema, updateTokenStatusSchema } from '../schemas/queueSchemas.js';
@@ -58,7 +59,7 @@ router.use(requireModule('queue'));
  *       500:
  *         description: Internal server error
  */
-router.post('/', validateRequest(createTokenSchema), createToken);
+router.post('/', requirePermission(permissions.QUEUE_MANAGE), validateRequest(createTokenSchema), createToken);
 
 /**
  * @openapi
@@ -88,7 +89,7 @@ router.post('/', validateRequest(createTokenSchema), createToken);
  *       500:
  *         description: Internal server error
  */
-router.get('/', getQueue);
+router.get('/', requirePermission(permissions.QUEUE_READ), getQueue);
 
 /**
  * @openapi
@@ -131,6 +132,6 @@ router.get('/', getQueue);
  *       500:
  *         description: Internal server error
  */
-router.patch('/:tokenId/status', validateRequest(updateTokenStatusSchema), updateTokenStatus);
+router.patch('/:tokenId/status', requirePermission(permissions.QUEUE_MANAGE), validateRequest(updateTokenStatusSchema), updateTokenStatus);
 
 export default router;

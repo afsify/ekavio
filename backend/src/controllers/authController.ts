@@ -13,6 +13,7 @@ import {
   setRefreshCookie,
 } from '../utils/authCookies.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
+import { disconnectSessionSockets } from '../config/socket.js';
 
 export interface AuthHandlers {
   login(request: Request, response: Response, next: NextFunction): Promise<void>;
@@ -42,7 +43,12 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
         throw new AppError('Refresh session required', 401);
       }
 
-      const result = await service.refresh(refreshCredential);
+      const organizationHeader = request.get('x-tenant-id')?.trim();
+      const branchHeader = request.get('x-branch-id')?.trim();
+      const result = await service.refresh(refreshCredential, {
+        ...(organizationHeader ? { organizationId: organizationHeader } : {}),
+        ...(branchHeader ? { branchId: branchHeader } : {}),
+      });
       setRefreshCookie(response, result.refreshCredential, getRuntimeConfig());
       response.status(200).json(result.response);
     } catch (error: unknown) {
@@ -53,7 +59,8 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
 
   async logout(request, response, next) {
     try {
-      await service.logout(readRefreshCookie(request));
+      const sessionId = await service.logout(readRefreshCookie(request));
+      if (sessionId) disconnectSessionSockets(sessionId);
       clearRefreshCookie(response, getRuntimeConfig());
       response.status(200).json({ message: 'Signed out successfully' });
     } catch (error: unknown) {
@@ -91,13 +98,13 @@ export const updateTheme = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const tenantId = request.user?.tenantId;
-    if (!tenantId) {
+    const organizationId = request.auth?.organizationId;
+    if (!organizationId) {
       next(new AppError('Unauthorized: tenant identification missing', 401));
       return;
     }
 
-    const theme = await updateThemeService(tenantId, request.body);
+    const theme = await updateThemeService(organizationId, request.body);
     response.status(200).json({ message: 'Theme updated successfully', theme });
   } catch (error: unknown) {
     next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));

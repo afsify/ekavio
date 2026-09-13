@@ -1,4 +1,5 @@
 import { Queue } from '../models/Queue.js';
+import { organizationResourceScope, organizationScope, type OrganizationContext } from '../utils/tenantScope.js';
 
 interface QueueTokenInput {
   customerName: string;
@@ -7,14 +8,25 @@ interface QueueTokenInput {
   tokenNumber?: string;
 }
 
-export const createTokenService = async (tenantId: string, data: QueueTokenInput) => {
+export interface QueueStatusRepository {
+  updateStatus(
+    filter: { _id: string; tenantId: string },
+    status: string,
+  ): Promise<unknown | null>;
+}
+
+export const createQueueStatusUpdater = (repository: QueueStatusRepository) =>
+  async (context: OrganizationContext, tokenId: string, status: string) =>
+    repository.updateStatus(organizationResourceScope(context, tokenId), status);
+
+export const createTokenService = async (context: OrganizationContext, data: QueueTokenInput) => {
   const { customerName, phone, serviceType, tokenNumber: customTokenNumber } = data;
 
-  const count = await Queue.countDocuments({ tenantId });
+  const count = await Queue.countDocuments(organizationScope(context));
   const tokenNumber = customTokenNumber || `#${count + 1}`;
 
   const queueEntry = new Queue({
-    tenantId,
+    tenantId: context.organizationId,
     tokenNumber,
     customerName,
     phone,
@@ -26,13 +38,13 @@ export const createTokenService = async (tenantId: string, data: QueueTokenInput
   return queueEntry;
 };
 
-export const getQueueService = async (tenantId: string, pageStr?: string, limitStr?: string) => {
+export const getQueueService = async (context: OrganizationContext, pageStr?: string, limitStr?: string) => {
   const page = parseInt(pageStr ?? '') || 1;
   const limit = parseInt(limitStr ?? '') || 10;
   const skip = (page - 1) * limit;
 
   const query = {
-    tenantId,
+    ...organizationScope(context),
     status: { $in: ['waiting', 'serving'] as const },
   };
 
@@ -47,12 +59,11 @@ export const getQueueService = async (tenantId: string, pageStr?: string, limitS
   return { data: queue, totalDocs, totalPages };
 };
 
-export const updateTokenStatusService = async (tenantId: string, tokenId: string, status: string) => {
-  const updatedToken = await Queue.findOneAndUpdate(
-    { _id: tokenId, tenantId },
-    { status },
-    { new: true, runValidators: true }
-  );
-
-  return updatedToken;
-};
+export const updateTokenStatusService = createQueueStatusUpdater({
+  updateStatus: (filter, status) =>
+    Queue.findOneAndUpdate(
+      filter,
+      { status },
+      { new: true, runValidators: true },
+    ),
+});
