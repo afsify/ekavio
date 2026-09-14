@@ -10,6 +10,8 @@ const organizationSchema = new Schema(
       index: true,
     },
     type: { type: String, required: true }, // e.g., 'shop', 'clinic', 'salon'
+    // Deprecated V2-04 migration inputs. Runtime commercial authority lives in
+    // Subscription/Entitlement and these fields must not be written by new flows.
     billingCycle: {
       type: String,
       enum: ["monthly", "yearly"],

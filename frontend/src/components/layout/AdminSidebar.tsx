@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Home, LayoutDashboard, Settings, Users, X, LogOut, MessageSquare, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
+import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAppStore } from '../../store/useAppStore';
+import { hasEntitlement, MODULES, type ModuleKey } from '../../commercial/catalogue';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -19,6 +20,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAppStore((state) => state.user);
+  const entitlements = useAppStore((state) => state.entitlements);
   const logout = useAppStore((state) => state.logout);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -38,14 +40,19 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const menuItems = [
+  const menuItems: Array<{
+    name: string;
+    path: string;
+    icon: React.ReactNode;
+    module?: ModuleKey;
+    permission?: string;
+  }> = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: 'inventory' },
-    { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: 'queue' },
-    { name: 'Ledger', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: 'ledger' },
-    { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: 'attendance' },
+    { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY },
+    { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: MODULES.QUEUE },
+    { name: 'Ledger', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER },
+    { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: MODULES.ATTENDANCE },
     { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },
-    { name: 'Messages', path: '/chat', icon: <MessageSquare className="w-5 h-5" />, module: 'chat' },
     { name: 'Corporate HQ', path: '/corporate', icon: <Building2 className="w-5 h-5" />, permission: 'corporate.manage' },
     { name: 'Staff', path: '/staff', icon: <UserCog className="w-5 h-5" />, permission: 'staff.read' },
     { name: 'Settings', path: '/settings', icon: <Settings className="w-5 h-5" />, permission: 'organization.manage' },
@@ -53,7 +60,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const filteredMenuItems = menuItems.filter(item => {
     if (item.permission && !user?.permissions?.includes(item.permission)) return false;
-    if (item.module && !user?.activeModules?.includes(item.module)) return false;
+    if (item.module && !hasEntitlement(entitlements, item.module)) return false;
     return true;
   });
 

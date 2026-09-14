@@ -1,37 +1,45 @@
 import type { Response, NextFunction } from 'express';
+import type { ModuleKey } from '../commercial/catalogue.js';
+import { entitlementService } from '../services/entitlementService.js';
 import type { AuthenticatedRequest } from './authMiddleware.js';
-import { Organization } from '../models/Organization.js';
 
-export const requireModule = (moduleName: string) => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const tenantId = req.auth?.organizationId;
+export interface EntitlementReader {
+  getEffective(organizationId: string): Promise<{
+    modules: Array<{ key: ModuleKey; enabled: boolean }>;
+  }>;
+}
 
-      if (!tenantId) {
-        res.status(401).json({ message: 'Tenant ID missing from request context' });
-        return;
+export const createRequireEntitlement = (reader: EntitlementReader) =>
+  (moduleKey: ModuleKey) =>
+    async (
+      request: AuthenticatedRequest,
+      response: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        const organizationId = request.auth?.organizationId;
+        if (!organizationId) {
+          response.status(401).json({ message: 'Tenant ID missing from request context' });
+          return;
+        }
+
+        const effective = await reader.getEffective(organizationId);
+        const module = effective.modules.find((candidate) => candidate.key === moduleKey);
+        if (!module?.enabled) {
+          response.status(403).json({
+            error: {
+              code: 'ENTITLEMENT_REQUIRED',
+              message: 'Organization does not have the required commercial entitlement',
+              module: moduleKey,
+            },
+          });
+          return;
+        }
+
+        next();
+      } catch (error) {
+        next(error);
       }
+    };
 
-      const organization = await Organization.findById(tenantId);
-
-      if (!organization) {
-        res.status(404).json({ message: 'Organization not found' });
-        return;
-      }
-
-      if (organization.subscriptionStatus !== 'active') {
-        res.status(403).json({ message: 'Organization subscription is not active' });
-        return;
-      }
-
-      if (!organization.activeModules.includes(moduleName)) {
-        res.status(403).json({ message: `Access denied. Module '${moduleName}' is not active.` });
-        return;
-      }
-
-      next();
-    } catch (error) {
-      next(error);
-    }
-  };
-};
+export const requireEntitlement = createRequireEntitlement(entitlementService);

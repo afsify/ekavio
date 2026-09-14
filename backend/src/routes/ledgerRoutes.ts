@@ -2,20 +2,21 @@ import { Router } from 'express';
 import { addEntry, getTenantLedger } from '../controllers/ledgerController.js';
 import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
 import { permissions } from '../services/authorizationPolicy.js';
-import { requireModule } from '../middlewares/tenantMiddleware.js';
+import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
+import { MODULES } from '../commercial/catalogue.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { addLedgerEntrySchema } from '../schemas/ledgerSchemas.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireModule('khata'));
+router.use(requireEntitlement(MODULES.LEDGER));
 
 /**
  * @openapi
  * /ledger:
  *   post:
- *     summary: Add a new entry to the Digital Khata (Ledger)
+ *     summary: Add a new ledger entry
  *     tags:
  *       - Ledger
  *     security:
@@ -61,7 +62,7 @@ router.use(requireModule('khata'));
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Access denied (khata module inactive)
+ *         description: Access denied (ledger entitlement required)
  *       500:
  *         description: Internal server error
  */
@@ -91,7 +92,7 @@ router.post('/', requirePermission(permissions.LEDGER_MANAGE), validateRequest(a
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Access denied (khata module inactive)
+ *         description: Access denied (ledger entitlement required)
  *       500:
  *         description: Internal server error
  */

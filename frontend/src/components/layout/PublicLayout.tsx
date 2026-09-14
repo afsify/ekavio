@@ -28,12 +28,12 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
             >
               Login
             </Link>
-            <Link
-              to="/register"
+            <a
+              href="#pilot-access"
               className="text-sm font-semibold bg-white text-slate-900 hover:bg-slate-200 px-4 py-2 rounded-lg transition-all shadow-md shadow-white/10 hover:shadow-white/20 active:scale-95 hidden sm:block"
             >
-              Get Started
-            </Link>
+              Pilot Access
+            </a>
           </nav>
         </div>
       </header>

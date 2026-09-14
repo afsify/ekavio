@@ -1,7 +1,7 @@
 /**
  * Mobile-First App Layout (`AppLayout`)
  * Functional layout wrapper providing a Top App Bar, main scrollable area with Outlet support,
- * and native-style Bottom Navigation Bar (Home, Khata, Attendance, Settings).
+ * and native-style Bottom Navigation Bar (Home, Ledger, Attendance, Settings).
  */
 import React from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -50,7 +50,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const navItems = [
     { label: 'Home', path: '/dashboard', icon: Home },
-    { label: 'Khata', path: '/dashboard?module=digital-khata', icon: BookOpenCheck },
+    { label: 'Ledger', path: '/ledger', icon: BookOpenCheck },
     { label: 'Attendance', path: '/dashboard?module=attendance', icon: Users },
     { label: 'Settings', path: '/dashboard?tab=settings', icon: Settings },
   ];

@@ -31,18 +31,18 @@ export const HeroSection: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            to="/register"
+            to="/login"
             className="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-4 px-8 rounded-xl transition-all shadow-lg shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:scale-95"
           >
-            Start Free Trial
+            Sign In to Your Workspace
             <ArrowRight className="w-5 h-5" />
           </Link>
-          <Link
-            to="/login"
+          <a
+            href="#pilot-access"
             className="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-slate-800/50 hover:bg-slate-800 text-white border border-slate-700 hover:border-slate-600 font-medium py-4 px-8 rounded-xl transition-all backdrop-blur-sm active:scale-95"
           >
-            Login
-          </Link>
+            How Pilot Access Works
+          </a>
         </div>
       </div>
     </section>

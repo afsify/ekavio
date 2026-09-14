@@ -8,6 +8,7 @@ import { User } from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
 import { permissionsForRole, type Permission } from './authorizationPolicy.js';
 import { ensureLegacyAuthorizationForUser } from './authorizationBackfillService.js';
+import { entitlementService, type EffectiveEntitlements } from './entitlementService.js';
 import { getSessionIdFromRefreshCredential, runtimeRefreshSessions } from './sessionService.js';
 import type { RefreshSessionManager, SessionMetadata } from './sessionService.js';
 
@@ -60,7 +61,6 @@ export interface MembershipContext {
   status: 'active';
   branchIds: string[];
   branches: BranchContext[];
-  activeModules: string[];
 }
 
 export interface PublicUser {
@@ -75,8 +75,6 @@ export interface PublicUser {
   phone: string;
   assignments: Array<IdentityAssignment & { orgName?: string }>;
   memberships: MembershipContext[];
-  activeModules: string[];
-  tenant: { activeModules: string[] };
 }
 
 export interface AuthContext {
@@ -91,7 +89,7 @@ export interface AuthContext {
   memberships: MembershipContext[];
   user: PublicUser;
   assignments: PublicUser['assignments'];
-  activeModules: string[];
+  entitlements: EffectiveEntitlements;
   theme: { mode: 'light' | 'dark'; primaryColor: string };
 }
 
@@ -205,7 +203,6 @@ export const mongooseIdentityRepository: IdentityRepository = {
         status: 'active' as const,
         branchIds: availableBranches.map((branch) => branch.id),
         branches: availableBranches,
-        activeModules: [...(organization.activeModules ?? [])],
       }];
     });
 
@@ -224,8 +221,8 @@ export const mongooseIdentityRepository: IdentityRepository = {
     branchId ??= activeMembership.branchIds[0];
 
     const primaryOrganization = organizationById.get(activeMembership.organizationId);
-    const activeModules = [...activeMembership.activeModules];
     const permissions = permissionsForRole(activeMembership.role);
+    const entitlements = await entitlementService.getEffective(activeMembership.organizationId);
     const assignments = memberships
       .filter((membership) => membership.organizationId !== activeMembership.organizationId)
       .map((membership) => ({
@@ -251,8 +248,6 @@ export const mongooseIdentityRepository: IdentityRepository = {
       phone: user.phone,
       assignments,
       memberships,
-      activeModules,
-      tenant: { activeModules },
     };
 
     return {
@@ -267,7 +262,7 @@ export const mongooseIdentityRepository: IdentityRepository = {
       memberships,
       user: publicUser,
       assignments,
-      activeModules,
+      entitlements,
       theme,
     };
   },
@@ -364,7 +359,6 @@ export const registerAdminService = async (data: RegisterAdminInput) => {
   const organization = await Organization.create({
     name: orgName,
     type: orgType,
-    activeModules: ['queue'],
   });
   const branch = await Branch.create({
     organizationId: organization._id,

@@ -24,6 +24,8 @@ import {
 import { AppError } from '../src/utils/AppError.js';
 import { setRefreshCookie } from '../src/utils/authCookies.js';
 import { permissionsForRole } from '../src/services/authorizationPolicy.js';
+import { MODULES, emptyEffectiveLimits } from '../src/commercial/catalogue.js';
+import type { EffectiveEntitlements } from '../src/services/entitlementService.js';
 
 initializeRuntimeConfig({
   NODE_ENV: 'test',
@@ -114,7 +116,20 @@ const buildContext = (user: IdentityUser): AuthContext => {
     ...assignment,
     orgName: assignment.tenantId === 'tenant-2' ? 'Second Tenant' : undefined,
   }));
-  const activeModules = ['queue'];
+  const entitlements: EffectiveEntitlements = {
+    organizationId: user.tenantId,
+    subscription: null,
+    modules: [{
+      key: MODULES.QUEUE,
+      displayName: 'Queue',
+      description: 'Queue access',
+      category: 'customer-experience',
+      commercialType: 'core',
+      enabled: true,
+      sources: ['test'],
+    }],
+    limits: emptyEffectiveLimits(),
+  };
   const role = user.role === 'admin' ? 'admin' as const : 'staff' as const;
   const permissions = permissionsForRole(role);
   const memberships = [{
@@ -126,7 +141,6 @@ const buildContext = (user: IdentityUser): AuthContext => {
     status: 'active' as const,
     branchIds: ['branch-1'],
     branches: [{ id: 'branch-1', name: 'Main', code: 'main' }],
-    activeModules,
   }];
 
   return {
@@ -151,11 +165,9 @@ const buildContext = (user: IdentityUser): AuthContext => {
       phone: user.phone,
       assignments,
       memberships,
-      activeModules,
-      tenant: { activeModules },
     },
     assignments,
-    activeModules,
+    entitlements,
     theme: { mode: 'dark', primaryColor: '#4F46E5' },
   };
 };
@@ -180,8 +192,11 @@ const createHarness = ({
     async findById(userId) {
       return users.find((user) => user.id === userId) ?? null;
     },
-    async buildContext(user) {
-      return buildContext(user);
+    async buildContext(user, selection) {
+      return buildContext({
+        ...user,
+        tenantId: selection?.organizationId ?? user.tenantId,
+      });
     },
   };
   const service = createAuthService({
@@ -337,6 +352,22 @@ test('concurrent refresh rotation has exactly one winner', async () => {
 
   assert.equal(attempts.filter((attempt) => attempt.status === 'fulfilled').length, 1);
   assert.equal(attempts.filter((attempt) => attempt.status === 'rejected').length, 1);
+});
+
+test('tenant switching recomputes effective entitlements for the selected organization', async () => {
+  const { service } = createHarness();
+  const loginResult = await login(service);
+  assert.equal(loginResult.response.entitlements.organizationId, 'tenant-1');
+
+  const switched = await service.refresh(loginResult.refreshCredential, {
+    organizationId: 'tenant-2',
+  });
+  assert.equal(switched.response.organizationId, 'tenant-2');
+  assert.equal(switched.response.entitlements.organizationId, 'tenant-2');
+  assert.notEqual(
+    switched.response.entitlements.organizationId,
+    loginResult.response.entitlements.organizationId,
+  );
 });
 
 test('revoked sessions cannot refresh', async () => {

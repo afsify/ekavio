@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { createToken, getQueue, updateTokenStatus } from '../controllers/queueController.js';
 import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
 import { permissions } from '../services/authorizationPolicy.js';
-import { requireModule } from '../middlewares/tenantMiddleware.js';
+import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
+import { MODULES } from '../commercial/catalogue.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { createTokenSchema, updateTokenStatusSchema } from '../schemas/queueSchemas.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireModule('queue'));
+router.use(requireEntitlement(MODULES.QUEUE));
 
 /**
  * @openapi

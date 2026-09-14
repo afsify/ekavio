@@ -1,60 +1,39 @@
 import { Router } from 'express';
-import { getInvoices, createPaymentOrder } from '../controllers/billingController.js';
-import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import {
+  getCatalogue,
+  getSubscription,
+  updateSubscription,
+  upsertEntitlement,
+} from '../controllers/billingController.js';
+import {
+  authenticate,
+  requirePermission,
+  requirePlatformOperator,
+} from '../middlewares/authMiddleware.js';
+import { validateRequest } from '../middlewares/validateRequest.js';
+import {
+  updateSubscriptionSchema,
+  upsertEntitlementSchema,
+} from '../schemas/billingSchemas.js';
 import { permissions } from '../services/authorizationPolicy.js';
 
 const router = Router();
 
 router.use(authenticate);
+router.get('/subscription', requirePermission(permissions.BILLING_READ), getSubscription);
+router.get('/catalogue', requirePermission(permissions.BILLING_READ), getCatalogue);
 
-/**
- * @openapi
- * /billing/invoices:
- *   get:
- *     summary: Get past invoices for the tenant
- *     tags:
- *       - Billing
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of mock invoices
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Internal server error
- */
-router.get('/invoices', requirePermission(permissions.BILLING_READ), getInvoices);
-
-/**
- * @openapi
- * /billing/create-order:
- *   post:
- *     summary: Create a payment order for a subscription plan
- *     tags:
- *       - Billing
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - planId
- *             properties:
- *               planId:
- *                 type: string
- *                 example: pro
- *     responses:
- *       201:
- *         description: Payment order created
- *       400:
- *         description: Bad request
- *       500:
- *         description: Internal server error
- */
-router.post('/create-order', requirePermission(permissions.BILLING_MANAGE), createPaymentOrder);
+router.put(
+  '/operator/organizations/:organizationId/subscription',
+  requirePlatformOperator,
+  validateRequest(updateSubscriptionSchema),
+  updateSubscription,
+);
+router.put(
+  '/operator/organizations/:organizationId/entitlements/:moduleKey',
+  requirePlatformOperator,
+  validateRequest(upsertEntitlementSchema),
+  upsertEntitlement,
+);
 
 export default router;

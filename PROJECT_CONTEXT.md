@@ -21,7 +21,9 @@
 - Completed milestone: V2-02 replaced browser-persisted access and refresh JWTs with short-lived memory-only access JWTs and revocable, rotating MongoDB refresh sessions delivered through an HttpOnly cookie. It also made logout and password-change revocation explicit and rejects ambiguous duplicate-phone login.
 - Completed milestone: V2-03 Authorization, Tenant Isolation & Branch Context.
 - V2-03 established active Membership records as authorization truth, organization-owned Branch authorization context, centralized permissions, platform-operator separation, live session validation, HTTP and Socket.IO tenant isolation, and cross-tenant regression coverage.
-- Next milestone: V2-04 Entitlements.
+- Completed milestone: V2-04 Commercial Entitlements Foundation.
+- V2-04 established canonical operational module IDs, organization-scoped plans/add-ons/subscriptions/overrides, deterministic effective entitlements and limits, backend entitlement enforcement, platform-operator-only commercial mutations, an idempotent legacy backfill, and backend-sourced frontend commercial state without payment-gateway or invoice mocks.
+- Next milestone: V2-05 PostgreSQL Shared Core.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 

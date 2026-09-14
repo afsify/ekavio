@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { markAttendance, getDailyAttendance } from '../controllers/attendanceController.js';
 import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
 import { permissions } from '../services/authorizationPolicy.js';
-import { requireModule } from '../middlewares/tenantMiddleware.js';
+import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
+import { MODULES } from '../commercial/catalogue.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { markAttendanceSchema } from '../schemas/attendanceSchemas.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireModule('attendance'));
+router.use(requireEntitlement(MODULES.ATTENDANCE));
 
 /**
  * @openapi

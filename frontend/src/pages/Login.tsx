@@ -82,7 +82,7 @@ export const Login: React.FC = () => {
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium mb-3">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Ekavio Enterprise Mobile Suite</span>
+            <span>Ekavio Business Operations Suite</span>
           </div>
 
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">

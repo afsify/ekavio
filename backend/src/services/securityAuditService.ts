@@ -5,7 +5,9 @@ export type SecurityAuditAction =
   | 'membership.created'
   | 'membership.revoked'
   | 'corporate.parent.created'
-  | 'corporate.child.linked';
+  | 'corporate.child.linked'
+  | 'commercial.subscription.updated'
+  | 'commercial.entitlement.updated';
 
 type SafeAuditValue = string | number | boolean | null;
 
@@ -14,10 +16,11 @@ export const recordSecurityAudit = async (
   action: SecurityAuditAction,
   metadata: Readonly<Record<string, SafeAuditValue>>,
   ipAddress?: string,
+  targetOrganizationId?: string,
 ): Promise<void> => {
   try {
     await ActivityLog.create({
-      tenantId: context.organizationId,
+      tenantId: targetOrganizationId ?? context.organizationId,
       userId: context.userId,
       action,
       details: { ...metadata },

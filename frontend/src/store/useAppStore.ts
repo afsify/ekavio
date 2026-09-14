@@ -5,6 +5,7 @@ import {
   saveThemePreference,
   type ThemePreference,
 } from './sessionPersistence';
+import type { EffectiveEntitlements } from '../commercial/catalogue';
 
 export interface UserAssignment {
   tenantId: string;
@@ -27,7 +28,6 @@ export interface MembershipContext {
   status: 'active';
   branchIds: string[];
   branches: BranchContext[];
-  activeModules: string[];
 }
 
 export interface UserProfile {
@@ -42,8 +42,6 @@ export interface UserProfile {
   phone?: string;
   assignments?: UserAssignment[];
   memberships?: MembershipContext[];
-  activeModules?: string[];
-  tenant?: { activeModules?: string[]; [key: string]: unknown };
 }
 
 export type ThemeConfig = ThemePreference;
@@ -56,6 +54,7 @@ export interface SessionPayload {
   permissions?: string[];
   memberships?: MembershipContext[];
   user: UserProfile;
+  entitlements: EffectiveEntitlements;
   theme?: ThemeConfig;
 }
 
@@ -67,6 +66,7 @@ export interface AppState {
   isBootstrapping: boolean;
   activeTenantId: string | null;
   activeBranchId: string | null;
+  entitlements: EffectiveEntitlements | null;
   establishSession: (payload: SessionPayload) => void;
   bootstrapSession: () => Promise<void>;
   clearSession: () => void;
@@ -74,6 +74,7 @@ export interface AppState {
   setTheme: (mode: 'light' | 'dark', primaryColor?: string) => void;
   setActiveTenant: (tenantId: string) => Promise<boolean>;
   setActiveBranch: (branchId: string) => Promise<boolean>;
+  refreshEntitlements: () => Promise<EffectiveEntitlements>;
 }
 
 const DEFAULT_THEME: ThemeConfig = { mode: 'dark', primaryColor: '#4F46E5' };
@@ -91,6 +92,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isBootstrapping: true,
   activeTenantId: null,
   activeBranchId: null,
+  entitlements: null,
 
   establishSession: (payload) => {
     const organizationId =
@@ -99,7 +101,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       (candidate) => candidate.organizationId === organizationId,
     );
     const activeBranchId = payload.branchId ?? payload.user.branchId ?? membership?.branchIds[0] ?? null;
-    const activeModules = membership?.activeModules ?? payload.user.activeModules ?? [];
     const enrichedUser: UserProfile = {
       ...payload.user,
       tenantId: organizationId,
@@ -109,7 +110,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       role: payload.role ?? membership?.role ?? payload.user.role,
       permissions: payload.permissions ?? payload.user.permissions ?? [],
       memberships: payload.memberships ?? payload.user.memberships ?? [],
-      activeModules,
     };
 
     set({
@@ -120,6 +120,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isBootstrapping: false,
       activeTenantId: organizationId,
       activeBranchId,
+      entitlements: payload.entitlements,
     });
     if (browserStorage && payload.theme) saveThemePreference(browserStorage, payload.theme);
     useSocketStore
@@ -151,6 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isBootstrapping: false,
       activeTenantId: null,
       activeBranchId: null,
+      entitlements: null,
     });
     useSocketStore.getState().disconnectSocket();
   },
@@ -184,6 +186,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch {
       return false;
     }
+  },
+
+  refreshEntitlements: async () => {
+    const organizationId = get().activeTenantId;
+    if (!organizationId) throw new Error('No active organization');
+    const { client } = await import('../api/client');
+    const response = await client.get<{ data: EffectiveEntitlements }>('/billing/subscription');
+    if (response.data.data.organizationId !== organizationId) {
+      throw new Error('Commercial response organization mismatch');
+    }
+    set({ entitlements: response.data.data });
+    return response.data.data;
   },
 
   setTheme: (mode, primaryColor) => {

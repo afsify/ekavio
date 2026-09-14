@@ -7,6 +7,7 @@ import {
   assertConsolidatedBillingAuthority,
   assertCorporateLinkAuthority,
 } from '../services/corporateAuthorizationService.js';
+import { entitlementService } from '../services/entitlementService.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
@@ -92,18 +93,20 @@ export const getConsolidatedBilling = async (
     assertConsolidatedBillingAuthority(context.userId, String(parentOrg.ownerId));
 
     const childOrgs = await Organization.find({ parentId }).lean();
-    const moduleCost = 199;
-    const billingDetails = childOrgs.map((organization) => ({
-      orgId: organization._id,
-      name: organization.name,
-      activeModulesCount: organization.activeModules?.length ?? 0,
-      cost: (organization.activeModules?.length ?? 0) * moduleCost,
+    const billingDetails = await Promise.all(childOrgs.map(async (organization) => {
+      const commercialState = await entitlementService.getEffective(String(organization._id));
+      return {
+        organizationId: String(organization._id),
+        name: organization.name,
+        subscriptionStatus: commercialState.subscription?.status ?? 'none',
+        enabledModules: commercialState.modules
+          .filter((module) => module.enabled)
+          .map((module) => module.key),
+      };
     }));
     response.status(200).json({
       data: {
-        parentOrg: parentOrg.name,
-        totalCost: billingDetails.reduce((sum, item) => sum + item.cost, 0),
-        currency: 'INR',
+        parentOrganization: parentOrg.name,
         billingDetails,
       },
     });

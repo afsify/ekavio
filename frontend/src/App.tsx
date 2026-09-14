@@ -11,6 +11,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { Login } from "./pages/Login";
+import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue';
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const LedgerPage = React.lazy(() => import("./pages/Ledger/LedgerPage"));
@@ -21,7 +22,6 @@ const QueuePage = React.lazy(() => import("./pages/Queue/QueuePage"));
 const InventoryPage = React.lazy(
   () => import("./pages/Inventory/InventoryPage"),
 );
-const ChatPage = React.lazy(() => import("./pages/Chat/ChatPage"));
 const CorporateDashboard = React.lazy(
   () => import("./pages/Corporate/CorporateDashboard"),
 );
@@ -47,14 +47,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 interface ModuleGuardProps {
-  module: string;
+  module: ModuleKey;
   children: React.ReactNode;
 }
 
 const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
-  const user = useAppStore((state) => state.user);
+  const entitlements = useAppStore((state) => state.entitlements);
 
-  if (!user?.activeModules?.includes(module)) {
+  if (!hasEntitlement(entitlements, module)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-5rem)] p-6 text-center">
         <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md shadow-2xl">
@@ -65,13 +65,13 @@ const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Upgrade Required</h2>
           <p className="text-slate-400 mb-6">
-            Your current plan doesn't include access to the <span className="text-indigo-400 font-semibold capitalize">{module}</span> module.
+            Your organization does not currently have access to the <span className="text-indigo-400 font-semibold capitalize">{module}</span> module.
           </p>
           <a
             href="/billing"
             className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200"
           >
-            Upgrade Plan
+            View Subscription
           </a>
         </div>
       </div>
@@ -80,6 +80,17 @@ const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
 
   return <>{children}</>;
 };
+
+const UnavailableFeature: React.FC<{ name: string }> = ({ name }) => (
+  <div className="flex min-h-[calc(100vh-5rem)] items-center justify-center p-6 text-center">
+    <div className="max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+      <h2 className="text-2xl font-bold text-white">{name} is not available</h2>
+      <p className="mt-3 text-slate-400">
+        This workflow is deferred and is not part of the commercial module catalogue.
+      </p>
+    </div>
+  </div>
+);
 
 const PermissionGuard: React.FC<{ permission: string; children: React.ReactNode }> = ({
   permission,
@@ -147,7 +158,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <ModuleGuard module="ledger">
+                    <ModuleGuard module={MODULES.LEDGER}>
                       <LedgerPage />
                     </ModuleGuard>
                   </AdminLayout>
@@ -159,7 +170,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <ModuleGuard module="attendance">
+                    <ModuleGuard module={MODULES.ATTENDANCE}>
                       <AttendancePage />
                     </ModuleGuard>
                   </AdminLayout>
@@ -171,7 +182,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <ModuleGuard module="queue">
+                    <ModuleGuard module={MODULES.QUEUE}>
                       <QueuePage />
                     </ModuleGuard>
                   </AdminLayout>
@@ -183,7 +194,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <ModuleGuard module="inventory">
+                    <ModuleGuard module={MODULES.INVENTORY}>
                       <InventoryPage />
                     </ModuleGuard>
                   </AdminLayout>
@@ -195,9 +206,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <ModuleGuard module="chat">
-                      <ChatPage />
-                    </ModuleGuard>
+                    <UnavailableFeature name="Messages" />
                   </AdminLayout>
                 </ProtectedRoute>
               }

@@ -1,62 +1,106 @@
-import type { Response, NextFunction } from 'express';
+import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
+import type {
+  UpdateSubscriptionInput,
+  UpsertEntitlementInput,
+} from '../schemas/billingSchemas.js';
+import {
+  getOrganizationCommercialState,
+  updateOrganizationSubscription,
+  upsertOrganizationEntitlement,
+} from '../services/commercialAdministrationService.js';
+import { getPublicCommercialCatalogue } from '../services/commercialCatalogueService.js';
+import { recordSecurityAudit } from '../services/securityAuditService.js';
+import { AppError, getErrorMessage } from '../utils/AppError.js';
+import { requireAuthorizationContext } from '../utils/tenantScope.js';
 
-export const getInvoices = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+const handleError = (error: unknown): AppError =>
+  error instanceof AppError ? error : new AppError(getErrorMessage(error), 500);
+
+export const getSubscription = async (
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    // Mock invoices since we don't have a real Billing DB model setup yet
-    const mockInvoices = [
-      {
-        id: 'INV-2023-001',
-        date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        amount: 2999,
-        status: 'paid',
-        plan: 'Pro Tier',
-      },
-      {
-        id: 'INV-2023-002',
-        date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-        amount: 2999,
-        status: 'paid',
-        plan: 'Pro Tier',
-      }
-    ];
-
-    res.json({
+    const context = requireAuthorizationContext(request);
+    response.json({
       success: true,
-      data: mockInvoices
+      data: await getOrganizationCommercialState(context.organizationId),
     });
-  } catch (error) {
-    next(error);
+  } catch (error: unknown) {
+    next(handleError(error));
   }
 };
 
-export const createPaymentOrder = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+export const getCatalogue = async (
+  _request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const { planId } = req.body;
-    
-    // Calculate mock amount based on planId
-    let amount = 999;
-    if (planId === 'pro') amount = 2999;
-    if (planId === 'enterprise') amount = 9999;
+    response.json({ success: true, data: await getPublicCommercialCatalogue() });
+  } catch (error: unknown) {
+    next(handleError(error));
+  }
+};
 
-    // Return a mock order ID
-    res.status(201).json({
-      success: true,
-      data: {
-        orderId: `order_${Math.random().toString(36).substring(7)}`,
-        amount: amount,
-        currency: 'INR'
-      }
-    });
-  } catch (error) {
-    next(error);
+export const updateSubscription = async (
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const context = requireAuthorizationContext(request);
+    const organizationId = request.params.organizationId as string;
+    const effective = await updateOrganizationSubscription(
+      organizationId,
+      context.userId,
+      request.body as UpdateSubscriptionInput,
+    );
+    await recordSecurityAudit(
+      context,
+      'commercial.subscription.updated',
+      { targetOrganizationId: organizationId, status: effective.subscription?.status ?? 'none' },
+      request.ip,
+      organizationId,
+    );
+    response.json({ success: true, data: effective });
+  } catch (error: unknown) {
+    next(handleError(error));
+  }
+};
+
+export const upsertEntitlement = async (
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const context = requireAuthorizationContext(request);
+    const organizationId = request.params.organizationId as string;
+    const moduleKey = request.params.moduleKey as string;
+    const input = request.body as UpsertEntitlementInput;
+    const effective = await upsertOrganizationEntitlement(
+      organizationId,
+      context.userId,
+      moduleKey,
+      input,
+    );
+    await recordSecurityAudit(
+      context,
+      'commercial.entitlement.updated',
+      {
+        targetOrganizationId: organizationId,
+        moduleKey,
+        effect: input.effect,
+        status: input.status,
+      },
+      request.ip,
+      organizationId,
+    );
+    response.json({ success: true, data: effective });
+  } catch (error: unknown) {
+    next(handleError(error));
   }
 };

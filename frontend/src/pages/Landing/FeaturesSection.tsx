@@ -13,9 +13,9 @@ export const FeaturesSection: React.FC = () => {
       border: "border-blue-500/20",
     },
     {
-      title: "Digital Khata",
+      title: "Ledger",
       description:
-        "Replace your paper ledgers with our secure digital khata. Track customer dues, payments, and history.",
+        "Replace paper ledgers with a secure digital ledger. Track customer dues, payments, and history.",
       icon: FileText,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",

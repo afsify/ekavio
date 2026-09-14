@@ -1,0 +1,28 @@
+import mongoose, { Schema } from 'mongoose';
+import type { InferSchemaType } from 'mongoose';
+import { limitKeys, moduleKeys } from '../commercial/catalogue.js';
+
+const limitGrantSchema = new Schema(
+  {
+    key: { type: String, enum: limitKeys, required: true },
+    value: { type: Number, min: 0, required: true },
+  },
+  { _id: false },
+);
+
+const planSchema = new Schema(
+  {
+    key: { type: String, required: true, unique: true, index: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    description: { type: String, required: true, trim: true },
+    status: { type: String, enum: ['active', 'inactive'], required: true },
+    available: { type: Boolean, required: true, default: true },
+    moduleKeys: [{ type: String, enum: moduleKeys }],
+    limits: { type: [limitGrantSchema], default: [] },
+    version: { type: Number, min: 1, required: true },
+  },
+  { timestamps: true },
+);
+
+export type PlanType = InferSchemaType<typeof planSchema>;
+export const Plan = mongoose.model('Plan', planSchema);
