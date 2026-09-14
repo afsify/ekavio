@@ -6,6 +6,7 @@ const validEnvironment = (): NodeJS.ProcessEnv => ({
   NODE_ENV: 'test',
   PORT: '5100',
   MONGO_URI: 'mongodb://localhost:27017/ekavio-test',
+  DATABASE_URL: 'postgresql://ekavio:test-only@localhost:5432/ekavio-test',
   JWT_SECRET: 'test-jwt-secret',
   REFRESH_TOKEN_SECRET: 'test-refresh-secret',
   HTTP_ALLOWED_ORIGINS: 'http://localhost:5173,https://example.test',
@@ -17,6 +18,7 @@ test('loads and types a valid environment', () => {
 
   assert.equal(config.nodeEnv, 'test');
   assert.equal(config.port, 5100);
+  assert.equal(config.databaseUrl, 'postgresql://ekavio:test-only@localhost:5432/ekavio-test');
   assert.deepEqual(config.httpAllowedOrigins, [
     'http://localhost:5173',
     'https://example.test',
@@ -28,6 +30,18 @@ test('rejects missing required configuration without exposing values', () => {
   delete environment.MONGO_URI;
 
   assert.throws(() => loadConfig(environment), /MONGO_URI:.*required/);
+});
+
+test('rejects an invalid PostgreSQL URL without echoing its value', () => {
+  const environment = validEnvironment();
+  environment.DATABASE_URL = 'https://secret-user:secret-password@example.test/database';
+
+  assert.throws(
+    () => loadConfig(environment),
+    (error: unknown) => error instanceof Error &&
+      /DATABASE_URL: must be a valid PostgreSQL connection URL/.test(error.message) &&
+      !error.message.includes('secret-password'),
+  );
 });
 
 test('requires strong security secrets in production', () => {

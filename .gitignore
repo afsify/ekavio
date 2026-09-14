@@ -59,3 +59,8 @@ Desktop.ini
 # ==============================
 *.pid
 *.seed
+
+# Database backups must remain local
+backups/
+*.dump
+*.sql.gz

@@ -2,6 +2,20 @@ import { z } from 'zod';
 
 const requiredString = z.string({ error: 'is required' }).trim().min(1, 'is required');
 
+const postgresUrlSchema = requiredString.superRefine((value, context) => {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
+      throw new Error('unsupported protocol');
+    }
+  } catch {
+    context.addIssue({
+      code: 'custom',
+      message: 'must be a valid PostgreSQL connection URL',
+    });
+  }
+});
+
 const originListSchema = z
   .string({ error: 'is required' })
   .trim()
@@ -28,6 +42,7 @@ const environmentSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(5000),
     MONGO_URI: requiredString,
+    DATABASE_URL: postgresUrlSchema,
     JWT_SECRET: requiredString,
     REFRESH_TOKEN_SECRET: requiredString,
     HTTP_ALLOWED_ORIGINS: originListSchema,
@@ -59,11 +74,27 @@ export interface RuntimeConfig {
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
   mongoUri: string;
+  databaseUrl: string;
   jwtSecret: string;
   refreshTokenSecret: string;
   httpAllowedOrigins: string[];
   socketAllowedOrigins: string[];
 }
+
+export interface DatabaseConfig {
+  databaseUrl: string;
+}
+
+export const loadDatabaseConfig = (environment: NodeJS.ProcessEnv): DatabaseConfig => {
+  const result = z.object({ DATABASE_URL: postgresUrlSchema }).safeParse(environment);
+  if (!result.success) {
+    const details = result.error.issues
+      .map((issue) => `${issue.path.join('.') || 'environment'}: ${issue.message}`)
+      .join('; ');
+    throw new Error(`Invalid database configuration: ${details}`);
+  }
+  return { databaseUrl: result.data.DATABASE_URL };
+};
 
 export const loadConfig = (environment: NodeJS.ProcessEnv): RuntimeConfig => {
   const result = environmentSchema.safeParse(environment);
@@ -79,6 +110,7 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): RuntimeConfig => {
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
     mongoUri: result.data.MONGO_URI,
+    databaseUrl: result.data.DATABASE_URL,
     jwtSecret: result.data.JWT_SECRET,
     refreshTokenSecret: result.data.REFRESH_TOKEN_SECRET,
     httpAllowedOrigins: result.data.HTTP_ALLOWED_ORIGINS,

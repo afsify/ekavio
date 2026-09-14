@@ -9,12 +9,29 @@ on:
 jobs:
   foundation:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11-alpine3.23
+        env:
+          POSTGRES_DB: ekavio_test
+          POSTGRES_USER: ekavio
+          POSTGRES_PASSWORD: ci-postgres-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ekavio -d ekavio_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ekavio:ci-postgres-only@localhost:5432/ekavio_test
+      POSTGRES_TEST_URL: postgresql://ekavio:ci-postgres-only@localhost:5432/postgres
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: npm
@@ -41,6 +58,18 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: npm run build
+
+      - name: Migrate PostgreSQL from zero
+        working-directory: backend
+        run: npm run db:migrate
+
+      - name: Check PostgreSQL migration status
+        working-directory: backend
+        run: npm run db:migrate:status
+
+      - name: Test PostgreSQL integration
+        working-directory: backend
+        run: npm run test:postgres
 
       - name: Install frontend dependencies
         working-directory: frontend

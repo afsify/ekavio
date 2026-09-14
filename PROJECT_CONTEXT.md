@@ -23,7 +23,10 @@
 - V2-03 established active Membership records as authorization truth, organization-owned Branch authorization context, centralized permissions, platform-operator separation, live session validation, HTTP and Socket.IO tenant isolation, and cross-tenant regression coverage.
 - Completed milestone: V2-04 Commercial Entitlements Foundation.
 - V2-04 established canonical operational module IDs, organization-scoped plans/add-ons/subscriptions/overrides, deterministic effective entitlements and limits, backend entitlement enforcement, platform-operator-only commercial mutations, an idempotent legacy backfill, and backend-sourced frontend commercial state without payment-gateway or invoice mocks.
-- Next milestone: V2-05 PostgreSQL Shared Core.
+- Completed milestone: V2-05A PostgreSQL Foundation & Shadow Migration.
+- V2-05A added a pinned PostgreSQL development service, centralized connection lifecycle, deterministic reviewed SQL migrations, constrained shared-core relational schema, dry-run-by-default Mongo-to-PostgreSQL shadow tooling, safe reconciliation, disposable PostgreSQL integration coverage, and backup/restore guidance.
+- Mongo remains application runtime source of truth after V2-05A. Authentication, authorization, commercial entitlements, and operational domains have not been cut over.
+- Next milestone: V2-05B Shared-Core PostgreSQL Runtime Cutover.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 

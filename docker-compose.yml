@@ -20,6 +20,21 @@ services:
       retries: 10
       start_period: 10s
 
+  postgres:
+    image: postgres:17.11-alpine3.23
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ekavio}
+      POSTGRES_USER: ${POSTGRES_USER:-ekavio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ekavio-local-development-only}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
@@ -29,12 +44,15 @@ services:
       NODE_ENV: development
       PORT: 5000
       MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-ekavio}:${MONGO_ROOT_PASSWORD:-ekavio-local-development-only}@mongo:27017/ekavio?authSource=admin
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ekavio}:${POSTGRES_PASSWORD:-ekavio-local-development-only}@postgres:5432/${POSTGRES_DB:-ekavio}
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-before-production}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-local-development-refresh-secret-change-before-production}
       HTTP_ALLOWED_ORIGINS: ${HTTP_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
       SOCKET_ALLOWED_ORIGINS: ${SOCKET_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
     depends_on:
       mongo:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     healthcheck:
       test:
@@ -67,3 +85,4 @@ services:
 
 volumes:
   mongo_data:
+  postgres_data:

@@ -37,7 +37,10 @@ const createOriginPolicy = (allowedOrigins: string[]): CorsOptions['origin'] => 
 
 export const createApp = ({
   config,
-  isReady = () => mongoose.connection.readyState === 1,
+  isReady = async () => ({
+    mongodb: mongoose.connection.readyState === 1,
+    postgresql: false,
+  }),
 }: CreateAppOptions) => {
   const app = express();
   const apiLimiter = rateLimit({

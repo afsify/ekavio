@@ -3,28 +3,56 @@ import http, { type Server } from 'node:http';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createApp } from './app.js';
-import { connectDB } from './config/db.js';
+import { connectDB, disconnectDB } from './config/db.js';
 import { initializeRuntimeConfig } from './config/env.js';
 import { setupSocket } from './config/socket.js';
+import { PostgresDatabase } from './postgres/database.js';
+import mongoose from 'mongoose';
 
 export const startServer = async (): Promise<Server> => {
-  dotenv.config();
+  dotenv.config({ quiet: true });
   const config = initializeRuntimeConfig();
-  const app = createApp({ config });
+  const postgres = new PostgresDatabase(config.databaseUrl);
+  const app = createApp({
+    config,
+    isReady: async () => ({
+      mongodb: mongoose.connection.readyState === 1,
+      postgresql: await postgres.isReady(),
+    }),
+  });
   const server = http.createServer(app);
 
   setupSocket(server, config);
 
-  await new Promise<void>((resolve) => {
+  try {
+    await Promise.all([
+      connectDB(config.mongoUri),
+      postgres.query('SELECT 1'),
+    ]);
+  } catch {
+    await Promise.allSettled([disconnectDB(), postgres.close()]);
+    throw new Error('Required database connectivity could not be established');
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
     server.listen(config.port, () => {
+      server.off('error', reject);
       console.log(`Server is running on port ${config.port}`);
       resolve();
     });
   });
 
-  void connectDB(config.mongoUri).catch((error: unknown) => {
-    console.error('MongoDB connection error:', error);
-  });
+  let shuttingDown = false;
+  const shutdown = async (): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await Promise.allSettled([disconnectDB(), postgres.close()]);
+  };
+
+  process.once('SIGINT', () => void shutdown());
+  process.once('SIGTERM', () => void shutdown());
 
   return server;
 };
@@ -35,8 +63,8 @@ const isEntryPoint = Boolean(
 );
 
 if (isEntryPoint) {
-  startServer().catch((error: unknown) => {
-    console.error('Server startup failed:', error);
+  startServer().catch(() => {
+    console.error('Server startup failed');
     process.exitCode = 1;
   });
 }

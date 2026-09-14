@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, and V2-04 adds backend-authoritative commercial entitlements.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, and V2-05A adds the PostgreSQL shared-core migration foundation. MongoDB remains application runtime source of truth after V2-05A.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ Copy-Item backend/.env.sample backend/.env
 Copy-Item frontend/.env.example frontend/.env
 ```
 
-The committed examples contain development-only values. Replace all secrets for any shared or production environment. Backend startup validates `NODE_ENV`, `PORT`, `MONGO_URI`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, and `SOCKET_ALLOWED_ORIGINS`. Comma-separate multiple allowed origins.
+The committed examples contain development-only values. Replace all secrets for any shared or production environment. Backend startup validates `NODE_ENV`, `PORT`, `MONGO_URI`, `DATABASE_URL`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, and `SOCKET_ALLOWED_ORIGINS`. Comma-separate multiple allowed origins. Never log or commit a real database URL.
 
 The frontend requires `VITE_API_URL` (including `/api`) and `VITE_SOCKET_URL`. Vite embeds both values at build time.
 
@@ -144,6 +144,44 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
+## PostgreSQL foundation and shadow migration
+
+PostgreSQL is a V2-05A shadow target, not a runtime authority. Authentication, refresh sessions, request authorization, memberships, commercial entitlements, Queue, Inventory, Ledger, and Attendance continue to read and write MongoDB. There is no dual write or cutover in this milestone.
+
+The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
+
+```powershell
+npm.cmd run build
+npm.cmd run db:migrate
+npm.cmd run db:migrate:status
+```
+
+With Compose, the backend production image already contains compiled commands and reviewed SQL:
+
+```powershell
+docker compose run --rm backend npm run db:migrate
+docker compose run --rm backend npm run db:migrate:status
+```
+
+The migration runner applies ordered SQL once, checks the recorded checksum on every rerun, and has no destructive reset/down default.
+
+Preview Mongo-to-PostgreSQL shadow migration (the default writes nothing):
+
+```powershell
+npm.cmd run postgres:shadow
+```
+
+After completing backups, reviewing a clean dry run, and applying schema migrations, explicitly apply and reconcile:
+
+```powershell
+npm.cmd run postgres:shadow -- --apply
+npm.cmd run postgres:verify
+```
+
+Apply is one transaction, validates all source relationships before writes, upserts by stable `legacy_mongo_id`, and is idempotent. Verification returns non-zero for any mismatch. Reports never contain passwords, password hashes, refresh-token hashes, or database credentials. Active Mongo refresh sessions are intentionally not copied; V2-05B will require reauthentication at cutover unless a separately reviewed safe design replaces that decision.
+
+See [ADR 0006](docs/adr/0006-postgresql-shared-core-migration.md), the [persistence inventory](docs/reviews/V2-05A_PERSISTENCE_INVENTORY.md), and the [backup/restore runbook](docs/runbooks/V2-05A_BACKUP_RESTORE.md).
+
 ## Quality gates
 
 Backend:
@@ -154,6 +192,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
+npm.cmd run test:postgres
 npm.cmd start
 ```
 
@@ -178,11 +217,11 @@ docker compose config
 docker compose up --build
 ```
 
-Compose uses a pinned MongoDB image, local-only default credentials, a named data volume, and dependency health checks. MongoDB is not published to the host. Override the development defaults with environment variables before using the stack outside a local workstation.
+Compose uses pinned MongoDB and PostgreSQL images, local-only default credentials, separate named data volumes, and dependency health checks. Neither database is published to the host. Override the development defaults with environment variables before using the stack outside a local workstation. Stop it with `docker compose down`; do not use `docker compose down -v` unless destruction of both local database volumes is explicitly intended.
 
 ## Health endpoints
 
-- `GET http://localhost:5000/health/live` returns HTTP 200 whenever the API process can respond. It does not depend on MongoDB.
-- `GET http://localhost:5000/health/ready` returns HTTP 200 only while Mongoose reports an active MongoDB connection; otherwise it returns HTTP 503.
+- `GET http://localhost:5000/health/live` returns HTTP 200 whenever the API process can respond. It does not depend on either database.
+- `GET http://localhost:5000/health/ready` returns HTTP 200 only while MongoDB and PostgreSQL are reachable; otherwise it returns HTTP 503.
 
 Health responses expose only status labels and never connection strings or secrets.
