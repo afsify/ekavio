@@ -35,6 +35,30 @@ const createOriginPolicy = (allowedOrigins: string[]): CorsOptions['origin'] => 
   };
 };
 
+/**
+ * express-mongo-sanitize 2.x assigns request.query, but Express 5 exposes it
+ * through a getter. Sanitize the existing objects in place and shadow the
+ * query getter with the reviewed, sanitized value for downstream handlers.
+ */
+export const sanitizeMongoInputs = (
+  request: Request,
+  _response: Response,
+  next: NextFunction,
+): void => {
+  for (const target of [request.body, request.params, request.headers]) {
+    if (target && typeof target === 'object') mongoSanitize.sanitize(target);
+  }
+
+  const query = request.query;
+  mongoSanitize.sanitize(query);
+  Object.defineProperty(request, 'query', {
+    configurable: true,
+    enumerable: true,
+    value: query,
+  });
+  next();
+};
+
 export const createApp = ({
   config,
   isReady = async () => ({
@@ -63,7 +87,7 @@ export const createApp = ({
   app.use(express.json());
 
   app.use('/health', createHealthRouter(isReady));
-  app.use(mongoSanitize());
+  app.use(sanitizeMongoInputs);
   app.use('/api', apiLimiter, routes);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 

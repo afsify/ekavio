@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import test, { type TestContext } from 'node:test';
+import type { NextFunction, Request, Response } from 'express';
 import type { Server } from 'node:http';
-import { createApp } from '../src/app.js';
+import { createApp, sanitizeMongoInputs } from '../src/app.js';
 import { loadConfig } from '../src/config/env.js';
 
 const testConfig = loadConfig({
@@ -34,6 +35,28 @@ const startTestServer = async (
   const address = server.address() as AddressInfo;
   return `http://127.0.0.1:${address.port}`;
 };
+
+test('Mongo input sanitization supports the Express 5 read-only query getter', () => {
+  const request = {
+    body: { safe: 'body', $where: 'unsafe' },
+    params: {},
+    headers: {},
+    get query() {
+      return { safe: 'query', $where: 'unsafe' };
+    },
+  } as unknown as Request;
+  let continued = false;
+
+  sanitizeMongoInputs(
+    request,
+    {} as Response,
+    (() => { continued = true; }) as NextFunction,
+  );
+
+  assert.equal(continued, true);
+  assert.deepEqual(request.body, { safe: 'body' });
+  assert.deepEqual(request.query, { safe: 'query' });
+});
 
 test('liveness succeeds when MongoDB is unavailable', async (context) => {
   const baseUrl = await startTestServer(context, async () => ({ mongodb: false, postgresql: false }));

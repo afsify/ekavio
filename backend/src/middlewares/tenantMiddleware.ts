@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import type { ModuleKey } from '../commercial/catalogue.js';
-import { entitlementService } from '../services/entitlementService.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import type { AuthenticatedRequest } from './authMiddleware.js';
 
 export interface EntitlementReader {
@@ -42,4 +42,4 @@ export const createRequireEntitlement = (reader: EntitlementReader) =>
       }
     };
 
-export const requireEntitlement = createRequireEntitlement(entitlementService);
+export const requireEntitlement = createRequireEntitlement(runtimePersistence.commercial);

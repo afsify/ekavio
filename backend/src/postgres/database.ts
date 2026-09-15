@@ -1,11 +1,18 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 
 export class PostgresDatabase {
-  private readonly pool: Pool;
+  private pool: Pool | undefined;
+  private closed = false;
 
-  public constructor(connectionString: string) {
+  public constructor(private readonly connectionString: string | (() => string)) {}
+
+  private getPool(): Pool {
+    if (this.closed) throw new Error('PostgreSQL database connection is closed');
+    if (this.pool) return this.pool;
     this.pool = new Pool({
-      connectionString,
+      connectionString: typeof this.connectionString === 'function'
+        ? this.connectionString()
+        : this.connectionString,
       max: 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
@@ -13,17 +20,18 @@ export class PostgresDatabase {
     this.pool.on('error', () => {
       console.error('PostgreSQL pool encountered an unexpected idle-client error');
     });
+    return this.pool;
   }
 
   public query<Row extends QueryResultRow = QueryResultRow>(
     text: string,
     values: readonly unknown[] = [],
   ): Promise<QueryResult<Row>> {
-    return this.pool.query<Row>(text, [...values]);
+    return this.getPool().query<Row>(text, [...values]);
   }
 
   public async withClient<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect();
+    const client = await this.getPool().connect();
     try {
       return await operation(client);
     } finally {
@@ -55,6 +63,9 @@ export class PostgresDatabase {
   }
 
   public close(): Promise<void> {
-    return this.pool.end();
+    this.closed = true;
+    const pool = this.pool;
+    this.pool = undefined;
+    return pool ? pool.end() : Promise.resolve();
   }
 }

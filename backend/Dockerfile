@@ -8,6 +8,11 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+FROM build AS development
+
+ENV NODE_ENV=development
+CMD ["npm", "start"]
+
 FROM node:20-alpine AS production
 
 ENV NODE_ENV=production

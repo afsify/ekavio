@@ -6,13 +6,13 @@ import { createApp } from './app.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { initializeRuntimeConfig } from './config/env.js';
 import { setupSocket } from './config/socket.js';
-import { PostgresDatabase } from './postgres/database.js';
+import { runtimePostgresDatabase } from './persistence/runtimePersistence.js';
 import mongoose from 'mongoose';
 
 export const startServer = async (): Promise<Server> => {
   dotenv.config({ quiet: true });
   const config = initializeRuntimeConfig();
-  const postgres = new PostgresDatabase(config.databaseUrl);
+  const postgres = runtimePostgresDatabase;
   const app = createApp({
     config,
     isReady: async () => ({

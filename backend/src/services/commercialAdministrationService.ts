@@ -1,11 +1,15 @@
-import mongoose from 'mongoose';
 import { isModuleKey, type ModuleKey } from '../commercial/catalogue.js';
 import { AddOn } from '../models/AddOn.js';
 import { Entitlement } from '../models/Entitlement.js';
 import { ModuleDefinition } from '../models/ModuleDefinition.js';
-import { Organization } from '../models/Organization.js';
 import { Plan } from '../models/Plan.js';
 import { Subscription } from '../models/Subscription.js';
+import {
+  asLegacyMongoOrganizationId,
+  asLegacyMongoUserId,
+  type LegacyMongoOrganizationId,
+  type LegacyMongoUserId,
+} from '../persistence/identifiers.js';
 import type {
   UpdateSubscriptionInput,
   UpsertEntitlementInput,
@@ -13,30 +17,23 @@ import type {
 import { AppError } from '../utils/AppError.js';
 import { entitlementService } from './entitlementService.js';
 
-const assertObjectId = (value: string): void => {
-  if (!mongoose.isValidObjectId(value)) throw new AppError('Organization not found', 404);
-};
-
 const parseDate = (value: string | null | undefined): Date | undefined =>
   value ? new Date(value) : undefined;
 
-export const getOrganizationCommercialState = async (organizationId: string) => {
-  assertObjectId(organizationId);
-  if (!(await Organization.exists({ _id: organizationId }))) {
-    throw new AppError('Organization not found', 404);
-  }
+export const getOrganizationCommercialState = async (
+  organizationId: LegacyMongoOrganizationId,
+) => {
+  asLegacyMongoOrganizationId(organizationId);
   return entitlementService.getEffective(organizationId);
 };
 
 export const updateOrganizationSubscription = async (
-  organizationId: string,
-  actorUserId: string,
+  organizationId: LegacyMongoOrganizationId,
+  actorUserId: LegacyMongoUserId,
   input: UpdateSubscriptionInput,
 ) => {
-  assertObjectId(organizationId);
-  if (!(await Organization.exists({ _id: organizationId }))) {
-    throw new AppError('Organization not found', 404);
-  }
+  asLegacyMongoOrganizationId(organizationId);
+  asLegacyMongoUserId(actorUserId);
 
   const uniqueAddOnKeys = [...new Set(input.addOns.map((assignment) => assignment.key))];
   if (uniqueAddOnKeys.length !== input.addOns.length) {
@@ -98,15 +95,13 @@ export const updateOrganizationSubscription = async (
 };
 
 export const upsertOrganizationEntitlement = async (
-  organizationId: string,
-  actorUserId: string,
+  organizationId: LegacyMongoOrganizationId,
+  actorUserId: LegacyMongoUserId,
   moduleKeyValue: string,
   input: UpsertEntitlementInput,
 ) => {
-  assertObjectId(organizationId);
-  if (!(await Organization.exists({ _id: organizationId }))) {
-    throw new AppError('Organization not found', 404);
-  }
+  asLegacyMongoOrganizationId(organizationId);
+  asLegacyMongoUserId(actorUserId);
   if (!isModuleKey(moduleKeyValue)) throw new AppError('Unknown canonical module', 400);
   const moduleKey: ModuleKey = moduleKeyValue;
   if (!(await ModuleDefinition.exists({ key: moduleKey, status: 'active' }))) {

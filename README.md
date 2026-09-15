@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend and MongoDB. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, and V2-05B adds the tested compatibility bridge required before identity cutover. MongoDB remains application runtime source of truth after V2-05B.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, and V2-05C cut identity, sessions, and authorization over to PostgreSQL without moving commercial or operational records.
 
 ## Prerequisites
 
@@ -144,9 +144,11 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL foundation and shadow migration
+## PostgreSQL identity authority and Mongo compatibility
 
-PostgreSQL is a V2-05A shadow target, not a runtime authority. Authentication, refresh sessions, request authorization, memberships, commercial entitlements, Queue, Inventory, Ledger, and Attendance continue to read and write MongoDB. There is no dual write or cutover in this milestone.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, and Attendance identity resolution. MongoDB remains authoritative for commercial Plan/AddOn/Subscription/Entitlement state, Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate compatibility, analytics, and other operational domains.
+
+The composition decision is source-controlled and has no environment/request switch or automatic Mongo identity fallback. Shared-core identity writes are PostgreSQL-only. Operational and commercial code receives validated, entity-specific legacy Mongo IDs through the compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -178,9 +180,7 @@ npm.cmd run postgres:shadow -- --apply
 npm.cmd run postgres:verify
 ```
 
-Apply is one transaction, validates all source relationships before writes, upserts by stable `legacy_mongo_id`, and is idempotent. Verification returns non-zero for any mismatch. Reports never contain passwords, password hashes, refresh-token hashes, or database credentials. Active Mongo refresh sessions are intentionally not copied; V2-05C requires reauthentication at cutover.
-
-V2-05B keeps every runtime adapter bound to MongoDB and adds inactive PostgreSQL session, identity, authorization, staff, registration/profile, and attendance-identity adapters. Canonical PostgreSQL UUIDs and legacy Mongo-compatible IDs are separately typed and resolved through entity-specific mappings. Operational Queue, Inventory, Ledger, and Attendance records still use only validated legacy Mongo IDs; there is no production dual write.
+Apply is one transaction, validates all source relationships before writes, upserts by stable `legacy_mongo_id`, and is idempotent. Verification returns non-zero for any mismatch. Reports never contain passwords, password hashes, refresh-token hashes, or database credentials. Mongo refresh credentials are never copied to PostgreSQL.
 
 After completing a fresh shadow apply and verification against reviewed data, run the read-only cutover readiness check:
 
@@ -188,7 +188,16 @@ After completing a fresh shadow apply and verification against reviewed data, ru
 npm.cmd run postgres:cutover:preflight
 ```
 
-The preflight returns non-zero for missing migrations/mappings, stale shadow data, invalid tenant/branch relationships, identity projection differences, missing active-user passwords, operator differences, login ambiguity changes, or any PostgreSQL refresh-session row. It performs no business-data mutation and never prints password or session hashes. See [ADR 0007](docs/adr/0007-postgresql-cutover-compatibility.md) and the plan-only [V2-05C cutover runbook](docs/runbooks/V2-05C_IDENTITY_CUTOVER.md).
+The preflight returns non-zero for missing migrations/mappings, stale shadow data, invalid tenant/branch relationships, identity projection differences, missing active-user passwords, operator differences, login ambiguity changes, or unexpected PostgreSQL refresh-session rows. It performs no business-data mutation and never prints password or session hashes.
+
+Mongo session invalidation is dry-run by default. Use `--apply` only during an approved cutover after backups, verification, and a zero-blocker preflight:
+
+```powershell
+npm.cmd run sessions:mongo:revoke
+npm.cmd run sessions:mongo:revoke -- --apply
+```
+
+See [ADR 0008](docs/adr/0008-postgresql-identity-runtime-authority.md), [ADR 0007](docs/adr/0007-postgresql-cutover-compatibility.md), and the executed [V2-05C cutover runbook](docs/runbooks/V2-05C_IDENTITY_CUTOVER.md).
 
 See [ADR 0006](docs/adr/0006-postgresql-shared-core-migration.md), the [persistence inventory](docs/reviews/V2-05A_PERSISTENCE_INVENTORY.md), and the [backup/restore runbook](docs/runbooks/V2-05A_BACKUP_RESTORE.md).
 
@@ -205,6 +214,7 @@ npm.cmd run build
 npm.cmd run test:postgres
 npm.cmd run test:parity
 npm.cmd run test:preflight
+npm.cmd run test:cutover
 npm.cmd start
 ```
 

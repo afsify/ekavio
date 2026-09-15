@@ -1,8 +1,9 @@
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { Membership } from '../models/Membership.js';
 import { Organization } from '../models/Organization.js';
 import { ParentOrganization } from '../models/ParentOrganization.js';
+import { asLegacyMongoOrganizationId } from '../persistence/identifiers.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import {
   assertConsolidatedBillingAuthority,
   assertCorporateLinkAuthority,
@@ -19,9 +20,10 @@ export const createParentOrg = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
+    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
     const parentOrg = await ParentOrganization.create({
       name: request.body.name,
-      ownerId: context.userId,
+      ownerId: legacyActorUserId,
       consolidatedBilling: request.body.consolidatedBilling ?? true,
     });
     await recordSecurityAudit(
@@ -44,27 +46,32 @@ export const linkChildOrg = async (
   try {
     const context = requireAuthorizationContext(request);
     const { parentId, childOrgId } = request.body as { parentId: string; childOrgId: string };
+    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
     const [parentOrg, childMembership] = await Promise.all([
-      ParentOrganization.findOne({ _id: parentId, ownerId: context.userId }).lean(),
-      Membership.findOne({
-        userId: context.userId,
-        organizationId: childOrgId,
-        status: 'active',
-      }).lean(),
+      ParentOrganization.findOne({ _id: parentId, ownerId: legacyActorUserId }).lean(),
+      runtimePersistence.authorization.findActiveMembership(context.userId, childOrgId),
     ]);
     if (!parentOrg) throw new AppError('Corporate relationship not found', 404);
     assertCorporateLinkAuthority({
-      actorUserId: context.userId,
+      actorUserId: legacyActorUserId,
       parentOwnerId: String(parentOrg.ownerId),
       ...(childMembership ? { childMembershipRole: childMembership.role } : {}),
     });
 
+    const legacyChildOrganizationId = await runtimePersistence.commercial.organizationToLegacy(
+      childOrgId,
+    );
     const childOrg = await Organization.findOneAndUpdate(
-      { _id: childOrgId },
+      { _id: legacyChildOrganizationId },
       { $set: { parentId } },
       { new: true, runValidators: true },
     );
-    if (!childOrg) throw new AppError('Child organization not found', 404);
+    if (!childOrg) {
+      throw new AppError(
+        'Corporate linking is temporarily unavailable for organizations created after the PostgreSQL identity cutover',
+        409,
+      );
+    }
     await recordSecurityAudit(
       context,
       'corporate.child.linked',
@@ -85,18 +92,23 @@ export const getConsolidatedBilling = async (
   try {
     const context = requireAuthorizationContext(request);
     const parentId = request.params.parentId as string;
+    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
     const parentOrg = await ParentOrganization.findOne({
       _id: parentId,
-      ownerId: context.userId,
+      ownerId: legacyActorUserId,
     }).lean();
     if (!parentOrg) throw new AppError('Corporate relationship not found', 404);
-    assertConsolidatedBillingAuthority(context.userId, String(parentOrg.ownerId));
+    assertConsolidatedBillingAuthority(legacyActorUserId, String(parentOrg.ownerId));
 
     const childOrgs = await Organization.find({ parentId }).lean();
     const billingDetails = await Promise.all(childOrgs.map(async (organization) => {
-      const commercialState = await entitlementService.getEffective(String(organization._id));
+      const legacyOrganizationId = asLegacyMongoOrganizationId(String(organization._id));
+      const [commercialState, canonicalOrganizationId] = await Promise.all([
+        entitlementService.getEffective(legacyOrganizationId),
+        runtimePersistence.idMappings.organizationToPostgres(legacyOrganizationId),
+      ]);
       return {
-        organizationId: String(organization._id),
+        organizationId: canonicalOrganizationId,
         name: organization.name,
         subscriptionStatus: commercialState.subscription?.status ?? 'none',
         enabledModules: commercialState.modules

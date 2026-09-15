@@ -8,14 +8,13 @@ import { legacyOrganizationScope } from '../persistence/operationalIdentity.js';
 import { createAppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
 import { MODULES } from '../commercial/catalogue.js';
-import { entitlementService } from '../services/entitlementService.js';
 
 export const getDashboardStats = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const context = requireAuthorizationContext(req);
     const operational = await runtimePersistence.operationalIdentity.resolve(context);
     const scope = legacyOrganizationScope(operational);
-    const entitlements = await entitlementService.getEffective(context.organizationId);
+    const entitlements = await runtimePersistence.commercial.getEffective(context.organizationId);
     const enabledModules = new Set(
       entitlements.modules.filter((module) => module.enabled).map((module) => module.key),
     );

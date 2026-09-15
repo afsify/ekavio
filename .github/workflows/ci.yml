@@ -87,6 +87,10 @@ jobs:
         working-directory: backend
         run: npm run test:preflight
 
+      - name: Test PostgreSQL identity runtime cutover
+        working-directory: backend
+        run: npm run test:cutover
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

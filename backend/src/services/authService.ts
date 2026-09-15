@@ -5,7 +5,6 @@ import type { MembershipRole } from '../models/Membership.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import { AppError } from '../utils/AppError.js';
 import type { Permission } from './authorizationPolicy.js';
-import { ensureLegacyAuthorizationForUser } from './authorizationBackfillService.js';
 import type { EffectiveEntitlements } from './entitlementService.js';
 import { getSessionIdFromRefreshCredential, runtimeRefreshSessions } from './sessionService.js';
 import type { RefreshSessionManager, SessionMetadata } from './sessionService.js';
@@ -128,7 +127,6 @@ const runtimeDependencies: AuthServiceDependencies = {
   identities: runtimePersistence.identities,
   sessions: runtimeRefreshSessions,
   verifyPassword: bcrypt.compare,
-  prepareAuthorization: ensureLegacyAuthorizationForUser,
   signAccessToken: (context, sessionId) =>
     jwt.sign(
       {
