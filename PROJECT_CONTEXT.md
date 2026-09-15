@@ -25,8 +25,10 @@
 - V2-04 established canonical operational module IDs, organization-scoped plans/add-ons/subscriptions/overrides, deterministic effective entitlements and limits, backend entitlement enforcement, platform-operator-only commercial mutations, an idempotent legacy backfill, and backend-sourced frontend commercial state without payment-gateway or invoice mocks.
 - Completed milestone: V2-05A PostgreSQL Foundation & Shadow Migration.
 - V2-05A added a pinned PostgreSQL development service, centralized connection lifecycle, deterministic reviewed SQL migrations, constrained shared-core relational schema, dry-run-by-default Mongo-to-PostgreSQL shadow tooling, safe reconciliation, disposable PostgreSQL integration coverage, and backup/restore guidance.
-- Mongo remains application runtime source of truth after V2-05A. Authentication, authorization, commercial entitlements, and operational domains have not been cut over.
-- Next milestone: V2-05B Shared-Core PostgreSQL Runtime Cutover.
+- Completed milestone: V2-05B PostgreSQL Cutover Readiness & Compatibility Bridge.
+- V2-05B added explicit canonical UUID and legacy Mongo identifier types, reversible entity-scoped mappings, a validated operational Mongo ID bridge, V2-02-compatible PostgreSQL session schema/repositories, inactive PostgreSQL identity/authorization/write adapters, centralized Mongo runtime composition, attendance identity separation, a read-only cutover preflight, parity/security coverage, and the V2-05C cutover/rollback plan.
+- Mongo remains application runtime source of truth after V2-05B. Authentication, refresh sessions, authorization, commercial entitlements, and operational domains have not been cut over, and runtime mutations do not dual-write.
+- Next milestone: V2-05C PostgreSQL Identity/Auth Runtime Cutover.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 

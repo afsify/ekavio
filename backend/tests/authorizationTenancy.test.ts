@@ -8,8 +8,17 @@ import {
   type BranchAccessRecord,
 } from '../src/services/requestContextService.js';
 import { hasPermission, permissions, permissionsForRole } from '../src/services/authorizationPolicy.js';
-import { organizationScope } from '../src/utils/tenantScope.js';
-import { createAttendanceWriter, type AttendanceRepository } from '../src/services/attendanceService.js';
+import {
+  createAttendanceWriter,
+  type AttendanceIdentityResolver,
+  type AttendanceStorageRepository,
+} from '../src/services/attendanceService.js';
+import type {
+  LegacyMongoBranchId,
+  LegacyMongoOrganizationId,
+  LegacyMongoUserId,
+} from '../src/persistence/identifiers.js';
+import type { OperationalIdentityBridge } from '../src/persistence/operationalIdentity.js';
 import {
   assertConsolidatedBillingAuthority,
   assertCorporateLinkAuthority,
@@ -128,35 +137,67 @@ const matches = (record: (typeof records)[number], filter: { _id?: string; tenan
   record.tenantId === filter.tenantId && (!filter._id || record.id === filter._id);
 
 test('foreign queue ObjectId cannot be read or mutated by the queue service', async () => {
+  const bridge: OperationalIdentityBridge = {
+    async resolve(context) {
+      return {
+        legacyMongoOrganizationId: context.organizationId as LegacyMongoOrganizationId,
+        legacyMongoUserId: context.userId as LegacyMongoUserId,
+      };
+    },
+  };
   const update = createQueueStatusUpdater({
     async updateStatus(filter, status) {
       const record = records.find((candidate) => matches(candidate, filter));
       return record ? { ...record, status } : null;
     },
-  });
-  assert.equal(await update({ organizationId: 'org-a' }, 'queue-b', 'completed'), null);
+  }, bridge);
+  assert.equal(await update(staffContext, 'queue-b', 'completed'), null);
 });
 
 test('inventory list equivalent returns only authorized organization data', () => {
-  const scope = organizationScope({ organizationId: 'org-a' });
+  const scope = { tenantId: 'org-a' };
   assert.deepEqual(records.filter((record) => matches(record, scope)).map((record) => record.id), ['queue-a']);
 });
 
 test('ledger list equivalent returns only authorized organization data', () => {
-  const scope = organizationScope({ organizationId: 'org-b' });
+  const scope = { tenantId: 'org-b' };
   assert.deepEqual(records.filter((record) => matches(record, scope)).map((record) => record.id), ['queue-b']);
 });
 
-class MemoryAttendanceRepository implements AttendanceRepository {
-  memberships = new Set(['org-a:user-a:branch-a']);
+const bridge: OperationalIdentityBridge = {
+  async resolve(context) {
+    return {
+      legacyMongoOrganizationId: context.organizationId as LegacyMongoOrganizationId,
+      legacyMongoUserId: context.userId as LegacyMongoUserId,
+      ...(context.branchId
+        ? { legacyMongoBranchId: context.branchId as LegacyMongoBranchId }
+        : {}),
+    };
+  },
+};
+
+class MemoryAttendanceStorage implements AttendanceStorageRepository {
   writes: unknown[] = [];
-  async targetHasAccess(userId: string, organizationId: string, branchId?: string) {
-    return this.memberships.has(`${organizationId}:${userId}:${branchId ?? ''}`);
-  }
-  async upsert(input: unknown) {
+  async upsert(input: Parameters<AttendanceStorageRepository['upsert']>[0]) {
     this.writes.push(input);
     return input;
   }
+  async listForDay() { return []; }
+}
+
+class MemoryAttendanceIdentities implements AttendanceIdentityResolver {
+  async resolveTarget(requestedUserId: string) {
+    return requestedUserId === 'user-a'
+      ? {
+          requestedUserId,
+          legacyMongoUserId: requestedUserId,
+          name: 'A',
+          phone: '1',
+          displayUser: { _id: requestedUserId, name: 'A', phone: '1' },
+        }
+      : null;
+  }
+  async resolveStoredUsers() { return new Map(); }
 }
 
 const staffContext: AuthorizationContext = {
@@ -165,18 +206,25 @@ const staffContext: AuthorizationContext = {
 };
 
 test('attendance target with matching organization and branch may be written', async () => {
-  const repository = new MemoryAttendanceRepository();
-  await createAttendanceWriter(repository)(staffContext, { userId: 'user-a', date: '2026-09-13', status: 'present' });
-  assert.equal(repository.writes.length, 1);
+  const storage = new MemoryAttendanceStorage();
+  await createAttendanceWriter({ storage, identities: new MemoryAttendanceIdentities(), operationalIdentity: bridge })(
+    staffContext,
+    { userId: 'user-a', date: '2026-09-13', status: 'present' },
+  );
+  assert.equal(storage.writes.length, 1);
 });
 
 test('attendance foreign-user exploit is rejected without writing', async () => {
-  const repository = new MemoryAttendanceRepository();
+  const storage = new MemoryAttendanceStorage();
   await assert.rejects(
-    () => createAttendanceWriter(repository)(staffContext, { userId: 'user-b', date: '2026-09-13', status: 'present' }),
+    () => createAttendanceWriter({
+      storage,
+      identities: new MemoryAttendanceIdentities(),
+      operationalIdentity: bridge,
+    })(staffContext, { userId: 'user-b', date: '2026-09-13', status: 'present' }),
     rejectsStatus(404),
   );
-  assert.equal(repository.writes.length, 0);
+  assert.equal(storage.writes.length, 0);
 });
 
 test('unauthorized corporate child linking is rejected', () => {

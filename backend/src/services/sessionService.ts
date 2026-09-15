@@ -3,9 +3,9 @@ import {
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto';
-import { Session } from '../models/Session.js';
 import { AppError } from '../utils/AppError.js';
 import { getRuntimeConfig } from '../config/env.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 
 export const REFRESH_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -52,69 +52,6 @@ export interface RefreshSessionManager {
   revoke(refreshCredential: string | undefined): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
 }
-
-const toSessionRecord = (session: {
-  sessionId: string;
-  userId: unknown;
-  refreshTokenHash: string;
-  expiresAt: Date;
-  lastUsedAt: Date;
-  revokedAt?: Date | null;
-}): SessionRecord => ({
-  sessionId: session.sessionId,
-  userId: String(session.userId),
-  refreshTokenHash: session.refreshTokenHash,
-  expiresAt: session.expiresAt,
-  lastUsedAt: session.lastUsedAt,
-  revokedAt: session.revokedAt ?? null,
-});
-
-export const mongooseSessionRepository: SessionRepository = {
-  async create(record) {
-    await Session.create(record);
-  },
-
-  async findBySessionId(sessionId) {
-    const session = await Session.findOne({ sessionId })
-      .select('+refreshTokenHash')
-      .lean();
-    return session ? toSessionRecord(session) : null;
-  },
-
-  async rotate(sessionId, previousHash, nextHash, now, expiresAt) {
-    const session = await Session.findOneAndUpdate(
-      {
-        sessionId,
-        refreshTokenHash: previousHash,
-        revokedAt: null,
-        expiresAt: { $gt: now },
-      },
-      {
-        $set: {
-          refreshTokenHash: nextHash,
-          lastUsedAt: now,
-          expiresAt,
-        },
-      },
-      { new: true },
-    );
-    return Boolean(session);
-  },
-
-  async revoke(sessionId, refreshTokenHash, revokedAt) {
-    await Session.updateOne(
-      { sessionId, refreshTokenHash, revokedAt: null },
-      { $set: { revokedAt } },
-    );
-  },
-
-  async revokeAllForUser(userId, revokedAt) {
-    await Session.updateMany(
-      { userId, revokedAt: null },
-      { $set: { revokedAt } },
-    );
-  },
-};
 
 const parseCredential = (
   refreshCredential: string,
@@ -249,6 +186,6 @@ export const createRefreshSessionManager = ({
 };
 
 export const runtimeRefreshSessions = createRefreshSessionManager({
-  repository: mongooseSessionRepository,
+  repository: runtimePersistence.sessions,
   getHashSecret: () => getRuntimeConfig().refreshTokenSecret,
 });

@@ -10,6 +10,13 @@ jobs:
   foundation:
     runs-on: ubuntu-latest
     services:
+      mongo:
+        image: mongo:8.0.30-noble
+        env:
+          MONGO_INITDB_ROOT_USERNAME: ekavio
+          MONGO_INITDB_ROOT_PASSWORD: ci-mongo-only
+        ports:
+          - 27017:27017
       postgres:
         image: postgres:17.11-alpine3.23
         env:
@@ -26,6 +33,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://ekavio:ci-postgres-only@localhost:5432/ekavio_test
       POSTGRES_TEST_URL: postgresql://ekavio:ci-postgres-only@localhost:5432/postgres
+      MONGO_TEST_URL: mongodb://ekavio:ci-mongo-only@localhost:27017/admin?authSource=admin
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -70,6 +78,14 @@ jobs:
       - name: Test PostgreSQL integration
         working-directory: backend
         run: npm run test:postgres
+
+      - name: Test persistence parity contracts
+        working-directory: backend
+        run: npm run test:parity
+
+      - name: Test cutover preflight
+        working-directory: backend
+        run: npm run test:preflight
 
       - name: Install frontend dependencies
         working-directory: frontend

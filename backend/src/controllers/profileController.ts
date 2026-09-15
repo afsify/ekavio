@@ -1,7 +1,7 @@
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { getRuntimeConfig } from '../config/env.js';
-import { User } from '../models/User.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import { changePasswordService } from '../services/profileService.js';
 import { clearRefreshCookie } from '../utils/authCookies.js';
 import { disconnectUserSockets } from '../config/socket.js';
@@ -20,11 +20,7 @@ export const updateProfile = async (
       return;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { name },
-      { new: true },
-    ).select('-password');
+    const updatedUser = await runtimePersistence.accounts.updateProfileName(userId, name);
 
     if (!updatedUser) {
       response.status(404).json({ success: false, message: 'User not found' });

@@ -1,12 +1,35 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
+import { emptyEffectiveLimits } from '../src/commercial/catalogue.js';
+import { createAuthorizationContextResolver } from '../src/services/requestContextService.js';
+import { createAuthService } from '../src/services/authService.js';
+import { createRefreshSessionManager } from '../src/services/sessionService.js';
+import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
+import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
+import { runCutoverPreflight } from '../src/postgres/cutoverPreflight.js';
 import { PostgresDatabase } from '../src/postgres/database.js';
+import { IdMappingNotFoundError, PostgresIdMappingRepository } from '../src/postgres/idMappingRepository.js';
+import { PostgresIdentityRepository } from '../src/postgres/identityRepository.js';
 import { getMigrationStatus, migrate } from '../src/postgres/migrations.js';
+import { PostgresSessionRepository } from '../src/postgres/sessionRepository.js';
 import { PostgresSharedCoreRepository } from '../src/postgres/sharedCoreRepository.js';
+import { PostgresStaffRepository } from '../src/postgres/staffRepository.js';
 import type { SharedCoreSnapshot, ShadowSourceRepository } from '../src/postgres/sharedCoreTypes.js';
 import { runShadowMigration, ShadowValidationError } from '../src/postgres/shadowMigration.js';
 import { verifyShadowState } from '../src/postgres/verification.js';
+import {
+  PostgresOperationalIdentityBridge,
+} from '../src/persistence/operationalIdentity.js';
+import {
+  asLegacyMongoBranchId,
+  asLegacyMongoMembershipId,
+  asLegacyMongoOrganizationId,
+  asLegacyMongoUserId,
+  asPostgresOrganizationId,
+  generateLegacyMongoMembershipId,
+} from '../src/persistence/identifiers.js';
 
 const at = new Date('2026-01-02T03:04:05.000Z');
 const ids = {
@@ -114,12 +137,12 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   });
 
   await context.test('migrates a clean database and reruns deterministically', async () => {
-    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['pending']);
+    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['pending', 'pending']);
     await migrate(database);
     await migrate(database);
-    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['applied']);
+    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['applied', 'applied']);
     const history = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM schema_migrations');
-    assert.equal(history.rows[0]?.count, '1');
+    assert.equal(history.rows[0]?.count, '2');
   });
 
   const source = new MemorySource(fixture());
@@ -257,4 +280,321 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
     const sessions = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM auth_sessions');
     assert.equal(sessions.rows[0]?.count, '0');
   });
+
+  const mappings = new PostgresIdMappingRepository(database);
+  const postgresIds = {
+    userA: await mappings.userToPostgres(asLegacyMongoUserId(ids.userA)),
+    userB: await mappings.userToPostgres(asLegacyMongoUserId(ids.userB)),
+    organizationA: await mappings.organizationToPostgres(asLegacyMongoOrganizationId(ids.organizationA)),
+    organizationB: await mappings.organizationToPostgres(asLegacyMongoOrganizationId(ids.organizationB)),
+    branchA: await mappings.branchToPostgres(asLegacyMongoBranchId(ids.branchA)),
+    branchB: await mappings.branchToPostgres(asLegacyMongoBranchId(ids.branchB)),
+    membershipA: await mappings.membershipToPostgres(asLegacyMongoMembershipId(ids.membershipA)),
+  };
+
+  await context.test('ID mappings are reversible, format-safe, and entity-separated', async () => {
+    assert.equal(await mappings.userToLegacy(postgresIds.userA), ids.userA);
+    assert.equal(await mappings.organizationToLegacy(postgresIds.organizationA), ids.organizationA);
+    assert.equal(await mappings.branchToLegacy(postgresIds.branchA), ids.branchA);
+    assert.equal(await mappings.membershipToLegacy(postgresIds.membershipA), ids.membershipA);
+    await assert.rejects(
+      mappings.userToPostgres(asLegacyMongoUserId(ids.organizationA)),
+      IdMappingNotFoundError,
+    );
+    await assert.rejects(
+      mappings.organizationToLegacy(asPostgresOrganizationId(randomUUID())),
+      IdMappingNotFoundError,
+    );
+    assert.throws(() => asLegacyMongoUserId('NOT-AN-OBJECT-ID'));
+    assert.throws(() => asPostgresOrganizationId(ids.organizationA));
+  });
+
+  await context.test('identity and authorization adapters preserve tenant and branch semantics', async () => {
+    const entitlements = {
+      getEffective: async (organizationId: string) => ({
+        organizationId,
+        subscription: null,
+        modules: [],
+        limits: emptyEffectiveLimits(),
+      }),
+    };
+    const identityRepository = new PostgresIdentityRepository(database, entitlements);
+    const identity = await identityRepository.findById(postgresIds.userA);
+    assert.ok(identity);
+    assert.equal(identity.phone, '1001');
+    assert.equal(identity.platformOperator, true);
+    const contextResult = await identityRepository.buildContext(identity);
+    assert.equal(contextResult.organizationId, postgresIds.organizationA);
+    assert.equal(contextResult.branchId, postgresIds.branchA);
+    assert.equal(contextResult.theme.primaryColor, '#111111');
+
+    const repository = new PostgresAuthorizationContextRepository(database);
+    const membership = await repository.findActiveMembership(
+      postgresIds.userA,
+      postgresIds.organizationA,
+    );
+    assert.equal(membership?.id, postgresIds.membershipA);
+    assert.deepEqual(membership?.branchIds, [postgresIds.branchA]);
+    assert.equal(
+      await repository.findActiveMembership(postgresIds.userA, postgresIds.organizationB),
+      null,
+    );
+    assert.equal(await repository.isPlatformOperator(postgresIds.userA), true);
+
+    const resolver = createAuthorizationContextResolver({
+      isSessionActive: async () => true,
+      findActiveMembership: (userId, organizationId) =>
+        repository.findActiveMembership(userId, organizationId),
+      organizationExists: (organizationId) => repository.organizationExists(organizationId),
+      findBranch: (branchId) => repository.findBranch(branchId),
+      isPlatformOperator: (userId) => repository.isPlatformOperator(userId),
+    });
+    await assert.rejects(
+      resolver({
+        userId: postgresIds.userA,
+        defaultOrganizationId: postgresIds.organizationA,
+        sessionId: '00000000000000000000000000000000',
+      }, { branchId: postgresIds.branchB }),
+      (error: unknown) => error instanceof Error && error.message === 'Access denied to this branch',
+    );
+  });
+
+  await context.test('duplicate PostgreSQL phone matches retain the authentication ambiguity guard', async () => {
+    await database.query(
+      `INSERT INTO users (legacy_mongo_id, name, phone, password_hash, created_at, updated_at)
+       VALUES ($1, 'Duplicate phone', '1001', $2, $3, $3)`,
+      [generateLegacyMongoMembershipId(), passwordHash, at],
+    );
+    const identityRepository = new PostgresIdentityRepository(database, {
+      getEffective: async (organizationId) => ({
+        organizationId,
+        subscription: null,
+        modules: [],
+        limits: emptyEffectiveLimits(),
+      }),
+    });
+    assert.equal((await identityRepository.findByPhone('1001')).length, 2);
+    let sessionCreateCount = 0;
+    const service = createAuthService({
+      identities: identityRepository,
+      sessions: {
+        create: async () => { sessionCreateCount += 1; throw new Error('must not create'); },
+        rotate: async () => { throw new Error('not used'); },
+        revoke: async () => undefined,
+        revokeAllForUser: async () => undefined,
+      },
+      verifyPassword: async () => true,
+      signAccessToken: () => 'unused',
+    });
+    await assert.rejects(
+      service.login({ phone: '1001', password: 'correct' }),
+      (error: unknown) => error instanceof Error && error.message.includes('Multiple accounts'),
+    );
+    assert.equal(sessionCreateCount, 0);
+    await database.query("DELETE FROM users WHERE name = 'Duplicate phone'");
+  });
+
+  await context.test('attendance resolver and operational bridge reject foreign tenant identities', async () => {
+    const bridge = new PostgresOperationalIdentityBridge(mappings);
+    const operational = await bridge.resolve({
+      userId: postgresIds.userA,
+      sessionId: 'session',
+      organizationId: postgresIds.organizationA,
+      membershipId: postgresIds.membershipA,
+      branchId: postgresIds.branchA,
+      role: 'owner',
+      permissions: [],
+      platformOperator: true,
+    });
+    assert.equal(operational.legacyMongoOrganizationId, ids.organizationA);
+    assert.equal(operational.legacyMongoUserId, ids.userA);
+    assert.equal(operational.legacyMongoBranchId, ids.branchA);
+    const resolver = new PostgresAttendanceIdentityResolver(database);
+    assert.equal((await resolver.resolveTarget(postgresIds.userA, operational))?.name, 'Owner');
+    assert.equal(await resolver.resolveTarget(postgresIds.userB, operational), null);
+    const stored = await resolver.resolveStoredUsers([ids.userA, ids.userB], operational);
+    assert.deepEqual([...stored.keys()], [ids.userA]);
+    await assert.rejects(
+      bridge.resolve({
+        userId: postgresIds.userA,
+        sessionId: 'session',
+        organizationId: randomUUID(),
+        membershipId: postgresIds.membershipA,
+        role: 'owner',
+        permissions: [],
+        platformOperator: true,
+      }),
+      IdMappingNotFoundError,
+    );
+  });
+
+  await context.test('cutover preflight is read-only and detects missing or stale mappings', async () => {
+    const source = new MemorySource(fixture());
+    const before = await database.query<{ state: string }>(
+      `SELECT md5(string_agg(state, '|' ORDER BY state)) AS state
+       FROM (
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text AS state FROM users
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM organizations
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM branches
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM memberships
+       ) rows`,
+    );
+    const ready = await runCutoverPreflight({ source, database });
+    const after = await database.query<{ state: string }>(
+      `SELECT md5(string_agg(state, '|' ORDER BY state)) AS state
+       FROM (
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text AS state FROM users
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM organizations
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM branches
+         UNION ALL
+         SELECT id::text || ':' || COALESCE(legacy_mongo_id, '') || ':' || updated_at::text FROM memberships
+       ) rows`,
+    );
+    assert.equal(ready.ready, true, ready.blockers.join('\n'));
+    assert.equal(before.rows[0]?.state, after.rows[0]?.state);
+
+    await database.query(
+      'UPDATE organizations SET legacy_mongo_id = NULL WHERE legacy_mongo_id = $1',
+      [ids.organizationA],
+    );
+    const missing = await runCutoverPreflight({ source, database });
+    assert.equal(missing.ready, false);
+    assert.ok(missing.blockers.some((blocker) => blocker.includes('mapping') || blocker.includes('unmapped')));
+    await database.query(
+      'UPDATE organizations SET legacy_mongo_id = $1 WHERE id = $2',
+      [ids.organizationA, postgresIds.organizationA],
+    );
+
+    await database.query(
+      "UPDATE organizations SET name = 'Stale name' WHERE legacy_mongo_id = $1",
+      [ids.organizationA],
+    );
+    const stale = await runCutoverPreflight({ source, database });
+    assert.equal(stale.ready, false);
+    assert.ok(stale.blockers.some((blocker) => blocker.includes('name mismatch')));
+    await repository.apply(fixture());
+  });
+
+  await context.test('PostgreSQL session create, lookup, rotation, replay, revocation, and expiry are secure', async () => {
+    const sessionRepository = new PostgresSessionRepository(database);
+    let tick = 0;
+    const manager = createRefreshSessionManager({
+      repository: sessionRepository,
+      getHashSecret: () => 'integration-only-session-hmac-secret-with-sufficient-length',
+      now: () => new Date(at.getTime() + tick++ * 1000),
+    });
+    const created = await manager.create(postgresIds.userA, {
+      userAgent: 'agent'.repeat(200),
+      ipAddress: '127.0.0.1',
+    });
+    assert.equal((await sessionRepository.findBySessionId(created.sessionId))?.userId, postgresIds.userA);
+    const outcomes = await Promise.allSettled([
+      manager.rotate(created.refreshCredential),
+      manager.rotate(created.refreshCredential),
+    ]);
+    assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
+    assert.equal(outcomes.filter((outcome) => outcome.status === 'rejected').length, 1);
+    const winner = outcomes.find((outcome) => outcome.status === 'fulfilled');
+    assert.ok(winner?.status === 'fulfilled');
+    await assert.rejects(manager.rotate(created.refreshCredential));
+    await manager.revoke(winner.value.refreshCredential);
+    await assert.rejects(manager.rotate(winner.value.refreshCredential));
+
+    const first = await manager.create(postgresIds.userA);
+    const second = await manager.create(postgresIds.userA);
+    await manager.revokeAllForUser(postgresIds.userA);
+    await assert.rejects(manager.rotate(first.refreshCredential));
+    await assert.rejects(manager.rotate(second.refreshCredential));
+
+    await sessionRepository.create({
+      sessionId: 'ffffffffffffffffffffffffffffffff',
+      userId: postgresIds.userA,
+      refreshTokenHash: 'f'.repeat(64),
+      expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+      lastUsedAt: new Date('2019-01-01T00:00:00.000Z'),
+      revokedAt: null,
+    });
+    assert.equal(
+      await new PostgresAuthorizationContextRepository(database).isSessionActive(
+        'ffffffffffffffffffffffffffffffff',
+        postgresIds.userA,
+        new Date(),
+      ),
+      false,
+    );
+  });
+
+  await context.test('staff and account writes are transactional and organization-scoped', async () => {
+    const staffRepository = new PostgresStaffRepository(database);
+    const beforeUsers = Number((await database.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM users',
+    )).rows[0]?.count);
+    await assert.rejects(staffRepository.create({
+      organizationId: postgresIds.organizationA,
+      branchId: postgresIds.branchB,
+      name: 'Rollback Staff',
+      phone: 'rollback-phone',
+      passwordHash,
+      role: 'staff',
+    }));
+    const afterUsers = Number((await database.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM users',
+    )).rows[0]?.count);
+    assert.equal(afterUsers, beforeUsers);
+    assert.equal((await staffRepository.list(postgresIds.organizationA)).some(
+      (staff) => staff.phone === 'rollback-phone',
+    ), false);
+
+    const created = await staffRepository.create({
+      organizationId: postgresIds.organizationA,
+      branchId: postgresIds.branchA,
+      name: 'Created Staff',
+      phone: 'staff-created',
+      passwordHash,
+      role: 'staff',
+    });
+    assert.notEqual(created, 'phone-conflict');
+    if (created === 'phone-conflict') throw new Error('Unexpected duplicate');
+    await database.query(
+      `INSERT INTO memberships
+        (legacy_mongo_id, user_id, organization_id, role, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'staff', 'active', $4, $4)`,
+      [generateLegacyMongoMembershipId(), created.id, postgresIds.organizationB, at],
+    );
+    assert.ok(await staffRepository.revoke(postgresIds.organizationA, created.id));
+    const statuses = await database.query<{ organization_id: string; status: string }>(
+      'SELECT organization_id, status FROM memberships WHERE user_id = $1 ORDER BY organization_id',
+      [created.id],
+    );
+    assert.equal(statuses.rows.find((row) => row.organization_id === postgresIds.organizationA)?.status, 'revoked');
+    assert.equal(statuses.rows.find((row) => row.organization_id === postgresIds.organizationB)?.status, 'active');
+
+    const accounts = new PostgresAccountRepository(database);
+    const registration = await accounts.registerAdmin({
+      orgName: 'New org',
+      orgType: 'shop',
+      userName: 'New admin',
+      phone: 'registration-phone',
+      passwordHash,
+    });
+    assert.ok(registration.organization);
+    const registeredUserId = String(registration.user.id);
+    const registeredOrganizationId = String(registration.user.tenantId);
+    assert.deepEqual(await accounts.updateTheme(registeredOrganizationId, {
+      mode: 'dark',
+      primaryColor: '#123456',
+    }), { mode: 'dark', primaryColor: '#123456' });
+    assert.equal(await accounts.findPasswordHash(registeredUserId), passwordHash);
+    assert.equal(
+      await accounts.replacePasswordHashAndRevokeSessions(registeredUserId, 'f'.repeat(60)),
+      true,
+    );
+  });
+
+  await database.query('DELETE FROM auth_sessions');
 });

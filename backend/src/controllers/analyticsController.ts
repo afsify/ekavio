@@ -3,15 +3,18 @@ import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { Queue } from '../models/Queue.js';
 import { Inventory } from '../models/Inventory.js';
 import { Attendance } from '../models/Attendance.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
+import { legacyOrganizationScope } from '../persistence/operationalIdentity.js';
 import { createAppError, getErrorMessage } from '../utils/AppError.js';
-import { organizationScope, requireAuthorizationContext } from '../utils/tenantScope.js';
+import { requireAuthorizationContext } from '../utils/tenantScope.js';
 import { MODULES } from '../commercial/catalogue.js';
 import { entitlementService } from '../services/entitlementService.js';
 
 export const getDashboardStats = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const context = requireAuthorizationContext(req);
-    const scope = organizationScope(context);
+    const operational = await runtimePersistence.operationalIdentity.resolve(context);
+    const scope = legacyOrganizationScope(operational);
     const entitlements = await entitlementService.getEffective(context.organizationId);
     const enabledModules = new Set(
       entitlements.modules.filter((module) => module.enabled).map((module) => module.key),

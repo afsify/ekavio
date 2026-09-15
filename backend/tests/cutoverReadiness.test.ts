@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import test from 'node:test';
+import {
+  asLegacyMongoOrganizationId,
+  asLegacyMongoUserId,
+  generateLegacyMongoId,
+  isLegacyMongoId,
+  isUuid,
+} from '../src/persistence/identifiers.js';
+import { mongooseOperationalIdentityBridge } from '../src/persistence/operationalIdentity.js';
+import { runtimePersistence } from '../src/persistence/runtimePersistence.js';
+import { createStaff, type StaffRepository } from '../src/services/staffService.js';
+import type { AuthorizationContext } from '../src/services/requestContextService.js';
+import type { MembershipRole } from '../src/models/Membership.js';
+
+test('canonical UUID and legacy Mongo identifier namespaces validate independently', () => {
+  const uuid = randomUUID();
+  const legacy = generateLegacyMongoId();
+  assert.equal(isUuid(uuid), true);
+  assert.equal(isLegacyMongoId(uuid), false);
+  assert.equal(isLegacyMongoId(legacy), true);
+  assert.equal(isUuid(legacy), false);
+  assert.equal(new Set(Array.from({ length: 128 }, generateLegacyMongoId)).size, 128);
+  assert.throws(() => asLegacyMongoOrganizationId(uuid));
+});
+
+test('V2-05B runtime composition is explicitly MongoDB and has no selection toggle', () => {
+  assert.equal(runtimePersistence.authority, 'mongodb');
+  assert.equal(Object.isFrozen(runtimePersistence), true);
+  assert.equal('postgres' in runtimePersistence, false);
+  assert.equal('select' in runtimePersistence, false);
+});
+
+test('Mongo operational bridge accepts only validated legacy IDs', async () => {
+  const context: AuthorizationContext = {
+    userId: '200000000000000000000001',
+    sessionId: 'session',
+    organizationId: '100000000000000000000001',
+    membershipId: '400000000000000000000001',
+    branchId: '300000000000000000000001',
+    role: 'staff',
+    permissions: [],
+    platformOperator: false,
+  };
+  const result = await mongooseOperationalIdentityBridge.resolve(context);
+  assert.equal(result.legacyMongoOrganizationId, asLegacyMongoOrganizationId(context.organizationId));
+  assert.equal(result.legacyMongoUserId, asLegacyMongoUserId(context.userId));
+  await assert.rejects(
+    mongooseOperationalIdentityBridge.resolve({ ...context, organizationId: randomUUID() }),
+    /Legacy Mongo organization ID/,
+  );
+});
+
+test('staff role mutation cannot grant platform operator or owner authority', async () => {
+  let createCalls = 0;
+  const repository: StaffRepository = {
+    list: async () => [],
+    create: async () => { createCalls += 1; return 'phone-conflict'; },
+    revoke: async () => null,
+  };
+  const context: AuthorizationContext = {
+    userId: '200000000000000000000001',
+    sessionId: 'session',
+    organizationId: '100000000000000000000001',
+    membershipId: '400000000000000000000001',
+    role: 'admin',
+    permissions: [],
+    platformOperator: false,
+  };
+  await assert.rejects(
+    createStaff(repository, context, {
+      name: 'Unsafe',
+      phone: '1',
+      password: 'secret',
+      role: 'operator' as MembershipRole,
+    }),
+    /Unsupported organization role/,
+  );
+  await assert.rejects(
+    createStaff(repository, context, {
+      name: 'Unsafe',
+      phone: '1',
+      password: 'secret',
+      role: 'owner',
+    }),
+    /Unsupported organization role/,
+  );
+  assert.equal(createCalls, 0);
+});

@@ -1,11 +1,20 @@
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import {
-  listAttendanceForContext,
-  markAttendanceForContext,
+  createAttendanceReader,
+  createAttendanceWriter,
 } from '../services/attendanceService.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
+
+const attendanceDependencies = {
+  storage: runtimePersistence.attendanceStorage,
+  identities: runtimePersistence.attendanceIdentities,
+  operationalIdentity: runtimePersistence.operationalIdentity,
+};
+const markAttendanceForContext = createAttendanceWriter(attendanceDependencies);
+const listAttendanceForContext = createAttendanceReader(attendanceDependencies);
 
 export const markAttendance = async (
   request: AuthenticatedRequest,

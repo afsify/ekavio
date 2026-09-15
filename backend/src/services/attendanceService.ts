@@ -1,9 +1,9 @@
-import { Attendance } from '../models/Attendance.js';
-import { Membership } from '../models/Membership.js';
-import { User } from '../models/User.js';
 import type { AuthorizationContext } from './requestContextService.js';
+import type {
+  OperationalIdentityBridge,
+  OperationalIdentityContext,
+} from '../persistence/operationalIdentity.js';
 import { AppError } from '../utils/AppError.js';
-import { organizationScope } from '../utils/tenantScope.js';
 
 export interface AttendanceWriteInput {
   userId: string;
@@ -11,118 +11,102 @@ export interface AttendanceWriteInput {
   status: 'present' | 'absent' | 'half-day';
 }
 
-export interface AttendanceRepository {
-  targetHasAccess(userId: string, organizationId: string, branchId?: string): Promise<boolean>;
+export interface AttendanceStorageRepository {
   upsert(input: {
-    organizationId: string;
-    userId: string;
+    legacyMongoOrganizationId: string;
+    legacyMongoUserId: string;
     date: Date;
     status: AttendanceWriteInput['status'];
   }): Promise<unknown>;
+  listForDay(legacyMongoOrganizationId: string, start: Date, end: Date): Promise<unknown[]>;
+}
+
+export interface AttendanceIdentity {
+  requestedUserId: string;
+  legacyMongoUserId: string;
+  name: string;
+  phone: string;
+  displayUser: { _id: unknown; name: string; phone: string };
+}
+
+export interface AttendanceIdentityResolver {
+  resolveTarget(
+    requestedUserId: string,
+    context: OperationalIdentityContext,
+  ): Promise<AttendanceIdentity | null>;
+  resolveStoredUsers(
+    legacyMongoUserIds: string[],
+    context: OperationalIdentityContext,
+  ): Promise<Map<string, AttendanceIdentity>>;
+}
+
+export interface AttendanceDependencies {
+  storage: AttendanceStorageRepository;
+  identities: AttendanceIdentityResolver;
+  operationalIdentity: OperationalIdentityBridge;
 }
 
 export const normalizeAttendanceDate = (date: string): Date => {
   const targetDate = new Date(date);
-  if (Number.isNaN(targetDate.getTime())) {
-    throw new AppError('Invalid date format', 400);
+  if (Number.isNaN(targetDate.getTime())) throw new AppError('Invalid date format', 400);
+  return new Date(Date.UTC(
+    targetDate.getUTCFullYear(),
+    targetDate.getUTCMonth(),
+    targetDate.getUTCDate(),
+  ));
+};
+
+export const createAttendanceWriter = ({
+  storage,
+  identities,
+  operationalIdentity,
+}: AttendanceDependencies) => async (
+  context: AuthorizationContext,
+  input: AttendanceWriteInput,
+): Promise<unknown> => {
+  const operational = await operationalIdentity.resolve(context);
+  const target = await identities.resolveTarget(input.userId, operational);
+  if (!target) {
+    // Missing and foreign users remain indistinguishable to avoid an identity oracle.
+    throw new AppError('Attendance target not found', 404);
   }
-  return new Date(
-    Date.UTC(
-      targetDate.getUTCFullYear(),
-      targetDate.getUTCMonth(),
-      targetDate.getUTCDate(),
-    ),
-  );
+  return storage.upsert({
+    legacyMongoOrganizationId: operational.legacyMongoOrganizationId,
+    legacyMongoUserId: target.legacyMongoUserId,
+    date: normalizeAttendanceDate(input.date),
+    status: input.status,
+  });
 };
 
-export const createAttendanceWriter = (repository: AttendanceRepository) => {
-  return async (context: AuthorizationContext, input: AttendanceWriteInput) => {
-    const targetHasAccess = await repository.targetHasAccess(
-      input.userId,
-      context.organizationId,
-      context.branchId,
-    );
-    if (!targetHasAccess) {
-      // Use the same response for missing and foreign users to avoid an identity oracle.
-      throw new AppError('Attendance target not found', 404);
-    }
-
-    return repository.upsert({
-      organizationId: context.organizationId,
-      userId: input.userId,
-      date: normalizeAttendanceDate(input.date),
-      status: input.status,
-    });
-  };
-};
-
-export const mongooseAttendanceRepository: AttendanceRepository = {
-  async targetHasAccess(userId, organizationId, branchId) {
-    return Boolean(
-      await Membership.exists({
-        userId,
-        organizationId,
-        status: 'active',
-        ...(branchId ? { branchIds: branchId } : {}),
-      }),
-    );
-  },
-
-  async upsert(input) {
-    return Attendance.findOneAndUpdate(
-      {
-        tenantId: input.organizationId,
-        userId: input.userId,
-        date: input.date,
-      },
-      {
-        $set: {
-          tenantId: input.organizationId,
-          userId: input.userId,
-          date: input.date,
-          status: input.status,
-        },
-      },
-      { new: true, upsert: true, runValidators: true },
-    );
-  },
-};
-
-export const markAttendanceForContext = createAttendanceWriter(
-  mongooseAttendanceRepository,
-);
-
-export const listAttendanceForContext = async (
+export const createAttendanceReader = ({
+  storage,
+  identities,
+  operationalIdentity,
+}: AttendanceDependencies) => async (
   context: AuthorizationContext,
   targetDate: Date,
-) => {
-  if (Number.isNaN(targetDate.getTime())) {
-    throw new AppError('Invalid date parameter', 400);
-  }
-  const startOfDay = new Date(
-    Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate()),
-  );
+): Promise<unknown[]> => {
+  if (Number.isNaN(targetDate.getTime())) throw new AppError('Invalid date parameter', 400);
+  const startOfDay = new Date(Date.UTC(
+    targetDate.getUTCFullYear(),
+    targetDate.getUTCMonth(),
+    targetDate.getUTCDate(),
+  ));
   const endOfDay = new Date(startOfDay);
   endOfDay.setUTCHours(23, 59, 59, 999);
-
-  const records = await Attendance.find({
-    ...organizationScope(context),
-    date: { $gte: startOfDay, $lte: endOfDay },
-  }).sort({ createdAt: -1 }).lean();
-  const targetUserIds = records.map((record) => record.userId);
-  const memberships = await Membership.find({
-    userId: { $in: targetUserIds },
-    organizationId: context.organizationId,
-    status: 'active',
-    ...(context.branchId ? { branchIds: context.branchId } : {}),
-  }).select('userId').lean();
-  const allowedUserIds = memberships.map((membership) => membership.userId);
-  const users = await User.find({ _id: { $in: allowedUserIds } })
-    .select('name phone')
-    .lean();
-  const userById = new Map(users.map((user) => [String(user._id), user]));
-  return records.map((record) => ({
+  const operational = await operationalIdentity.resolve(context);
+  const records = await storage.listForDay(
+    operational.legacyMongoOrganizationId,
+    startOfDay,
+    endOfDay,
+  );
+  const recordRows = records as Array<{ userId: unknown }>;
+  const identitiesByLegacyId = await identities.resolveStoredUsers(
+    recordRows.map((record) => String(record.userId)),
+    operational,
+  );
+  return recordRows.map((record) => ({
     ...record,
-    userId: userById.get(String(record.userId)) ?? null,
+    userId: identitiesByLegacyId.get(String(record.userId))?.displayUser ?? null,
   }));
 };

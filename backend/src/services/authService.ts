@@ -1,33 +1,24 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getRuntimeConfig } from '../config/env.js';
-import { Branch } from '../models/Branch.js';
-import { Membership, type MembershipRole } from '../models/Membership.js';
-import { Organization } from '../models/Organization.js';
-import { User } from '../models/User.js';
+import type { MembershipRole } from '../models/Membership.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import { AppError } from '../utils/AppError.js';
-import { permissionsForRole, type Permission } from './authorizationPolicy.js';
+import type { Permission } from './authorizationPolicy.js';
 import { ensureLegacyAuthorizationForUser } from './authorizationBackfillService.js';
-import { entitlementService, type EffectiveEntitlements } from './entitlementService.js';
+import type { EffectiveEntitlements } from './entitlementService.js';
 import { getSessionIdFromRefreshCredential, runtimeRefreshSessions } from './sessionService.js';
 import type { RefreshSessionManager, SessionMetadata } from './sessionService.js';
-
-interface RegisterAdminInput {
-  orgName: string;
-  orgType: string;
-  userName: string;
-  phone: string;
-  password: string;
-}
+import {
+  registerAdmin,
+  updateOrganizationTheme,
+  type RegisterAdminInput,
+  type ThemeInput,
+} from './accountPersistence.js';
 
 export interface LoginInput {
   phone: string;
   password: string;
-}
-
-interface ThemeInput {
-  mode?: 'light' | 'dark';
-  primaryColor?: string;
 }
 
 export interface IdentityAssignment {
@@ -133,143 +124,8 @@ export interface AuthServiceDependencies {
 
 export const normalizeLoginPhone = (phone: string): string => phone.trim();
 
-const toIdentityUser = (user: InstanceType<typeof User>): IdentityUser => ({
-  id: String(user._id),
-  tenantId: String(user.tenantId),
-  role: user.role ?? 'staff',
-  ...(user.name ? { name: user.name } : {}),
-  phone: user.phone,
-  passwordHash: user.password ?? '',
-  assignments: (user.assignments ?? []).map((assignment) => ({
-    tenantId: String(assignment.tenantId),
-    role: assignment.role,
-  })),
-  platformOperator: user.platformRole === 'operator',
-});
-
-export const mongooseIdentityRepository: IdentityRepository = {
-  async findByPhone(phone) {
-    const users = await User.find({ phone }).select('+platformRole').limit(2);
-    return users.map(toIdentityUser);
-  },
-
-  async findById(userId) {
-    const user = await User.findById(userId).select('+platformRole');
-    return user ? toIdentityUser(user) : null;
-  },
-
-  async buildContext(user, selection = {}) {
-    const membershipDocuments = await Membership.find({
-      userId: user.id,
-      status: 'active',
-    }).lean();
-
-    if (membershipDocuments.length === 0) {
-      throw new AppError('No active organization membership', 403);
-    }
-
-    const organizationIds = membershipDocuments.map((membership) =>
-      String(membership.organizationId),
-    );
-    const organizations = await Organization.find({ _id: { $in: organizationIds } }).lean();
-    const organizationById = new Map(
-      organizations.map((organization) => [String(organization._id), organization]),
-    );
-    const branchIds = membershipDocuments.flatMap((membership) =>
-      membership.branchIds.map(String),
-    );
-    const branches = await Branch.find({
-      _id: { $in: branchIds },
-      organizationId: { $in: organizationIds },
-      status: 'active',
-    }).lean();
-    const branchById = new Map(branches.map((branch) => [String(branch._id), branch]));
-
-    const memberships: MembershipContext[] = membershipDocuments.flatMap((membership) => {
-      const organizationId = String(membership.organizationId);
-      const organization = organizationById.get(organizationId);
-      if (!organization) return [];
-      const availableBranches = membership.branchIds.flatMap((branchId) => {
-        const branch = branchById.get(String(branchId));
-        if (!branch || String(branch.organizationId) !== organizationId) return [];
-        return [{ id: String(branch._id), name: branch.name, code: branch.code }];
-      });
-      return [{
-        id: String(membership._id),
-        organizationId,
-        tenantId: organizationId,
-        ...(organization.name ? { orgName: organization.name } : {}),
-        role: membership.role,
-        status: 'active' as const,
-        branchIds: availableBranches.map((branch) => branch.id),
-        branches: availableBranches,
-      }];
-    });
-
-    const requestedOrganizationId = selection.organizationId ?? user.tenantId;
-    const activeMembership = memberships.find(
-      (membership) => membership.organizationId === requestedOrganizationId,
-    );
-    if (!activeMembership) {
-      throw new AppError('Access denied to this organization', 403);
-    }
-
-    let branchId = selection.branchId;
-    if (branchId && !activeMembership.branchIds.includes(branchId)) {
-      throw new AppError('Access denied to this branch', 403);
-    }
-    branchId ??= activeMembership.branchIds[0];
-
-    const primaryOrganization = organizationById.get(activeMembership.organizationId);
-    const permissions = permissionsForRole(activeMembership.role);
-    const entitlements = await entitlementService.getEffective(activeMembership.organizationId);
-    const assignments = memberships
-      .filter((membership) => membership.organizationId !== activeMembership.organizationId)
-      .map((membership) => ({
-        tenantId: membership.organizationId,
-        role: membership.role,
-        ...(membership.orgName ? { orgName: membership.orgName } : {}),
-      }));
-    const theme = primaryOrganization?.theme
-      ? {
-          mode: primaryOrganization.theme.mode,
-          primaryColor: primaryOrganization.theme.primaryColor,
-        }
-      : { mode: 'light' as const, primaryColor: '#4F46E5' };
-    const publicUser: PublicUser = {
-      id: user.id,
-      tenantId: activeMembership.organizationId,
-      organizationId: activeMembership.organizationId,
-      membershipId: activeMembership.id,
-      ...(branchId ? { branchId } : {}),
-      role: activeMembership.role,
-      permissions,
-      ...(user.name ? { name: user.name } : {}),
-      phone: user.phone,
-      assignments,
-      memberships,
-    };
-
-    return {
-      userId: user.id,
-      tenantId: activeMembership.organizationId,
-      organizationId: activeMembership.organizationId,
-      membershipId: activeMembership.id,
-      ...(branchId ? { branchId } : {}),
-      role: activeMembership.role,
-      permissions,
-      platformOperator: user.platformOperator === true,
-      memberships,
-      user: publicUser,
-      assignments,
-      entitlements,
-      theme,
-    };
-  },
-};
-
 const runtimeDependencies: AuthServiceDependencies = {
-  identities: mongooseIdentityRepository,
+  identities: runtimePersistence.identities,
   sessions: runtimeRefreshSessions,
   verifyPassword: bcrypt.compare,
   prepareAuthorization: ensureLegacyAuthorizationForUser,
@@ -353,56 +209,8 @@ export const createAuthService = ({
 
 export const authService = createAuthService(runtimeDependencies);
 
-export const registerAdminService = async (data: RegisterAdminInput) => {
-  const { orgName, orgType, userName, password } = data;
-  const phone = normalizeLoginPhone(data.phone);
-  const organization = await Organization.create({
-    name: orgName,
-    type: orgType,
-  });
-  const branch = await Branch.create({
-    organizationId: organization._id,
-    name: 'Main',
-    code: 'main',
-    status: 'active',
-  });
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const adminUser = await User.create({
-    tenantId: organization._id,
-    name: userName,
-    phone,
-    password: hashedPassword,
-    role: 'admin',
-  });
-  await Membership.create({
-    userId: adminUser._id,
-    organizationId: organization._id,
-    role: 'admin',
-    status: 'active',
-    branchIds: [branch._id],
-  });
+export const registerAdminService = (data: RegisterAdminInput) =>
+  registerAdmin(runtimePersistence.accounts, data);
 
-  return {
-    organization,
-    branch,
-    user: {
-      id: adminUser._id,
-      tenantId: adminUser.tenantId,
-      name: adminUser.name,
-      phone: adminUser.phone,
-      role: adminUser.role,
-    },
-  };
-};
-
-export const updateThemeService = async (organizationId: string, data: ThemeInput) => {
-  const organization = await Organization.findOne({ _id: organizationId });
-  if (!organization) throw new AppError('Organization not found', 404);
-  organization.theme = {
-    mode: data.mode || organization.theme?.mode || 'light',
-    primaryColor:
-      data.primaryColor || organization.theme?.primaryColor || '#4F46E5',
-  };
-  await organization.save();
-  return organization.theme;
-};
+export const updateThemeService = (organizationId: string, data: ThemeInput) =>
+  updateOrganizationTheme(runtimePersistence.accounts, organizationId, data);
