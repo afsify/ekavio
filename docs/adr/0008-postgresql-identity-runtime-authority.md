@@ -4,6 +4,8 @@
 - Date: 2026-09-15
 - Scope: V2-05C PostgreSQL Identity/Auth Runtime Cutover
 
+> Commercial-authority statements in this historical V2-05C decision are superseded by [ADR 0009](0009-postgresql-commercial-runtime-authority.md). Operational Mongo boundaries remain current.
+
 ## Context
 
 V2-05A created the PostgreSQL shared-core schema and shadow migration. V2-05B added reversible UUID-to-legacy-ID mappings and inactive PostgreSQL adapters while MongoDB remained runtime authority. Keeping MongoDB as an authentication or authorization fallback after switching writes to PostgreSQL would create two conflicting identity authorities, make session revocation ambiguous, and reopen tenant-boundary risks.

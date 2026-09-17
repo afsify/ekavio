@@ -12,7 +12,7 @@ import { mongooseOperationalIdentityBridge } from '../src/persistence/operationa
 import { PostgresOperationalIdentityBridge } from '../src/persistence/operationalIdentity.js';
 import { runtimePersistence } from '../src/persistence/runtimePersistence.js';
 import { mongooseAttendanceStorageRepository } from '../src/persistence/mongoAttendance.js';
-import { PostgresMongoCommercialIdentityBridge } from '../src/persistence/commercialIdentity.js';
+import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
@@ -34,13 +34,15 @@ test('canonical UUID and legacy Mongo identifier namespaces validate independent
   assert.throws(() => asLegacyMongoOrganizationId(uuid));
 });
 
-test('V2-05C runtime composition selects PostgreSQL identity with Mongo operational storage', () => {
+test('V2-05D runtime composition selects PostgreSQL identity and commercial authority with Mongo operational storage', () => {
   assert.equal(runtimePersistence.authority, 'postgresql');
   assert.equal(Object.isFrozen(runtimePersistence), true);
   assert.ok(runtimePersistence.accounts instanceof PostgresAccountRepository);
   assert.ok(runtimePersistence.attendanceIdentities instanceof PostgresAttendanceIdentityResolver);
   assert.ok(runtimePersistence.authorization instanceof PostgresAuthorizationContextRepository);
-  assert.ok(runtimePersistence.commercial instanceof PostgresMongoCommercialIdentityBridge);
+  assert.equal(runtimePersistence.commercialAuthority, 'postgresql');
+  assert.equal(runtimePersistence.operationalAuthority, 'mongodb');
+  assert.ok(runtimePersistence.commercialRepository instanceof PostgresCommercialRepository);
   assert.ok(runtimePersistence.identities instanceof PostgresIdentityRepository);
   assert.ok(runtimePersistence.operationalIdentity instanceof PostgresOperationalIdentityBridge);
   assert.ok(runtimePersistence.sessions instanceof PostgresSessionRepository);

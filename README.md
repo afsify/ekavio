@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, and V2-05C cut identity, sessions, and authorization over to PostgreSQL without moving commercial or operational records.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity and commercial authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, and V2-05D cut commercial runtime authority to PostgreSQL without moving operational records.
 
 ## Prerequisites
 
@@ -87,7 +87,7 @@ From `backend/`, seed or reconcile the deterministic pilot catalogue:
 npm.cmd run entitlements:catalogue
 ```
 
-This creates the canonical `ledger`, `inventory`, `attendance`, and `queue` module definitions, a pilot core plan, a non-sellable legacy-import plan, and module add-ons. It does not assign new access to existing organizations and contains no finalized product pricing.
+This reconciles the PostgreSQL-backed canonical `ledger`, `inventory`, `attendance`, and `queue` module definitions, a pilot core plan, a non-sellable legacy-import plan, and module add-ons. It is transactional and idempotent, does not assign new access to existing organizations, and contains no finalized product pricing.
 
 Preview the legacy `Organization.activeModules` migration:
 
@@ -101,7 +101,7 @@ The report normalizes `khata` and `digital-khata` to `ledger`, lists unknown mod
 npm.cmd run entitlements:backfill -- --apply
 ```
 
-The apply operation is idempotent, creates at most one import subscription per organization, preserves valid legacy module access, and retains inactive/suspended state. It stops before any write if unknown or ambiguous legacy data exists. Do not run apply automatically against an unreviewed shared or production database.
+This deprecated-field backfill writes only legacy Mongo commercial source data and is retained for migration/recovery compatibility. It cannot change post-V2-05D runtime entitlements. Do not run its apply mode as routine administration or against an unreviewed shared/production database.
 
 ## Manual pilot subscription administration
 
@@ -144,11 +144,13 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL identity authority and Mongo compatibility
+## PostgreSQL identity and commercial authority
 
-PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, and Attendance identity resolution. MongoDB remains authoritative for commercial Plan/AddOn/Subscription/Entitlement state, Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate compatibility, analytics, and other operational domains.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, Attendance identity resolution, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements, and limits. MongoDB remains authoritative for Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate operational data, ActivityLog audits, analytics, and other operational domains.
 
-The composition decision is source-controlled and has no environment/request switch or automatic Mongo identity fallback. Shared-core identity writes are PostgreSQL-only. Operational and commercial code receives validated, entity-specific legacy Mongo IDs through the compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
+The composition decision is source-controlled and has no environment/request switch or automatic Mongo fallback. Shared-core identity and commercial writes are PostgreSQL-only. Commercial code uses canonical PostgreSQL UUIDs directly. Operational/audit code receives validated, entity-specific legacy Mongo IDs through separate compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
+
+Effective-entitlement snapshots and public catalogue reads span multiple related tables, so they run in read-only, repeatable-read PostgreSQL transactions. A request cannot mix plan, add-on, subscription, or override rows from before and after one concurrent commit.
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -173,14 +175,16 @@ Preview Mongo-to-PostgreSQL shadow migration (the default writes nothing):
 npm.cmd run postgres:shadow
 ```
 
-After completing backups, reviewing a clean dry run, and applying schema migrations, explicitly apply and reconcile:
+Before V2-05D activation, backups, a reviewed clean dry run, apply, verification, and read-only commercial preflight were required:
 
 ```powershell
 npm.cmd run postgres:shadow -- --apply
 npm.cmd run postgres:verify
+npm.cmd run postgres:commercial:preflight
+npm.cmd run postgres:commercial:activate -- --apply
 ```
 
-Apply is one transaction, validates all source relationships before writes, upserts by stable `legacy_mongo_id`, and is idempotent. Verification returns non-zero for any mismatch. Reports never contain passwords, password hashes, refresh-token hashes, or database credentials. Mongo refresh credentials are never copied to PostgreSQL.
+The authority activation writes a durable safety latch only after the read-only preflight reports zero blockers. Once active, ordinary `postgres:shadow -- --apply` refuses before writes so stale Mongo commercial rows cannot overwrite PostgreSQL authority. Dry-run and verification remain available. `--recover-commercial-authority` is an exceptional rollback/reconciliation mode, never a routine sync command; see the V2-05D runbook. Reports never contain passwords, hashes, refresh credentials, or database credentials.
 
 After completing a fresh shadow apply and verification against reviewed data, run the read-only cutover readiness check:
 
@@ -196,6 +200,8 @@ Mongo session invalidation is dry-run by default. Use `--apply` only during an a
 npm.cmd run sessions:mongo:revoke
 npm.cmd run sessions:mongo:revoke -- --apply
 ```
+
+See [ADR 0009](docs/adr/0009-postgresql-commercial-runtime-authority.md), the [commercial coupling audit](docs/reviews/V2-05D_COMMERCIAL_RUNTIME_COUPLING.md), and the executed [V2-05D cutover runbook](docs/runbooks/V2-05D_COMMERCIAL_CUTOVER.md).
 
 See [ADR 0008](docs/adr/0008-postgresql-identity-runtime-authority.md), [ADR 0007](docs/adr/0007-postgresql-cutover-compatibility.md), and the executed [V2-05C cutover runbook](docs/runbooks/V2-05C_IDENTITY_CUTOVER.md).
 
@@ -215,6 +221,7 @@ npm.cmd run test:postgres
 npm.cmd run test:parity
 npm.cmd run test:preflight
 npm.cmd run test:cutover
+npm.cmd run test:commercial
 npm.cmd start
 ```
 

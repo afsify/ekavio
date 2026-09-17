@@ -8,7 +8,6 @@ import {
   assertConsolidatedBillingAuthority,
   assertCorporateLinkAuthority,
 } from '../services/corporateAuthorizationService.js';
-import { entitlementService } from '../services/entitlementService.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
@@ -20,7 +19,7 @@ export const createParentOrg = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
+    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
     const parentOrg = await ParentOrganization.create({
       name: request.body.name,
       ownerId: legacyActorUserId,
@@ -46,7 +45,7 @@ export const linkChildOrg = async (
   try {
     const context = requireAuthorizationContext(request);
     const { parentId, childOrgId } = request.body as { parentId: string; childOrgId: string };
-    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
+    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
     const [parentOrg, childMembership] = await Promise.all([
       ParentOrganization.findOne({ _id: parentId, ownerId: legacyActorUserId }).lean(),
       runtimePersistence.authorization.findActiveMembership(context.userId, childOrgId),
@@ -58,7 +57,7 @@ export const linkChildOrg = async (
       ...(childMembership ? { childMembershipRole: childMembership.role } : {}),
     });
 
-    const legacyChildOrganizationId = await runtimePersistence.commercial.organizationToLegacy(
+    const legacyChildOrganizationId = await runtimePersistence.mongoIdentities.organizationToLegacy(
       childOrgId,
     );
     const childOrg = await Organization.findOneAndUpdate(
@@ -92,7 +91,7 @@ export const getConsolidatedBilling = async (
   try {
     const context = requireAuthorizationContext(request);
     const parentId = request.params.parentId as string;
-    const legacyActorUserId = await runtimePersistence.commercial.userToLegacy(context.userId);
+    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
     const parentOrg = await ParentOrganization.findOne({
       _id: parentId,
       ownerId: legacyActorUserId,
@@ -103,10 +102,12 @@ export const getConsolidatedBilling = async (
     const childOrgs = await Organization.find({ parentId }).lean();
     const billingDetails = await Promise.all(childOrgs.map(async (organization) => {
       const legacyOrganizationId = asLegacyMongoOrganizationId(String(organization._id));
-      const [commercialState, canonicalOrganizationId] = await Promise.all([
-        entitlementService.getEffective(legacyOrganizationId),
-        runtimePersistence.idMappings.organizationToPostgres(legacyOrganizationId),
-      ]);
+      const canonicalOrganizationId = await runtimePersistence.idMappings.organizationToPostgres(
+        legacyOrganizationId,
+      );
+      const commercialState = await runtimePersistence.commercial.getEffective(
+        canonicalOrganizationId,
+      );
       return {
         organizationId: canonicalOrganizationId,
         name: organization.name,

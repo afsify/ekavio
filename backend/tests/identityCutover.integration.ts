@@ -6,16 +6,14 @@ import mongoose from 'mongoose';
 import { moduleKeys } from '../src/commercial/catalogue.js';
 import { ActivityLog } from '../src/models/ActivityLog.js';
 import { Attendance } from '../src/models/Attendance.js';
-import { Entitlement } from '../src/models/Entitlement.js';
 import { Inventory } from '../src/models/Inventory.js';
 import { Ledger } from '../src/models/Ledger.js';
 import { Membership } from '../src/models/Membership.js';
-import { ModuleDefinition } from '../src/models/ModuleDefinition.js';
 import { Organization } from '../src/models/Organization.js';
 import { Queue } from '../src/models/Queue.js';
 import { Session } from '../src/models/Session.js';
 import { User } from '../src/models/User.js';
-import { PostgresMongoCommercialIdentityBridge } from '../src/persistence/commercialIdentity.js';
+import { PostgresMongoLegacyIdentityBridge } from '../src/persistence/legacyIdentity.js';
 import { mongooseAttendanceStorageRepository } from '../src/persistence/mongoAttendance.js';
 import {
   legacyOrganizationScope,
@@ -29,6 +27,7 @@ import {
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
+import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { PostgresIdMappingRepository } from '../src/postgres/idMappingRepository.js';
 import { PostgresIdentityRepository } from '../src/postgres/identityRepository.js';
@@ -44,8 +43,8 @@ import {
   createAuthService,
 } from '../src/services/authService.js';
 import { permissions, permissionsForRole } from '../src/services/authorizationPolicy.js';
-import { upsertOrganizationEntitlement } from '../src/services/commercialAdministrationService.js';
-import { entitlementService } from '../src/services/entitlementService.js';
+import { createCommercialAdministrationService } from '../src/services/commercialAdministrationService.js';
+import { createEntitlementService } from '../src/services/entitlementService.js';
 import { createAuthorizationContextResolver } from '../src/services/requestContextService.js';
 import { createSecurityAuditRecorder } from '../src/services/securityAuditService.js';
 import { createRefreshSessionManager } from '../src/services/sessionService.js';
@@ -95,7 +94,14 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
   const accounts = new PostgresAccountRepository(database);
   const staff = new PostgresStaffRepository(database);
   const mappings = new PostgresIdMappingRepository(database);
-  const commercial = new PostgresMongoCommercialIdentityBridge(mappings, entitlementService);
+  const commercialRepository = new PostgresCommercialRepository(database);
+  await commercialRepository.reconcileCatalogue();
+  const commercial = createEntitlementService(commercialRepository);
+  const commercialAdministration = createCommercialAdministrationService(
+    commercialRepository,
+    commercial,
+  );
+  const mongoIdentities = new PostgresMongoLegacyIdentityBridge(mappings);
   const identities = new PostgresIdentityRepository(database, commercial);
   const sessionRepository = new PostgresSessionRepository(database);
   const sessions = createRefreshSessionManager({
@@ -172,41 +178,19 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
     throw new Error('Unexpected staff fixture conflict');
   }
 
-  await ModuleDefinition.create(moduleKeys.map((key) => ({
-    key,
-    displayName: key,
-    description: `${key} cutover test module`,
-    category: 'operations',
-    commercialType: 'purchasable',
-    status: 'active',
-    version: 1,
-  })));
-  const [legacyOrganizationA, legacyOrganizationB, legacyOwnerA, legacyOwnerB] = await Promise.all([
-    commercial.organizationToLegacy(idsA.organizationId),
-    commercial.organizationToLegacy(idsB.organizationId),
-    commercial.userToLegacy(idsA.userId),
-    commercial.userToLegacy(idsB.userId),
+  const [legacyOrganizationA, legacyOrganizationB, legacyOwnerA] = await Promise.all([
+    mongoIdentities.organizationToLegacy(idsA.organizationId),
+    mongoIdentities.organizationToLegacy(idsB.organizationId),
+    mongoIdentities.userToLegacy(idsA.userId),
   ]);
-  await Entitlement.create([
-    ...moduleKeys.map((moduleKey) => ({
-      organizationId: legacyOrganizationA,
-      moduleKey,
-      effect: 'grant' as const,
-      status: 'active' as const,
-      source: 'pilot' as const,
-      reason: 'Organization A cutover fixture',
-      actorUserId: legacyOwnerA,
-    })),
-    {
-      organizationId: legacyOrganizationB,
-      moduleKey: 'queue',
-      effect: 'grant',
-      status: 'active',
-      source: 'pilot',
-      reason: 'Organization B isolated fixture',
-      actorUserId: legacyOwnerB,
-    },
-  ]);
+  for (const moduleKey of moduleKeys) {
+    await commercialAdministration.upsertEntitlement(idsA.organizationId, idsA.userId, moduleKey, {
+      effect: 'grant', status: 'active', source: 'pilot', reason: 'Organization A cutover fixture',
+    });
+  }
+  await commercialAdministration.upsertEntitlement(idsB.organizationId, idsA.userId, 'queue', {
+    effect: 'grant', status: 'active', source: 'pilot', reason: 'Organization B isolated fixture',
+  });
 
   let ownerALogin = await auth.login({ phone: 'cutover-owner-a', password: 'owner-a-password' });
   let ownerBLogin = await auth.login({ phone: 'cutover-owner-b', password: 'owner-b-password' });
@@ -223,7 +207,7 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
     assert.equal(await Membership.countDocuments({}), 0);
   });
 
-  await context.test('commercial entitlements map canonical organizations and remain isolated', async () => {
+  await context.test('PostgreSQL commercial entitlements use canonical organizations and remain isolated', async () => {
     assert.equal(ownerALogin.response.entitlements.organizationId, idsA.organizationId);
     assert.equal(ownerBLogin.response.entitlements.organizationId, idsB.organizationId);
     assert.deepEqual(
@@ -430,7 +414,7 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
 
   await context.test('security audit events retain mapped Mongo compatibility without identity mirrors', async () => {
     const recordAudit = createSecurityAuditRecorder({
-      identities: commercial,
+      identities: mongoIdentities,
       repository: { create: (record) => ActivityLog.create(record) },
     });
     await recordAudit(contextA, 'membership.created', { targetUserId: staffAResult.id }, '127.0.0.1');
@@ -452,16 +436,16 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
     assert.equal(isUuid(idsC.userId), true);
     assert.equal(isUuid(idsC.branchId), true);
     const [legacyOrganizationC, legacyOwnerC] = await Promise.all([
-      commercial.organizationToLegacy(idsC.organizationId),
-      commercial.userToLegacy(idsC.userId),
+      mongoIdentities.organizationToLegacy(idsC.organizationId),
+      mongoIdentities.userToLegacy(idsC.userId),
     ]);
     assert.equal(isLegacyMongoId(legacyOrganizationC), true);
     assert.equal(isLegacyMongoId(legacyOwnerC), true);
     const beforeGrant = await commercial.getEffective(idsC.organizationId);
     assert.equal(beforeGrant.modules.some((module) => module.enabled), false);
-    await upsertOrganizationEntitlement(
-      legacyOrganizationC,
-      legacyOwnerA,
+    await commercialAdministration.upsertEntitlement(
+      idsC.organizationId,
+      idsA.userId,
       'queue',
       {
         effect: 'grant',

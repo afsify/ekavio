@@ -11,8 +11,11 @@ import type {
   PublicUser,
 } from '../services/authService.js';
 import { permissionsForRole } from '../services/authorizationPolicy.js';
-import { entitlementService } from '../services/entitlementService.js';
+import { createEntitlementService } from '../services/entitlementService.js';
+import { legacyMongoEntitlementRepository } from '../postgres/legacyMongoCommercialRepository.js';
 import { AppError } from '../utils/AppError.js';
+
+const legacyMongoEntitlements = createEntitlementService(legacyMongoEntitlementRepository);
 
 const toIdentityUser = (user: InstanceType<typeof User>): IdentityUser => ({
   id: String(user._id),
@@ -120,7 +123,7 @@ export const mongooseIdentityRepository: IdentityRepository = {
       memberships,
       user: publicUser,
       assignments,
-      entitlements: await entitlementService.getEffective(activeMembership.organizationId),
+      entitlements: await legacyMongoEntitlements.getEffective(activeMembership.organizationId),
       theme: primaryOrganization?.theme
         ? {
             mode: primaryOrganization.theme.mode,

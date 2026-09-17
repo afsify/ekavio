@@ -28,9 +28,11 @@
 - Completed milestone: V2-05B PostgreSQL Cutover Readiness & Compatibility Bridge.
 - V2-05B added explicit canonical UUID and legacy Mongo identifier types, reversible entity-scoped mappings, a validated operational Mongo ID bridge, V2-02-compatible PostgreSQL session schema/repositories, inactive PostgreSQL identity/authorization/write adapters, centralized Mongo runtime composition, attendance identity separation, a read-only cutover preflight, parity/security coverage, and the V2-05C cutover/rollback plan.
 - Completed milestone: V2-05C PostgreSQL Identity/Auth Runtime Cutover.
-- PostgreSQL is the current runtime authority for users/identity, organizations, branches, memberships and branch assignments, login, sessions, authorization, staff, registration, and profile/password identity. Attendance identity resolution is PostgreSQL-backed.
-- MongoDB remains the temporary commercial runtime and stores Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate compatibility, analytics, and the remaining operational domains. Runtime shared-core identity mutations do not dual-write, and PostgreSQL identity failures do not fall back to MongoDB.
-- Next milestone: V2-05D PostgreSQL Commercial Runtime Cutover.
+- Completed milestone: V2-05D PostgreSQL Commercial Runtime Cutover.
+- PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation, and effective limits. Attendance identity resolution is PostgreSQL-backed.
+- Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
+- MongoDB stores Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit data, analytics, and the remaining operational domains. Runtime identity and commercial mutations do not dual-write, and PostgreSQL authority failures do not fall back to MongoDB.
+- Next: do not automatically choose another milestone. Stop for architecture review before any operational-domain migration.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 

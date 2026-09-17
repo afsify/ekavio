@@ -59,7 +59,7 @@ export const createSecurityAuditRecorder = ({
 };
 
 export const recordSecurityAudit = createSecurityAuditRecorder({
-  identities: runtimePersistence.commercial,
+  identities: runtimePersistence.mongoIdentities,
   repository: {
     create: (record) => ActivityLog.create(record),
   },

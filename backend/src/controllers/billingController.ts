@@ -1,15 +1,7 @@
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import type {
-  UpdateSubscriptionInput,
-  UpsertEntitlementInput,
-} from '../schemas/billingSchemas.js';
-import {
-  updateOrganizationSubscription,
-  upsertOrganizationEntitlement,
-} from '../services/commercialAdministrationService.js';
+import type { UpdateSubscriptionInput, UpsertEntitlementInput } from '../schemas/billingSchemas.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
-import { getPublicCommercialCatalogue } from '../services/commercialCatalogueService.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
@@ -39,7 +31,7 @@ export const getCatalogue = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    response.json({ success: true, data: await getPublicCommercialCatalogue() });
+    response.json({ success: true, data: await runtimePersistence.commercial.getPublicCatalogue() });
   } catch (error: unknown) {
     next(handleError(error));
   }
@@ -53,16 +45,11 @@ export const updateSubscription = async (
   try {
     const context = requireAuthorizationContext(request);
     const organizationId = request.params.organizationId as string;
-    const [legacyOrganizationId, legacyActorUserId] = await Promise.all([
-      runtimePersistence.commercial.organizationToLegacy(organizationId),
-      runtimePersistence.commercial.userToLegacy(context.userId),
-    ]);
-    const legacyEffective = await updateOrganizationSubscription(
-      legacyOrganizationId,
-      legacyActorUserId,
+    const effective = await runtimePersistence.commercial.updateSubscription(
+      organizationId,
+      context.userId,
       request.body as UpdateSubscriptionInput,
     );
-    const effective = { ...legacyEffective, organizationId };
     await recordSecurityAudit(
       context,
       'commercial.subscription.updated',
@@ -86,17 +73,12 @@ export const upsertEntitlement = async (
     const organizationId = request.params.organizationId as string;
     const moduleKey = request.params.moduleKey as string;
     const input = request.body as UpsertEntitlementInput;
-    const [legacyOrganizationId, legacyActorUserId] = await Promise.all([
-      runtimePersistence.commercial.organizationToLegacy(organizationId),
-      runtimePersistence.commercial.userToLegacy(context.userId),
-    ]);
-    const legacyEffective = await upsertOrganizationEntitlement(
-      legacyOrganizationId,
-      legacyActorUserId,
+    const effective = await runtimePersistence.commercial.upsertEntitlement(
+      organizationId,
+      context.userId,
       moduleKey,
       input,
     );
-    const effective = { ...legacyEffective, organizationId };
     await recordSecurityAudit(
       context,
       'commercial.entitlement.updated',

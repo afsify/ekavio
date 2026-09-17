@@ -85,7 +85,7 @@ export const runCutoverPreflight = async ({
   const mappings = new PostgresIdMappingRepository(database);
   const authz = new PostgresAuthorizationContextRepository(database);
   const identities = new PostgresIdentityRepository(database, {
-    // buildContext is not called here because commercial authority deliberately remains MongoDB.
+    // buildContext is not called by this identity-only preflight.
     getEffective: async () => { throw new Error('Commercial evaluation is outside identity preflight'); },
   });
 

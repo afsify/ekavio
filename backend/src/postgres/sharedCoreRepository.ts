@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import type { PostgresDatabase } from './database.js';
 import type { SharedCoreSnapshot } from './sharedCoreTypes.js';
+import { isCommercialAuthorityActivated } from './commercialAuthority.js';
 
 type IdMap = Map<string, string>;
 
@@ -33,10 +34,22 @@ const upsertLegacyRow = async (
 };
 
 export class PostgresSharedCoreRepository {
-  public constructor(private readonly database: PostgresDatabase) {}
+  public constructor(
+    private readonly database: PostgresDatabase,
+    private readonly options: { allowCommercialRecovery?: boolean } = {},
+  ) {}
 
   public apply(snapshot: SharedCoreSnapshot): Promise<void> {
     return this.database.transaction(async (client) => {
+      if (
+        await isCommercialAuthorityActivated(client) &&
+        !this.options.allowCommercialRecovery
+      ) {
+        throw new Error(
+          'Shadow apply refused: PostgreSQL commercial authority is active. ' +
+          'Use the explicit documented commercial recovery mode only after reconciliation approval.',
+        );
+      }
       const userIds: IdMap = new Map();
       for (const row of snapshot.users) {
         userIds.set(row.legacyMongoId, await upsertLegacyRow(client, 'users', row.legacyMongoId, {

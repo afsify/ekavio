@@ -91,6 +91,10 @@ jobs:
         working-directory: backend
         run: npm run test:cutover
 
+      - name: Test PostgreSQL commercial runtime cutover
+        working-directory: backend
+        run: npm run test:commercial
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

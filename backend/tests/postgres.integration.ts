@@ -7,6 +7,7 @@ import { createAuthService } from '../src/services/authService.js';
 import { createRefreshSessionManager } from '../src/services/sessionService.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
+import { activateCommercialAuthority } from '../src/postgres/commercialAuthority.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
 import { runCutoverPreflight } from '../src/postgres/cutoverPreflight.js';
 import { PostgresDatabase } from '../src/postgres/database.js';
@@ -137,12 +138,12 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   });
 
   await context.test('migrates a clean database and reruns deterministically', async () => {
-    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['pending', 'pending']);
+    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['pending', 'pending', 'pending']);
     await migrate(database);
     await migrate(database);
-    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['applied', 'applied']);
+    assert.deepEqual((await getMigrationStatus(database)).map(({ state }) => state), ['applied', 'applied', 'applied']);
     const history = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM schema_migrations');
-    assert.equal(history.rows[0]?.count, '2');
+    assert.equal(history.rows[0]?.count, '3');
   });
 
   const source = new MemorySource(fixture());
@@ -597,4 +598,12 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   });
 
   await database.query('DELETE FROM auth_sessions');
+
+  await context.test('post-cutover shadow apply refuses unless explicit recovery is selected', async () => {
+    await activateCommercialAuthority(database);
+    await assert.rejects(repository.apply(fixture()), /Shadow apply refused/);
+    await new PostgresSharedCoreRepository(database, {
+      allowCommercialRecovery: true,
+    }).apply(fixture());
+  });
 });
