@@ -29,10 +29,14 @@
 - V2-05B added explicit canonical UUID and legacy Mongo identifier types, reversible entity-scoped mappings, a validated operational Mongo ID bridge, V2-02-compatible PostgreSQL session schema/repositories, inactive PostgreSQL identity/authorization/write adapters, centralized Mongo runtime composition, attendance identity separation, a read-only cutover preflight, parity/security coverage, and the V2-05C cutover/rollback plan.
 - Completed milestone: V2-05C PostgreSQL Identity/Auth Runtime Cutover.
 - Completed milestone: V2-05D PostgreSQL Commercial Runtime Cutover.
+- Current architecture review: V2-06A Operational Domain Architecture Review & Relational Target Design.
+- Completed milestone: V2-06A Operational Domain Architecture Review & Relational Target Design.
+- V2-06A documented the real remaining Mongo operational authority, selected redesigned relational boundaries for Customer, Service, Appointments, Queue, Attendance, Inventory, Customer Dues, corporate linkage, and audit history, and defined migration/concurrency/money/quantity invariants without changing runtime behavior or creating SQL migrations.
 - PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation, and effective limits. Attendance identity resolution is PostgreSQL-backed.
 - Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
 - MongoDB stores Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit data, analytics, and the remaining operational domains. Runtime identity and commercial mutations do not dual-write, and PostgreSQL authority failures do not fall back to MongoDB.
-- Next: do not automatically choose another milestone. Stop for architecture review before any operational-domain migration.
+- Next milestone: V2-06B Customer, Service, Appointment & Queue PostgreSQL Vertical.
+- Do not treat V2-06A as an operational migration: Queue, Inventory, Ledger, Attendance, ParentOrganization/corporate operational linkage, and ActivityLog runtime storage remain in MongoDB until their implementation milestones are completed.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 
