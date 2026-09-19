@@ -95,6 +95,14 @@ jobs:
         working-directory: backend
         run: npm run test:commercial
 
+      - name: Test PostgreSQL operational foundation
+        working-directory: backend
+        run: npm run test:operational
+
+      - name: Test operational migration and reconciliation
+        working-directory: backend
+        run: npm run test:operational-migration
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

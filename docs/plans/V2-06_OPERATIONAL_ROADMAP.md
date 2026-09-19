@@ -24,6 +24,20 @@ Legacy Mongo data is not presumed valid merely because it exists. Every skipped/
 
 ## V2-06B — Customer, Service, Appointment & Queue PostgreSQL Vertical
 
+- Subdivision accepted: V2-06B1 foundation/readiness, then V2-06B2 runtime cutover.
+- V2-06B1 status: completed 2026-09-17.
+- V2-06B2 status: next milestone.
+
+### V2-06B1 — PostgreSQL foundation and migration readiness
+
+V2-06B1 owns migration 004; branch timezone validation; Customer, Service, provider, Appointment, Queue session/token schemas; composite tenant/branch constraints; append-only histories; row-locked token allocation; atomic appointment check-in; dry-run/apply/verify/preflight tooling; and correctness/concurrency/migration/security evidence. PostgreSQL operational rows remain inactive shadow/future-runtime state. Mongo remains the sole Queue runtime authority, existing Queue routes and frontend are unchanged, no Queue dual-write exists, and no new realtime event is emitted.
+
+### V2-06B2 — Complete vertical runtime cutover
+
+V2-06B2 owns the single accepted authority switch for Customer, Service, Appointment, and Queue; selected-branch production APIs; canonical DTOs and real pagination; Dashboard and frontend integration; post-commit PII-minimized realtime; executable Mongo Queue runtime removal; production validation; and the rollback boundary. It may begin only after B1 remote CI/tag acceptance and must require a restore-tested backup, reviewed mapping, clean apply/reconciliation, valid active-branch timezones, passing read-only preflight, and concurrency/security gates.
+
+The domain order is unchanged: this remains the first V2-06 operational vertical, followed by Attendance, Customer Dues, Inventory, and corporate/audit retirement.
+
 ### Goal
 
 Deliver the first branch-safe, sellable clinic/salon operational vertical and remove Queue runtime authority from MongoDB. Establish one canonical Customer/Service vocabulary so Appointments and Queue do not create another cross-database identity bridge.

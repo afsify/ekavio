@@ -64,3 +64,4 @@ Desktop.ini
 backups/
 *.dump
 *.sql.gz
+*.operational-queue-mapping.json

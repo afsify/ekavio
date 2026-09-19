@@ -1,6 +1,6 @@
 # EkaVio development
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity and commercial authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, and V2-05D cut commercial runtime authority to PostgreSQL without moving operational records.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity and commercial authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, and V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation.
 
 ## Prerequisites
 
@@ -152,6 +152,26 @@ The composition decision is source-controlled and has no environment/request swi
 
 Effective-entitlement snapshots and public catalogue reads span multiple related tables, so they run in read-only, repeatable-read PostgreSQL transactions. A request cannot mix plan, add-on, subscription, or override rows from before and after one concurrent commit.
 
+## Operational Queue PostgreSQL foundation (V2-06B1)
+
+Migration 004 adds branch IANA timezones, organization-owned Customers and Services, branch availability, membership-based provider assignments, Appointments with overlap protection and append-only history, and Queue sessions/tokens with append-only history. Future PostgreSQL Queue token creation locks the session counter in one transaction; it never counts existing rows. Appointment check-in and Queue token creation are one idempotent transaction.
+
+These tables and repositories are not registered on production routes in B1. `POST /api/queue`, `GET /api/queue`, `PATCH /api/queue/:id/status`, Dashboard Queue counts, and the current frontend still use MongoDB. There is no Queue dual-write, PostgreSQL fallback, or new Queue Socket.IO producer. V2-06B2 owns the complete runtime/frontend/realtime cutover.
+
+Legacy Queue/Customer/Service analysis requires a reviewed local mapping file ending in `.operational-queue-mapping.json`; Git ignores that pattern. Build first, then run dry-run (the default), explicit apply, reconciliation, and the read-only B2 preflight from `backend/`:
+
+```powershell
+npm.cmd run build
+npm.cmd run operations:queue:shadow -- --mapping C:\secure\tenant.operational-queue-mapping.json
+npm.cmd run operations:queue:shadow -- --mapping C:\secure\tenant.operational-queue-mapping.json --apply
+npm.cmd run operations:queue:verify -- --mapping C:\secure\tenant.operational-queue-mapping.json
+npm.cmd run operations:queue:preflight -- --mapping C:\secure\tenant.operational-queue-mapping.json
+```
+
+Dry-run receives no target database and cannot mutate operational tables. Apply refuses unmapped organizations/branches, invalid timezones/phones/statuses/token labels, unresolved customer or service collisions, and duplicate numbers within a reviewed historical session. Source fingerprints make a later unreviewed source change fail closed. Verification compares source counts, mappings, relationships, statuses, timestamps, IDs, sessions, and uniqueness and exits non-zero on any difference.
+
+See [ADR 0011](docs/adr/0011-customer-service-appointment-queue-foundation.md) and the plan-only [V2-06B cutover runbook](docs/runbooks/V2-06B_QUEUE_VERTICAL_CUTOVER.md). Do not execute the runtime-switch section during B1.
+
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
 ```powershell
@@ -222,6 +242,8 @@ npm.cmd run test:parity
 npm.cmd run test:preflight
 npm.cmd run test:cutover
 npm.cmd run test:commercial
+npm.cmd run test:operational
+npm.cmd run test:operational-migration
 npm.cmd start
 ```
 
