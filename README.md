@@ -1,4 +1,43 @@
-# EkaVio development
+# EkaVio
+
+**Multi-tenant SMB operations platform**
+
+EkaVio is a modular SaaS platform designed for small and medium businesses
+including shops, clinics, salons, service businesses, and small offices.
+
+The project focuses on secure multi-tenancy, low operating cost, modular
+business capabilities, and maintainable backend architecture.
+
+## Architecture
+
+- **Frontend:** React, TypeScript, Vite
+- **Backend:** Node.js, Express.js, TypeScript
+- **Relational data:** PostgreSQL
+- **Operational data:** MongoDB
+- **Infrastructure:** Docker Compose
+- **Realtime:** Socket.IO
+
+## Engineering Highlights
+
+- Secure access tokens with revocable server-side sessions
+- Organization and branch-aware multi-tenancy
+- Membership-based RBAC and permission enforcement
+- PostgreSQL-backed identity, authorization, and commercial entitlements
+- MongoDB operational persistence
+- Transactional migrations and cutover tooling
+- Docker health/readiness checks
+- Automated lint, typecheck, build, migration, parity and integration gates
+
+## Project Status
+
+🚧 Active development
+
+The current work is focused on moving operational domains to the relational
+architecture while preserving tenant safety and migration compatibility.
+
+---
+
+## Development Documentation
 
 EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity and commercial authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, and V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation.
 
