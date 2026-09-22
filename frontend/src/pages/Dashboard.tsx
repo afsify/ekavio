@@ -71,9 +71,10 @@ export const Dashboard: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const entitlements = useAppStore((state) => state.entitlements);
   const setTheme = useAppStore((state) => state.setTheme);
+  const activeBranchId = useAppStore((state) => state.activeBranchId);
 
   const { data: stats, isLoading: isStatsLoading } = useQuery({
-    queryKey: ['dashboardStats', entitlements?.organizationId],
+    queryKey: ['dashboardStats', entitlements?.organizationId, activeBranchId],
     queryFn: async () => {
       const response = await client.get('/analytics/dashboard');
       return response.data.data;

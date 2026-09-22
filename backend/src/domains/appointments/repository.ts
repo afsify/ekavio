@@ -27,8 +27,26 @@ export interface AppointmentRecord {
   starts_at: Date;
   ends_at: Date;
   status: AppointmentStatus;
+  notes: string | null;
   version: number;
+  idempotency_key: string | null;
+  created_by_membership_id: string;
+  created_at: Date;
+  updated_at: Date;
 }
+
+export interface AppointmentDetails extends AppointmentRecord {
+  customer_name: string;
+  customer_phone: string | null;
+  service_name: string;
+  provider_name: string | null;
+}
+
+const appointmentColumns = `
+  id, organization_id, branch_id, customer_id, service_id,
+  provider_membership_id, starts_at, ends_at, status, notes, version,
+  idempotency_key, created_by_membership_id, created_at, updated_at
+`;
 
 export class PostgresAppointmentRepository {
   public constructor(private readonly database: PostgresDatabase) {}
@@ -52,14 +70,34 @@ export class PostgresAppointmentRepository {
           organization_id, branch_id, customer_id, service_id, provider_membership_id,
           starts_at, ends_at, notes, idempotency_key, created_by_membership_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING id, organization_id, branch_id, customer_id, service_id,
-          provider_membership_id, starts_at, ends_at, status, version
+        ON CONFLICT (organization_id, idempotency_key)
+          WHERE idempotency_key IS NOT NULL
+          DO NOTHING
+        RETURNING ${appointmentColumns}
       `, [
         input.organizationId, input.branchId, input.customerId, input.serviceId,
         input.providerMembershipId ?? null, input.startsAt, input.endsAt, input.notes ?? null,
         input.idempotencyKey ?? null, input.actorMembershipId,
       ]);
-      const appointment = result.rows[0]!;
+      let appointment = result.rows[0];
+      if (!appointment && input.idempotencyKey) {
+        const existing = await client.query<AppointmentRecord>(`
+          SELECT ${appointmentColumns}
+          FROM appointments
+          WHERE organization_id = $1 AND idempotency_key = $2
+        `, [input.organizationId, input.idempotencyKey]);
+        appointment = existing.rows[0];
+        if (!appointment || appointment.branch_id !== input.branchId
+          || appointment.customer_id !== input.customerId
+          || appointment.service_id !== input.serviceId
+          || appointment.provider_membership_id !== (input.providerMembershipId ?? null)
+          || appointment.starts_at.getTime() !== input.startsAt.getTime()
+          || appointment.ends_at.getTime() !== input.endsAt.getTime()) {
+          throw new Error('Idempotency key was already used for a different appointment');
+        }
+        return appointment;
+      }
+      if (!appointment) throw new Error('Appointment could not be created');
       await client.query(`
         INSERT INTO appointment_status_events (
           appointment_id, organization_id, appointment_version, from_status,
@@ -67,6 +105,62 @@ export class PostgresAppointmentRepository {
         ) VALUES ($1, $2, 1, NULL, 'scheduled', $3)
       `, [appointment.id, input.organizationId, input.actorMembershipId]);
       return appointment;
+    });
+  }
+
+  public async findById(input: {
+    organizationId: string;
+    branchId: string;
+    appointmentId: string;
+  }): Promise<AppointmentDetails | null> {
+    const result = await this.database.query<AppointmentDetails>(`
+      SELECT ${appointmentColumns.split(',').map((column) => `a.${column.trim()}`).join(', ')},
+        c.name AS customer_name, c.display_phone AS customer_phone,
+        s.name AS service_name, u.name AS provider_name
+      FROM appointments a
+      JOIN customers c ON c.id = a.customer_id AND c.organization_id = a.organization_id
+      JOIN services s ON s.id = a.service_id AND s.organization_id = a.organization_id
+      LEFT JOIN memberships m
+        ON m.id = a.provider_membership_id AND m.organization_id = a.organization_id
+      LEFT JOIN users u ON u.id = m.user_id
+      WHERE a.id = $1 AND a.organization_id = $2 AND a.branch_id = $3
+    `, [input.appointmentId, input.organizationId, input.branchId]);
+    return result.rows[0] ?? null;
+  }
+
+  public async list(input: {
+    organizationId: string;
+    branchId: string;
+    startsAt: Date;
+    endsAt: Date;
+    page: number;
+    limit: number;
+  }): Promise<{ data: AppointmentDetails[]; total: number }> {
+    return this.database.transaction(async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      const values = [input.organizationId, input.branchId, input.startsAt, input.endsAt];
+      const count = await client.query<{ total: string }>(`
+        SELECT COUNT(*)::text AS total
+        FROM appointments
+        WHERE organization_id = $1 AND branch_id = $2
+          AND starts_at >= $3 AND starts_at < $4
+      `, values);
+      const result = await client.query<AppointmentDetails>(`
+        SELECT ${appointmentColumns.split(',').map((column) => `a.${column.trim()}`).join(', ')},
+          c.name AS customer_name, c.display_phone AS customer_phone,
+          s.name AS service_name, u.name AS provider_name
+        FROM appointments a
+        JOIN customers c ON c.id = a.customer_id AND c.organization_id = a.organization_id
+        JOIN services s ON s.id = a.service_id AND s.organization_id = a.organization_id
+        LEFT JOIN memberships m
+          ON m.id = a.provider_membership_id AND m.organization_id = a.organization_id
+        LEFT JOIN users u ON u.id = m.user_id
+        WHERE a.organization_id = $1 AND a.branch_id = $2
+          AND a.starts_at >= $3 AND a.starts_at < $4
+        ORDER BY a.starts_at, a.id
+        LIMIT $5 OFFSET $6
+      `, [...values, input.limit, (input.page - 1) * input.limit]);
+      return { data: result.rows, total: Number(count.rows[0]?.total ?? 0) };
     });
   }
 
@@ -81,8 +175,7 @@ export class PostgresAppointmentRepository {
   }): Promise<AppointmentRecord> {
     return this.database.transaction(async (client) => {
       const currentResult = await client.query<AppointmentRecord>(`
-        SELECT id, organization_id, branch_id, customer_id, service_id,
-          provider_membership_id, starts_at, ends_at, status, version
+        SELECT ${appointmentColumns}
         FROM appointments
         WHERE id = $1 AND organization_id = $2 AND branch_id = $3
         FOR UPDATE
@@ -97,8 +190,7 @@ export class PostgresAppointmentRepository {
         UPDATE appointments
         SET status = $1, version = version + 1, updated_at = NOW()
         WHERE id = $2 AND organization_id = $3 AND branch_id = $4 AND version = $5
-        RETURNING id, organization_id, branch_id, customer_id, service_id,
-          provider_membership_id, starts_at, ends_at, status, version
+        RETURNING ${appointmentColumns}
       `, [
         input.toStatus, input.appointmentId, input.organizationId,
         input.branchId, input.expectedVersion,

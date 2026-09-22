@@ -28,26 +28,15 @@ router.use(requireEntitlement(MODULES.QUEUE));
  *           schema:
  *             type: object
  *             required:
- *               - customerName
- *               - phone
- *               - serviceType
+ *               - customerId
+ *               - serviceId
  *             properties:
- *               customerName:
+ *               customerId:
  *                 type: string
- *                 description: Name of the customer
- *                 example: Alice Smith
- *               phone:
+ *                 format: uuid
+ *               serviceId:
  *                 type: string
- *                 description: Phone number of the customer
- *                 example: "+19876543210"
- *               serviceType:
- *                 type: string
- *                 description: Type of service requested
- *                 example: Consultation
- *               tokenNumber:
- *                 type: string
- *                 description: Optional custom token number (auto-generated if not provided)
- *                 example: "#10"
+ *                 format: uuid
  *     responses:
  *       201:
  *         description: Token created successfully
@@ -119,8 +108,10 @@ router.get('/', requirePermission(permissions.QUEUE_READ), getQueue);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [waiting, serving, completed, cancelled]
+ *                 enum: [serving, completed, cancelled]
  *                 example: serving
+ *               expectedVersion:
+ *                 type: integer
  *     responses:
  *       200:
  *         description: Token status updated successfully

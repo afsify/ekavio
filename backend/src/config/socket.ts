@@ -124,3 +124,7 @@ export const disconnectSessionSockets = (sessionId: string): void => {
 export const emitToTenant = (tenantId: string, event: string, data: unknown): void => {
   if (io) io.to(organizationRoom(tenantId)).emit(event, data);
 };
+
+export const emitToBranch = (branchId: string, event: string, data: unknown): void => {
+  if (io) io.to(branchRoom(branchId)).emit(event, data);
+};

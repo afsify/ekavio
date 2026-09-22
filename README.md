@@ -13,7 +13,7 @@ business capabilities, and maintainable backend architecture.
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express.js, TypeScript
 - **Relational data:** PostgreSQL
-- **Operational data:** MongoDB
+- **Operational data:** PostgreSQL for Customer, Service, Appointment, and Queue; MongoDB for remaining legacy domains
 - **Infrastructure:** Docker Compose
 - **Realtime:** Socket.IO
 
@@ -23,7 +23,7 @@ business capabilities, and maintainable backend architecture.
 - Organization and branch-aware multi-tenancy
 - Membership-based RBAC and permission enforcement
 - PostgreSQL-backed identity, authorization, and commercial entitlements
-- MongoDB operational persistence
+- PostgreSQL operational authority for Customer, Service, Appointment, and Queue, with MongoDB retained for deferred legacy domains
 - Transactional migrations and cutover tooling
 - Docker health/readiness checks
 - Automated lint, typecheck, build, migration, parity and integration gates
@@ -39,7 +39,7 @@ architecture while preserving tenant safety and migration compatibility.
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity and commercial authority, and MongoDB operational persistence. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, and V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, and V2-06B2 cut that vertical's runtime authority to PostgreSQL. The next milestone is V2-06B3 Deployment & Staging Readiness; it is not part of this change.
 
 ## Prerequisites
 
@@ -183,19 +183,21 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL identity and commercial authority
+## PostgreSQL identity, commercial, and Queue-vertical authority
 
-PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, Attendance identity resolution, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements, and limits. MongoDB remains authoritative for Queue, Inventory, Ledger, Attendance records, ParentOrganization/corporate operational data, ActivityLog audits, analytics, and other operational domains.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, Attendance identity resolution, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, and Queue sessions/tokens/status. MongoDB remains authoritative for Inventory, Ledger/Customer Dues legacy, Attendance records, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains.
 
 The composition decision is source-controlled and has no environment/request switch or automatic Mongo fallback. Shared-core identity and commercial writes are PostgreSQL-only. Commercial code uses canonical PostgreSQL UUIDs directly. Operational/audit code receives validated, entity-specific legacy Mongo IDs through separate compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
 
 Effective-entitlement snapshots and public catalogue reads span multiple related tables, so they run in read-only, repeatable-read PostgreSQL transactions. A request cannot mix plan, add-on, subscription, or override rows from before and after one concurrent commit.
 
-## Operational Queue PostgreSQL foundation (V2-06B1)
+## Customer / Service / Appointment / Queue runtime (V2-06B2)
 
-Migration 004 adds branch IANA timezones, organization-owned Customers and Services, branch availability, membership-based provider assignments, Appointments with overlap protection and append-only history, and Queue sessions/tokens with append-only history. Future PostgreSQL Queue token creation locks the session counter in one transaction; it never counts existing rows. Appointment check-in and Queue token creation are one idempotent transaction.
+Migration 004 adds branch IANA timezones, organization-owned Customers and Services, branch availability, membership-based provider assignments, Appointments with overlap protection and append-only history, and Queue sessions/tokens with append-only history. Live Queue token creation locks the session counter in one transaction; it never counts existing rows. Appointment check-in and Queue token creation are one idempotent transaction.
 
-These tables and repositories are not registered on production routes in B1. `POST /api/queue`, `GET /api/queue`, `PATCH /api/queue/:id/status`, Dashboard Queue counts, and the current frontend still use MongoDB. There is no Queue dual-write, PostgreSQL fallback, or new Queue Socket.IO producer. V2-06B2 owns the complete runtime/frontend/realtime cutover.
+The Customer, Service, Appointment, and Queue APIs use canonical UUID relationships and the selected PostgreSQL authorization context. Queue and Appointment requests are branch-scoped, Customer is organization-owned, Service availability is enforced per branch, and every helper route requires the Queue entitlement plus `queue.read` or `queue.manage`. Dashboard Queue counts are PostgreSQL branch counts. The frontend supports customer selection/minimal creation, branch-available service selection, versioned Queue transitions, Appointment creation/list/check-in, pagination, retry, and context-aware refetch.
+
+Only `queue.token.created` and `queue.token.status_changed` are emitted after commit to authorized branch rooms with PII-minimized payloads. Mongo Queue receives no runtime reads or writes and is not a fallback or mirror.
 
 Legacy Queue/Customer/Service analysis requires a reviewed local mapping file ending in `.operational-queue-mapping.json`; Git ignores that pattern. Build first, then run dry-run (the default), explicit apply, reconciliation, and the read-only B2 preflight from `backend/`:
 
@@ -205,11 +207,13 @@ npm.cmd run operations:queue:shadow -- --mapping C:\secure\tenant.operational-qu
 npm.cmd run operations:queue:shadow -- --mapping C:\secure\tenant.operational-queue-mapping.json --apply
 npm.cmd run operations:queue:verify -- --mapping C:\secure\tenant.operational-queue-mapping.json
 npm.cmd run operations:queue:preflight -- --mapping C:\secure\tenant.operational-queue-mapping.json
+npm.cmd run operations:queue:activate -- --mapping C:\secure\tenant.operational-queue-mapping.json
+npm.cmd run operations:queue:activate -- --mapping C:\secure\tenant.operational-queue-mapping.json --apply
 ```
 
-Dry-run receives no target database and cannot mutate operational tables. Apply refuses unmapped organizations/branches, invalid timezones/phones/statuses/token labels, unresolved customer or service collisions, and duplicate numbers within a reviewed historical session. Source fingerprints make a later unreviewed source change fail closed. Verification compares source counts, mappings, relationships, statuses, timestamps, IDs, sessions, and uniqueness and exits non-zero on any difference.
+Dry-run receives no target database and cannot mutate operational tables. Apply refuses unmapped organizations/branches, invalid timezones/phones/statuses/token labels, unresolved customer or service collisions, and duplicate numbers within a reviewed historical session. Source fingerprints make a later unreviewed source change fail closed. Verification distinguishes migrated legacy rows from PostgreSQL-native rows. Migration 005 stores the durable authority latch; after activation, normal shadow `--apply` refuses unless an explicit reviewed recovery mode is used.
 
-See [ADR 0011](docs/adr/0011-customer-service-appointment-queue-foundation.md) and the plan-only [V2-06B cutover runbook](docs/runbooks/V2-06B_QUEUE_VERTICAL_CUTOVER.md). Do not execute the runtime-switch section during B1.
+See [ADR 0011](docs/adr/0011-customer-service-appointment-queue-foundation.md), [ADR 0012](docs/adr/0012-customer-service-appointment-queue-runtime-authority.md), and the executed [V2-06B cutover runbook](docs/runbooks/V2-06B_QUEUE_VERTICAL_CUTOVER.md).
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -283,6 +287,7 @@ npm.cmd run test:cutover
 npm.cmd run test:commercial
 npm.cmd run test:operational
 npm.cmd run test:operational-migration
+npm.cmd run test:operational-runtime
 npm.cmd start
 ```
 

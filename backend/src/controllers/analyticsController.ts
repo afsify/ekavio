@@ -1,6 +1,5 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { Queue } from '../models/Queue.js';
 import { Inventory } from '../models/Inventory.js';
 import { Attendance } from '../models/Attendance.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
@@ -20,11 +19,9 @@ export const getDashboardStats = async (req: AuthenticatedRequest, res: Response
     );
 
     // 1. Total active queue tokens
+    if (!context.branchId) throw createAppError('An active branch context is required', 400);
     const activeTokensCount = enabledModules.has(MODULES.QUEUE)
-      ? await Queue.countDocuments({
-          ...scope,
-          status: { $in: ['waiting', 'serving'] },
-        })
+      ? await runtimePersistence.queue.countActive(context.organizationId, context.branchId)
       : 0;
 
     // 2. Count of low stock items

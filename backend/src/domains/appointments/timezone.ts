@@ -87,6 +87,16 @@ export const instantToBranchLocalDateTime = (instant: Date, timeZone: string): s
   return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
 };
 
+export const instantToBranchBusinessDate = (instant: Date, timeZone: string): string =>
+  instantToBranchLocalDateTime(instant, timeZone).slice(0, 10);
+
+export const nextBusinessDate = (value: string): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error('Business date must use YYYY-MM-DD');
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1));
+  return date.toISOString().slice(0, 10);
+};
+
 export class BranchTimezoneRepository {
   public constructor(private readonly database: PostgresDatabase) {}
 

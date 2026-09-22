@@ -1,257 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Clock, Users, Play, CheckCircle2 } from 'lucide-react';
-
+import { CheckCircle2, Clock, Play, Users } from 'lucide-react';
 import { DetailViewLayout } from '../../components/layout/DetailViewLayout';
-import { AdvancedTable } from '../../components/ui/AdvancedTable';
+import { AdvancedTable, type Column } from '../../components/ui/AdvancedTable';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
 import { useSocketStore } from '../../store/useSocketStore';
+import {
+  queueKeys,
+  type QueueToken,
+  useBranchServices,
+  useCreateCustomer,
+  useCreateToken,
+  useCustomers,
+  useQueue,
+  useUpdateTokenStatus,
+} from '../../hooks/useQueue';
+import { useQueryClient } from '@tanstack/react-query';
 
-const queueSchema = z.object({
-  customerName: z.string().min(1, 'Customer name is required'),
-  phone: z.string().min(1, 'Phone number is required'),
-  serviceType: z.string().min(1, 'Service type is required'),
-});
-
-type QueueFormInputs = z.infer<typeof queueSchema>;
-
-interface QueueToken {
-  _id: string;
-  tokenNumber: string;
-  customerName: string;
-  phone: string;
-  serviceType: string;
-  status: 'waiting' | 'serving' | 'completed' | 'cancelled';
-  createdAt: string;
-}
+const selectClass = 'block min-h-[44px] w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white';
 
 export const QueuePage: React.FC = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [open, setOpen] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [serviceId, setServiceId] = useState('');
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const queryClient = useQueryClient();
   const socket = useSocketStore((state) => state.socket);
-
-  const { data: queueData, isLoading } = useQuery({
-    queryKey: ['queue'],
-    queryFn: async () => {
-      const response = await client.get('/queue');
-      return response.data.data as QueueToken[];
-    },
-  });
+  const queue = useQueue(page);
+  const customers = useCustomers(customerSearch);
+  const services = useBranchServices();
+  const createToken = useCreateToken();
+  const createCustomer = useCreateCustomer();
+  const updateStatus = useUpdateTokenStatus();
 
   useEffect(() => {
-    if (socket) {
-      socket.on('queue_updated', () => {
-        queryClient.invalidateQueries({ queryKey: ['queue'] });
-      });
-      return () => {
-        socket.off('queue_updated');
-      };
-    }
+    if (!socket) return;
+    const refetch = () => void queryClient.invalidateQueries({ queryKey: queueKeys.root });
+    socket.on('queue.token.created', refetch);
+    socket.on('queue.token.status_changed', refetch);
+    socket.on('connect', refetch);
+    return () => {
+      socket.off('queue.token.created', refetch);
+      socket.off('queue.token.status_changed', refetch);
+      socket.off('connect', refetch);
+    };
   }, [socket, queryClient]);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<QueueFormInputs>({
-    resolver: zodResolver(queueSchema),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: async (data: QueueFormInputs) => {
-      const response = await client.post('/queue', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Token created successfully!');
-      queryClient.invalidateQueries({ queryKey: ['queue'] });
-      setIsModalOpen(false);
-      reset();
-    },
-    onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Failed to create token'));
-    },
-  });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await client.patch(`/queue/${id}/status`, { status });
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Status updated');
-      queryClient.invalidateQueries({ queryKey: ['queue'] });
-    },
-    onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Failed to update status'));
-    },
-  });
-
-  const onSubmit: SubmitHandler<QueueFormInputs> = (data) => {
-    createMutation.mutate(data);
+  const submitToken = async () => {
+    if (!customerId || !serviceId) { toast.error('Select a customer and branch-available service'); return; }
+    try {
+      await createToken.mutateAsync({ customerId, serviceId });
+      toast.success('Token created');
+      setOpen(false);
+      setCustomerId('');
+      setServiceId('');
+    } catch (error) { toast.error(getErrorMessage(error, 'Failed to create token')); }
   };
 
-  const activeCount = queueData?.filter((t) => t.status === 'waiting' || t.status === 'serving').length || 0;
-  const waitingCount = queueData?.filter((t) => t.status === 'waiting').length || 0;
+  const submitCustomer = async () => {
+    if (!newCustomer.name.trim()) { toast.error('Customer name is required'); return; }
+    try {
+      const customer = await createCustomer.mutateAsync({
+        name: newCustomer.name,
+        ...(newCustomer.phone.trim() ? { phone: newCustomer.phone } : {}),
+      });
+      setCustomerId(customer.id);
+      setNewCustomer({ name: '', phone: '' });
+      setCustomerOpen(false);
+      toast.success('Customer created');
+    } catch (error) { toast.error(getErrorMessage(error, 'Failed to create customer')); }
+  };
 
-  const header = (
-    <div className="flex items-center gap-3 bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-      <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
-        <Clock className="w-8 h-8" />
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold text-white">Queue Management</h1>
-        <p className="text-slate-400 text-sm">Manage customer tokens and active waitlist</p>
-      </div>
-    </div>
-  );
+  const transition = async (token: QueueToken, status: QueueToken['status']) => {
+    try {
+      await updateStatus.mutateAsync({ tokenId: token.id, status, expectedVersion: token.version });
+      toast.success('Status updated');
+    } catch (error) { toast.error(getErrorMessage(error, 'Queue changed; refresh and retry')); }
+  };
 
-  const sidebarCards = (
-    <>
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl flex items-center gap-4">
-        <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
-          <Users className="w-6 h-6" />
-        </div>
-        <div>
-          <p className="text-sm text-slate-400">Active Queue</p>
-          <p className="text-xl font-bold text-white">{activeCount}</p>
-        </div>
+  const columns: Column<QueueToken>[] = [
+    { header: 'Token', accessor: 'tokenNumber', sortable: true, cell: ({ row }) => `#${row.tokenNumber}` },
+    { header: 'Customer', accessor: 'customer', cell: ({ row }) => row.customer.name },
+    { header: 'Phone', accessor: 'customerPhone', cell: ({ row }) => row.customer.phone ?? '--' },
+    { header: 'Service', accessor: 'service', cell: ({ row }) => row.service.name },
+    { header: 'Status', accessor: 'status', sortable: true, cell: ({ row }) => (
+      <span className={`rounded-full px-2 py-1 text-xs font-medium uppercase ${row.status === 'waiting' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>{row.status}</span>
+    ) },
+    { header: 'Actions', accessor: 'actions', cell: ({ row }) => (
+      <div className="flex gap-2">
+        {row.status === 'waiting' && <Button size="sm" title="Serve customer" onClick={() => void transition(row, 'serving')}><Play className="h-4 w-4" /></Button>}
+        {row.status === 'serving' && <Button size="sm" title="Complete service" onClick={() => void transition(row, 'completed')}><CheckCircle2 className="h-4 w-4" /></Button>}
       </div>
-      <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl flex items-center gap-4">
-        <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400">
-          <Clock className="w-6 h-6" />
-        </div>
-        <div>
-          <p className="text-sm text-slate-400">Waiting</p>
-          <p className="text-xl font-bold text-white">{waitingCount}</p>
-        </div>
-      </div>
-    </>
-  );
-
-  const columns = [
-    { header: 'Token', accessor: 'tokenNumber', sortable: true },
-    { header: 'Customer Name', accessor: 'customerName', sortable: true },
-    { header: 'Phone', accessor: 'phone' },
-    { header: 'Service', accessor: 'serviceType', sortable: true },
-    {
-      header: 'Status',
-      accessor: 'status',
-      sortable: true,
-      cell: ({ value }: { value: unknown }) => {
-        const status = String(value);
-        let colors = 'bg-slate-500/20 text-slate-400';
-        if (status === 'waiting') colors = 'bg-amber-500/20 text-amber-400';
-        if (status === 'serving') colors = 'bg-blue-500/20 text-blue-400';
-        if (status === 'completed') colors = 'bg-emerald-500/20 text-emerald-400';
-
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${colors}`}>
-            {status}
-          </span>
-        );
-      },
-    },
-    {
-      header: 'Actions',
-      accessor: 'actions',
-      cell: ({ row }: { row: QueueToken }) => (
-        <div className="flex items-center gap-2">
-          {row.status === 'waiting' && (
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                updateStatusMutation.mutate({ id: row._id, status: 'serving' });
-              }}
-              title="Serve Customer"
-              className="bg-blue-600 hover:bg-blue-700 text-white border-transparent"
-            >
-              <Play className="w-4 h-4" />
-            </Button>
-          )}
-          {row.status === 'serving' && (
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                updateStatusMutation.mutate({ id: row._id, status: 'completed' });
-              }}
-              title="Complete Service"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      ),
-    },
+    ) },
   ];
 
-  const mainContent = (
-    <>
-      <AdvancedTable
-        columns={columns}
-        data={queueData || []}
-        loading={isLoading}
-        title="Active Tokens"
-        description="List of customers currently waiting or being served."
-        onAdd={() => setIsModalOpen(true)}
-        searchPlaceholder="Search customer..."
-      />
+  const header = <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"><div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-400"><Clock className="h-8 w-8" /></div><div><h1 className="text-2xl font-bold text-white">Queue Management</h1><p className="text-sm text-slate-400">Branch-local PostgreSQL queue</p></div></div>;
+  const sidebarCards = <><div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6"><Users className="h-6 w-6 text-blue-400" /><div><p className="text-sm text-slate-400">Active Queue</p><p className="text-xl font-bold text-white">{queue.data?.summary.active ?? 0}</p></div></div><div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6"><Clock className="h-6 w-6 text-amber-400" /><div><p className="text-sm text-slate-400">Waiting</p><p className="text-xl font-bold text-white">{queue.data?.summary.waiting ?? 0}</p></div></div></>;
 
-      <AdvancedModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Create New Token"
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit(onSubmit)} isLoading={isSubmitting}>
-              Generate Token
-            </Button>
-          </>
-        }
-      >
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <Input
-            id="customerName"
-            label="Customer Name"
-            {...register('customerName')}
-            error={errors.customerName?.message}
-          />
-          <Input
-            id="phone"
-            label="Phone Number"
-            type="tel"
-            {...register('phone')}
-            error={errors.phone?.message}
-          />
-          <Input
-            id="serviceType"
-            label="Service Type"
-            {...register('serviceType')}
-            error={errors.serviceType?.message}
-          />
-        </form>
-      </AdvancedModal>
-    </>
-  );
-
-  return (
-    <DetailViewLayout header={header} sidebarCards={sidebarCards} mainContent={mainContent} />
-  );
+  const mainContent = <>
+    <AdvancedTable columns={columns} data={queue.data?.data ?? []} loading={queue.isLoading} error={queue.isError ? getErrorMessage(queue.error, 'Queue could not be loaded') : null} title="Active Tokens" description="Authoritative state for the selected branch." onAdd={() => setOpen(true)} emptyState={<div className="text-sm text-slate-400">No active tokens. Create the first walk-in token.</div>} />
+    <div className="mt-4 flex items-center justify-end gap-3 text-sm text-slate-400"><Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><span>Page {page} of {Math.max(1, queue.data?.pagination.totalPages ?? 1)}</span><Button variant="secondary" size="sm" disabled={page >= (queue.data?.pagination.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)}>Next</Button><Button variant="secondary" size="sm" onClick={() => void queue.refetch()}>Retry</Button></div>
+    <AdvancedModal isOpen={open} onClose={() => setOpen(false)} title="Create queue token" actions={<><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button isLoading={createToken.isPending} onClick={() => void submitToken()}>Generate token</Button></>}>
+      <div className="space-y-4"><Input label="Search customers" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} /><label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">Customer<select className={`${selectClass} mt-1.5`} value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Select customer</option>{customers.data?.data.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.phone ? ` · ${customer.phone}` : ''}</option>)}</select></label><Button variant="secondary" onClick={() => setCustomerOpen(true)}>Create minimal customer</Button><label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">Branch-available service<select className={`${selectClass} mt-1.5`} value={serviceId} onChange={(event) => setServiceId(event.target.value)}><option value="">Select service</option>{services.data?.data.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label></div>
+    </AdvancedModal>
+    <AdvancedModal isOpen={customerOpen} onClose={() => setCustomerOpen(false)} title="Create customer" actions={<><Button variant="secondary" onClick={() => setCustomerOpen(false)}>Cancel</Button><Button isLoading={createCustomer.isPending} onClick={() => void submitCustomer()}>Create and select</Button></>}><div className="space-y-4"><Input label="Name" value={newCustomer.name} onChange={(event) => setNewCustomer((value) => ({ ...value, name: event.target.value }))} /><Input label="Phone (optional)" type="tel" value={newCustomer.phone} onChange={(event) => setNewCustomer((value) => ({ ...value, phone: event.target.value }))} /></div></AdvancedModal>
+  </>;
+  return <DetailViewLayout header={header} sidebarCards={sidebarCards} mainContent={mainContent} />;
 };
 
 export default QueuePage;

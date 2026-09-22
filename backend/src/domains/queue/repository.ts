@@ -27,6 +27,15 @@ export interface QueueTokenRecord {
   status: QueueStatus;
   idempotency_key: string | null;
   version: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface QueueTokenDetails extends QueueTokenRecord {
+  customer_name: string;
+  customer_phone: string | null;
+  service_name: string;
+  provider_name: string | null;
 }
 
 interface TokenInput {
@@ -41,11 +50,24 @@ interface TokenInput {
   actorMembershipId: string;
 }
 
+export interface QueueMutationOutcome {
+  token: QueueTokenRecord;
+  created: boolean;
+}
+
 const selectTokenColumns = `
   id, organization_id, branch_id, queue_session_id, token_number::text,
   customer_id, service_id, appointment_id, provider_membership_id,
-  status, idempotency_key, version
+  status, idempotency_key, version, created_at, updated_at
 `;
+
+const qualifiedTokenColumns = selectTokenColumns
+  .split(',')
+  .map((column) => {
+    const value = column.trim();
+    return value === 'token_number::text' ? 't.token_number::text' : `t.${value}`;
+  })
+  .join(', ');
 
 export class PostgresQueueRepository {
   public constructor(private readonly database: PostgresDatabase) {}
@@ -88,9 +110,9 @@ export class PostgresQueueRepository {
     return existing;
   }
 
-  private async allocate(client: PoolClient, input: TokenInput): Promise<QueueTokenRecord> {
+  private async allocate(client: PoolClient, input: TokenInput): Promise<QueueMutationOutcome> {
     const idempotent = await this.findIdempotent(client, input);
-    if (idempotent) return idempotent;
+    if (idempotent) return { token: idempotent, created: false };
 
     const session = await client.query<{ status: 'open' | 'closed' }>(`
       SELECT status
@@ -101,7 +123,7 @@ export class PostgresQueueRepository {
     if (!session.rows[0]) throw new Error('Queue session not found in active context');
     if (session.rows[0].status !== 'open') throw new Error('Queue session is closed');
     const concurrentIdempotent = await this.findIdempotent(client, input);
-    if (concurrentIdempotent) return concurrentIdempotent;
+    if (concurrentIdempotent) return { token: concurrentIdempotent, created: false };
 
     const counter = await client.query<{ token_number: string }>(`
       UPDATE queue_sessions
@@ -130,11 +152,86 @@ export class PostgresQueueRepository {
         to_status, actor_membership_id, source
       ) VALUES ($1, $2, 1, NULL, 'waiting', $3, 'user')
     `, [token.id, input.organizationId, input.actorMembershipId]);
-    return token;
+    return { token, created: true };
   }
 
   public createToken(input: TokenInput): Promise<QueueTokenRecord> {
+    return this.database.transaction(async (client) => (await this.allocate(client, input)).token);
+  }
+
+  public createTokenWithOutcome(input: TokenInput): Promise<QueueMutationOutcome> {
     return this.database.transaction((client) => this.allocate(client, input));
+  }
+
+  public async findById(input: {
+    organizationId: string;
+    branchId: string;
+    tokenId: string;
+  }): Promise<QueueTokenDetails | null> {
+    const result = await this.database.query<QueueTokenDetails>(`
+      SELECT ${qualifiedTokenColumns},
+        c.name AS customer_name, c.display_phone AS customer_phone,
+        s.name AS service_name, u.name AS provider_name
+      FROM queue_tokens t
+      JOIN customers c ON c.id = t.customer_id AND c.organization_id = t.organization_id
+      JOIN services s ON s.id = t.service_id AND s.organization_id = t.organization_id
+      LEFT JOIN memberships m
+        ON m.id = t.provider_membership_id AND m.organization_id = t.organization_id
+      LEFT JOIN users u ON u.id = m.user_id
+      WHERE t.id = $1 AND t.organization_id = $2 AND t.branch_id = $3
+    `, [input.tokenId, input.organizationId, input.branchId]);
+    return result.rows[0] ?? null;
+  }
+
+  public async listActive(input: {
+    organizationId: string;
+    branchId: string;
+    page: number;
+    limit: number;
+  }): Promise<{ data: QueueTokenDetails[]; total: number; waiting: number; serving: number }> {
+    return this.database.transaction(async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      const counts = await client.query<{ total: string; waiting: string; serving: string }>(`
+        SELECT COUNT(*)::text AS total,
+          COUNT(*) FILTER (WHERE status = 'waiting')::text AS waiting,
+          COUNT(*) FILTER (WHERE status = 'serving')::text AS serving
+        FROM queue_tokens
+        WHERE organization_id = $1 AND branch_id = $2
+          AND status IN ('waiting', 'serving')
+      `, [input.organizationId, input.branchId]);
+      const result = await client.query<QueueTokenDetails>(`
+        SELECT ${qualifiedTokenColumns},
+          c.name AS customer_name, c.display_phone AS customer_phone,
+          s.name AS service_name, u.name AS provider_name
+        FROM queue_tokens t
+        JOIN customers c ON c.id = t.customer_id AND c.organization_id = t.organization_id
+        JOIN services s ON s.id = t.service_id AND s.organization_id = t.organization_id
+        LEFT JOIN memberships m
+          ON m.id = t.provider_membership_id AND m.organization_id = t.organization_id
+        LEFT JOIN users u ON u.id = m.user_id
+        WHERE t.organization_id = $1 AND t.branch_id = $2
+          AND t.status IN ('waiting', 'serving')
+        ORDER BY t.created_at, t.id
+        LIMIT $3 OFFSET $4
+      `, [input.organizationId, input.branchId, input.limit, (input.page - 1) * input.limit]);
+      const summary = counts.rows[0];
+      return {
+        data: result.rows,
+        total: Number(summary?.total ?? 0),
+        waiting: Number(summary?.waiting ?? 0),
+        serving: Number(summary?.serving ?? 0),
+      };
+    });
+  }
+
+  public async countActive(organizationId: string, branchId: string): Promise<number> {
+    const result = await this.database.query<{ total: string }>(`
+      SELECT COUNT(*)::text AS total
+      FROM queue_tokens
+      WHERE organization_id = $1 AND branch_id = $2
+        AND status IN ('waiting', 'serving')
+    `, [organizationId, branchId]);
+    return Number(result.rows[0]?.total ?? 0);
   }
 
   public async transition(input: {
@@ -191,6 +288,17 @@ export class PostgresQueueRepository {
     idempotencyKey: string;
     actorMembershipId: string;
   }): Promise<QueueTokenRecord> {
+    return (await this.checkInAppointmentWithOutcome(input)).token;
+  }
+
+  public async checkInAppointmentWithOutcome(input: {
+    organizationId: string;
+    branchId: string;
+    sessionId: string;
+    appointmentId: string;
+    idempotencyKey: string;
+    actorMembershipId: string;
+  }): Promise<QueueMutationOutcome> {
     return this.database.transaction(async (client) => {
       const appointmentResult = await client.query<{
         id: string;
@@ -219,12 +327,12 @@ export class PostgresQueueRepository {
         if (existing.organization_id !== input.organizationId || existing.branch_id !== input.branchId) {
           throw new Error('Existing appointment token is outside the active context');
         }
-        return existing;
+        return { token: existing, created: false };
       }
       if (appointment.status !== 'scheduled' && appointment.status !== 'confirmed') {
         throw new Error(`Appointment cannot be checked in from ${appointment.status}`);
       }
-      const token = await this.allocate(client, {
+      const outcome = await this.allocate(client, {
         organizationId: input.organizationId,
         branchId: input.branchId,
         sessionId: input.sessionId,
@@ -239,8 +347,8 @@ export class PostgresQueueRepository {
       await client.query(`
         UPDATE appointments
         SET status = 'checked_in', version = $1, updated_at = NOW()
-        WHERE id = $2 AND organization_id = $3
-      `, [nextVersion, appointment.id, input.organizationId]);
+        WHERE id = $2 AND organization_id = $3 AND branch_id = $4
+      `, [nextVersion, appointment.id, input.organizationId, input.branchId]);
       await client.query(`
         INSERT INTO appointment_status_events (
           appointment_id, organization_id, appointment_version, from_status,
@@ -250,7 +358,7 @@ export class PostgresQueueRepository {
         appointment.id, input.organizationId, nextVersion,
         appointment.status, input.actorMembershipId,
       ]);
-      return token;
+      return outcome;
     });
   }
 }

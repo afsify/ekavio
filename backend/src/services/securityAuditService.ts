@@ -8,7 +8,17 @@ export type SecurityAuditAction =
   | 'corporate.parent.created'
   | 'corporate.child.linked'
   | 'commercial.subscription.updated'
-  | 'commercial.entitlement.updated';
+  | 'commercial.entitlement.updated'
+  | 'customer.created'
+  | 'customer.updated'
+  | 'service.created'
+  | 'service.updated'
+  | 'service.provider.updated'
+  | 'appointment.created'
+  | 'appointment.status_changed'
+  | 'appointment.checked_in'
+  | 'queue.token.created'
+  | 'queue.token.status_changed';
 
 type SafeAuditValue = string | number | boolean | null;
 

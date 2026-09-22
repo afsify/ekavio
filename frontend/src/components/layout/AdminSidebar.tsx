@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard } from 'lucide-react';
+import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard, CalendarClock } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAppStore } from '../../store/useAppStore';
@@ -50,6 +50,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY },
     { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: MODULES.QUEUE },
+    { name: 'Appointments', path: '/appointments', icon: <CalendarClock className="w-5 h-5" />, module: MODULES.QUEUE },
     { name: 'Ledger', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER },
     { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: MODULES.ATTENDANCE },
     { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },

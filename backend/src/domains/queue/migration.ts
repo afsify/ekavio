@@ -2,6 +2,7 @@ import type { PostgresDatabase } from '../../postgres/database.js';
 import { getMigrationStatus } from '../../postgres/migrations.js';
 import { buildOperationalMigrationPlan, type OperationalMigrationPlan } from './migrationPlan.js';
 import type { OperationalLegacySource, OperationalMigrationMapping } from './migrationTypes.js';
+import { isOperationalAuthorityActivated } from './operationalAuthority.js';
 
 export class OperationalMigrationBlockedError extends Error {
   public constructor(public readonly issues: readonly { code: string; sourceRef: string; message: string }[]) {
@@ -40,6 +41,7 @@ export const runOperationalMigration = async (input: {
   mapping: OperationalMigrationMapping;
   database?: PostgresDatabase;
   apply?: boolean;
+  allowOperationalRecovery?: boolean;
 }): Promise<OperationalMigrationReport> => {
   const plan = buildOperationalMigrationPlan(await input.source.load(), input.mapping);
   if (!input.apply) return reportFor(plan, 'dry-run');
@@ -47,6 +49,9 @@ export const runOperationalMigration = async (input: {
   if (plan.issues.length > 0) throw new OperationalMigrationBlockedError(plan.issues);
 
   await input.database.transaction(async (client) => {
+    if (await isOperationalAuthorityActivated(client) && !input.allowOperationalRecovery) {
+      throw new Error('Operational shadow apply refused after PostgreSQL runtime authority activation; explicit reviewed recovery mode is required');
+    }
     for (const organization of plan.mapping.organizations) {
       const context = await client.query<{ branch_id: string }>(`
         SELECT b.id AS branch_id
@@ -215,6 +220,7 @@ export interface OperationalVerificationReport {
   sourceCounts: { queue: number; ledgerCustomers: number };
   sourceDisposition: { accepted: number; rejected: number; quarantined: number };
   shadowCounts: { queueTokens: number; customerSources: number; serviceSources: number };
+  nativeCounts: { queueTokens: number; appointments: number };
   mismatches: string[];
 }
 
@@ -328,7 +334,7 @@ export const verifyOperationalMigration = async (input: {
     const expectedNext = (maximumBySession.get(session.id) ?? 0n) + 1n;
     if (!row || row.organization_id !== session.organizationId || row.branch_id !== session.branchId
       || row.local_business_date !== session.localBusinessDate || row.lane_key !== session.laneKey
-      || row.status !== session.status || BigInt(row.next_token_number) !== expectedNext
+      || row.status !== session.status || BigInt(row.next_token_number) < expectedNext
       || (row.closed_at?.getTime() ?? null) !== (session.closedAt?.getTime() ?? null)) {
       mismatches.push(`Queue session mismatch: ${session.id}`);
     }
@@ -363,12 +369,16 @@ export const verifyOperationalMigration = async (input: {
       mismatches.push(`Queue token mismatch: ${token.legacyMongoId}`);
     }
   }
-  const appointmentCount = await input.database.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM appointments',
-  );
-  if (appointmentCount.rows[0]!.count !== '0') {
-    mismatches.push('Appointments must start empty before the B2 cutover');
-  }
+  const [nativeQueueCount, appointmentCount] = await Promise.all([
+    input.database.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM queue_tokens WHERE legacy_mongo_id IS NULL',
+    ),
+    input.database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM appointments'),
+  ]);
+  const nativeCounts = {
+    queueTokens: Number(nativeQueueCount.rows[0]!.count),
+    appointments: Number(appointmentCount.rows[0]!.count),
+  };
   const duplicateChecks = await input.database.query<{ issue: string }>(`
     SELECT 'duplicate legacy_mongo_id' AS issue
     FROM queue_tokens WHERE legacy_mongo_id IS NOT NULL
@@ -387,6 +397,7 @@ export const verifyOperationalMigration = async (input: {
       quarantined: plan.quarantinedQueueRows,
     },
     shadowCounts,
+    nativeCounts,
     mismatches,
   };
 };
@@ -403,8 +414,9 @@ export const runOperationalCutoverPreflight = async (input: {
   mapping: OperationalMigrationMapping;
   database: PostgresDatabase;
   operationalAuthority: string;
+  allowPendingActivation?: boolean;
 }): Promise<OperationalPreflightReport> => {
-  const [migrations, verification, missingTimezones, constraints] = await Promise.all([
+  const [migrations, verification, missingTimezones, constraints, authorityActivated] = await Promise.all([
     getMigrationStatus(input.database),
     verifyOperationalMigration(input),
     input.database.query<{ id: string }>(`
@@ -420,6 +432,7 @@ export const runOperationalCutoverPreflight = async (input: {
         'appointments_provider_overlap_exclude'
       )
     `),
+    isOperationalAuthorityActivated(input.database),
   ]);
   const constraintNames = new Set(constraints.rows.map(({ name }) => name));
   const checks = {
@@ -436,7 +449,8 @@ export const runOperationalCutoverPreflight = async (input: {
       'queue_sessions_scope_unique',
       'appointments_provider_overlap_exclude',
     ].every((name) => constraintNames.has(name)),
-    mongoStillRuntimeAuthority: input.operationalAuthority === 'mongodb',
+    postgresIsSourceControlledAuthority: input.operationalAuthority === 'postgresql',
+    authorityLatchMatches: authorityActivated || input.allowPendingActivation === true,
   };
   const failures = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
   return { ready: failures.length === 0, checks, failures, verification };

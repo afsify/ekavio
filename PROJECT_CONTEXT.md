@@ -33,11 +33,14 @@
 - V2-06A documented the real remaining Mongo operational authority, selected redesigned relational boundaries for Customer, Service, Appointments, Queue, Attendance, Inventory, Customer Dues, corporate linkage, and audit history, and defined migration/concurrency/money/quantity invariants without changing runtime behavior or creating SQL migrations.
 - Completed milestone: V2-06B1 Customer/Service/Appointment/Queue PostgreSQL Foundation.
 - V2-06B1 added forward-only relational schema and composite organization/branch constraints, reviewed branch timezones, Customer/Service provenance, membership-backed providers, timezone-safe and overlap-safe Appointments, row-locked Queue sessions/tokens, append-only histories, exactly-once appointment check-in, dry-run-first Mongo transformation, reconciliation, read-only B2 preflight, and concurrency/migration/security tests without registering new production routes.
-- PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation, and effective limits. Attendance identity resolution is PostgreSQL-backed.
+- Completed milestone: V2-06B2 Customer/Service/Appointment/Queue Runtime Cutover.
+- V2-06B2 activated PostgreSQL Customer, Service, Appointment, Queue session/token/status runtime authority; canonical UUID APIs; branch-timezone business dates; atomic numbering; idempotent Appointment check-in; branch-scoped realtime; PostgreSQL Dashboard Queue counts; frontend Queue and Appointment workflows; and a durable post-cutover migration safety latch.
+- PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation and limits, Customer, Service, Appointment, and Queue. Attendance identity resolution is PostgreSQL-backed.
 - Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
-- Current operational runtime: MongoDB remains Queue authority and also stores Inventory, Ledger, Attendance records, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit data, analytics, and the remaining operational domains. Runtime identity and commercial mutations do not dual-write, PostgreSQL authority failures do not fall back to MongoDB, and B1 adds no Queue dual-write or fallback.
-- Next milestone: V2-06B2 Customer/Service/Appointment/Queue Runtime Cutover.
-- Do not treat V2-06B1 shadow tables as runtime authority. Existing Queue routes, Dashboard usage, frontend behavior, and realtime behavior remain Mongo-backed until the complete B2 cutover passes its accepted gate.
+- Current MongoDB runtime authority: Attendance records, Inventory, Ledger/Customer Dues legacy, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit, and remaining legacy operational domains. Mongo Queue is legacy migration/recovery input only.
+- Queue writes are PostgreSQL-only. There is no Queue dual-write, Mongo read fallback, or automatic repair. Overall readiness still requires both PostgreSQL and MongoDB while accepted legacy domains remain.
+- Next milestone: V2-06B3 Deployment & Staging Readiness.
+- Do not automatically start Attendance migration.
 
 ## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
 

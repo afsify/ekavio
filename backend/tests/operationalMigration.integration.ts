@@ -161,10 +161,11 @@ test('operational Mongo-to-PostgreSQL migration is dry-run-first, idempotent, an
   assert.equal(verification.clean, true, verification.mismatches.join('\n'));
   assert.deepEqual(verification.sourceDisposition, { accepted: 2, rejected: 0, quarantined: 0 });
   const preflight = await runOperationalCutoverPreflight({
-    source, mapping, database, operationalAuthority: 'mongodb',
+    source, mapping, database, operationalAuthority: 'postgresql', allowPendingActivation: true,
   });
   assert.equal(preflight.ready, true, preflight.failures.join('\n'));
-  assert.equal(preflight.checks.mongoStillRuntimeAuthority, true);
+  assert.equal(preflight.checks.postgresIsSourceControlledAuthority, true);
+  assert.equal(preflight.checks.authorityLatchMatches, true);
 
   await database.query("UPDATE queue_tokens SET status = 'cancelled' WHERE legacy_mongo_id = $1", [queueIdA]);
   await database.query(`

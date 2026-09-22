@@ -13,20 +13,23 @@ const args = process.argv.slice(2);
 const mappingIndex = args.indexOf('--mapping');
 const mappingArgument = mappingIndex >= 0 ? args[mappingIndex + 1] : undefined;
 const apply = args.includes('--apply');
-const known = new Set(['--mapping', '--apply', mappingArgument]);
+const recovery = args.includes('--recover-operational-authority');
+const known = new Set(['--mapping', '--apply', '--recover-operational-authority', mappingArgument]);
 const config = loadConfig(process.env);
 let database: PostgresDatabase | undefined;
 
 try {
   if (!mappingArgument || args.some((argument) => !known.has(argument))) {
-    throw new Error('Usage: operations:queue:shadow -- --mapping <reviewed.json> [--apply]');
+    throw new Error('Usage: operations:queue:shadow -- --mapping <reviewed.json> [--apply] [--recover-operational-authority]');
   }
+  if (recovery && !apply) throw new Error('Operational recovery mode requires --apply');
   await connectDB(config.mongoUri);
   if (apply) database = new PostgresDatabase(config.databaseUrl);
   const report = await runOperationalMigration({
     source: new MongoOperationalLegacySource(),
     mapping: await loadOperationalMigrationMapping(path.resolve(mappingArgument)),
     ...(database ? { database, apply: true } : {}),
+    ...(recovery ? { allowOperationalRecovery: true } : {}),
   });
   console.log(JSON.stringify(report, null, 2));
   if (report.issues.length > 0) process.exitCode = 1;

@@ -34,14 +34,14 @@ test('canonical UUID and legacy Mongo identifier namespaces validate independent
   assert.throws(() => asLegacyMongoOrganizationId(uuid));
 });
 
-test('V2-05D runtime composition selects PostgreSQL identity and commercial authority with Mongo operational storage', () => {
+test('runtime composition selects PostgreSQL identity, commercial, and Queue vertical authority', () => {
   assert.equal(runtimePersistence.authority, 'postgresql');
   assert.equal(Object.isFrozen(runtimePersistence), true);
   assert.ok(runtimePersistence.accounts instanceof PostgresAccountRepository);
   assert.ok(runtimePersistence.attendanceIdentities instanceof PostgresAttendanceIdentityResolver);
   assert.ok(runtimePersistence.authorization instanceof PostgresAuthorizationContextRepository);
   assert.equal(runtimePersistence.commercialAuthority, 'postgresql');
-  assert.equal(runtimePersistence.operationalAuthority, 'mongodb');
+  assert.equal(runtimePersistence.operationalAuthority, 'postgresql');
   assert.ok(runtimePersistence.commercialRepository instanceof PostgresCommercialRepository);
   assert.ok(runtimePersistence.identities instanceof PostgresIdentityRepository);
   assert.ok(runtimePersistence.operationalIdentity instanceof PostgresOperationalIdentityBridge);

@@ -92,6 +92,6 @@ test('migration planning detects ambiguous customers, service collisions, and du
   assert.ok(plan.issues.some(({ code }) => code === 'duplicate_session_token'));
 });
 
-test('Mongo remains the source-controlled Queue runtime authority in B1', () => {
-  assert.equal(runtimePersistence.operationalAuthority, 'mongodb');
+test('PostgreSQL is the source-controlled operational Queue authority in B2', () => {
+  assert.equal(runtimePersistence.operationalAuthority, 'postgresql');
 });

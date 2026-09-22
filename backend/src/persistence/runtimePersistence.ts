@@ -14,6 +14,11 @@ import { createEntitlementService } from '../services/entitlementService.js';
 import { PostgresMongoLegacyIdentityBridge } from './legacyIdentity.js';
 import { mongooseAttendanceStorageRepository } from './mongoAttendance.js';
 import { PostgresOperationalIdentityBridge } from './operationalIdentity.js';
+import { PostgresCustomerRepository } from '../domains/customers/repository.js';
+import { PostgresServiceRepository } from '../domains/services/repository.js';
+import { PostgresAppointmentRepository } from '../domains/appointments/repository.js';
+import { BranchTimezoneRepository } from '../domains/appointments/timezone.js';
+import { PostgresQueueRepository } from '../domains/queue/repository.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -47,7 +52,7 @@ export const runtimePersistence = Object.freeze({
   sessionAuthority: 'postgresql' as const,
   authorizationAuthority: 'postgresql' as const,
   commercialAuthority: 'postgresql' as const,
-  operationalAuthority: 'mongodb' as const,
+  operationalAuthority: 'postgresql' as const,
   accounts: new PostgresAccountRepository(runtimePostgresDatabase),
   attendanceIdentities: new PostgresAttendanceIdentityResolver(runtimePostgresDatabase),
   // Attendance records remain an operational MongoDB domain.
@@ -55,9 +60,14 @@ export const runtimePersistence = Object.freeze({
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,
+  customers: new PostgresCustomerRepository(runtimePostgresDatabase),
   idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),
   mongoIdentities,
+  services: new PostgresServiceRepository(runtimePostgresDatabase),
+  appointments: new PostgresAppointmentRepository(runtimePostgresDatabase),
+  queue: new PostgresQueueRepository(runtimePostgresDatabase),
+  branchTimezones: new BranchTimezoneRepository(runtimePostgresDatabase),
   operationalIdentity: new PostgresOperationalIdentityBridge(idMappings),
   sessions: new PostgresSessionRepository(runtimePostgresDatabase),
   staff: new PostgresStaffRepository(runtimePostgresDatabase),

@@ -19,6 +19,7 @@ const AttendancePage = React.lazy(
   () => import("./pages/Attendance/AttendancePage"),
 );
 const QueuePage = React.lazy(() => import("./pages/Queue/QueuePage"));
+const AppointmentsPage = React.lazy(() => import('./pages/Appointments/AppointmentsPage'));
 const InventoryPage = React.lazy(
   () => import("./pages/Inventory/InventoryPage"),
 );
@@ -184,6 +185,18 @@ export const App: React.FC = () => {
                   <AdminLayout>
                     <ModuleGuard module={MODULES.QUEUE}>
                       <QueuePage />
+                    </ModuleGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/appointments"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <ModuleGuard module={MODULES.QUEUE}>
+                      <AppointmentsPage />
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>

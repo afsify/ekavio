@@ -34,7 +34,6 @@ import {
   type LegacyAuthorizationUser,
 } from '../src/services/authorizationBackfillService.js';
 import { AppError } from '../src/utils/AppError.js';
-import { createQueueStatusUpdater } from '../src/services/queueService.js';
 
 class MemoryContextRepository implements AuthorizationContextRepository {
   sessions = new Set(['session-a']);
@@ -135,24 +134,6 @@ const records = [
 ];
 const matches = (record: (typeof records)[number], filter: { _id?: string; tenantId: string }) =>
   record.tenantId === filter.tenantId && (!filter._id || record.id === filter._id);
-
-test('foreign queue ObjectId cannot be read or mutated by the queue service', async () => {
-  const bridge: OperationalIdentityBridge = {
-    async resolve(context) {
-      return {
-        legacyMongoOrganizationId: context.organizationId as LegacyMongoOrganizationId,
-        legacyMongoUserId: context.userId as LegacyMongoUserId,
-      };
-    },
-  };
-  const update = createQueueStatusUpdater({
-    async updateStatus(filter, status) {
-      const record = records.find((candidate) => matches(candidate, filter));
-      return record ? { ...record, status } : null;
-    },
-  }, bridge);
-  assert.equal(await update(staffContext, 'queue-b', 'completed'), null);
-});
 
 test('inventory list equivalent returns only authorized organization data', () => {
   const scope = { tenantId: 'org-a' };
