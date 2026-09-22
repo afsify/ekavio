@@ -50,6 +50,7 @@ services:
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-local-development-refresh-secret-change-before-production}
       HTTP_ALLOWED_ORIGINS: ${HTTP_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
       SOCKET_ALLOWED_ORIGINS: ${SOCKET_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
+      TRUST_PROXY_HOPS: 0
     depends_on:
       mongo:
         condition: service_healthy
@@ -73,12 +74,12 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:5000}
     ports:
-      - "80:80"
+      - "80:8080"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

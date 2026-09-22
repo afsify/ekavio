@@ -305,6 +305,7 @@ test('production refresh cookies enforce Secure, HttpOnly, SameSite, path, and l
     refreshTokenSecret: 'not-used-by-cookie-test',
     httpAllowedOrigins: ['https://app.example.test'],
     socketAllowedOrigins: ['https://app.example.test'],
+    trustProxyHops: 1,
   };
 
   setRefreshCookie(fakeResponse as unknown as Response, 'opaque-test-value', productionConfig);
@@ -433,4 +434,56 @@ test('duplicate-phone login ambiguity is rejected before a session is created', 
       /migration is required/i.test(error.message),
   );
   assert.equal(repository.records.size, 0);
+});
+
+test('hosted sibling-domain session flow keeps production cookie security through login, refresh, and logout', async (context) => {
+  initializeRuntimeConfig({
+    NODE_ENV: 'production',
+    PORT: '5000',
+    MONGO_URI: 'mongodb+srv://user:password@mongo.example.test/ekavio',
+    DATABASE_URL: 'postgresql://user:password@pg.example.test/ekavio?sslmode=verify-full',
+    JWT_SECRET: 'hosted-jwt-secret-with-at-least-32-characters',
+    REFRESH_TOKEN_SECRET: 'hosted-refresh-secret-with-at-least-32-characters',
+    HTTP_ALLOWED_ORIGINS: 'https://app.example.test',
+    SOCKET_ALLOWED_ORIGINS: 'https://app.example.test',
+    TRUST_PROXY_HOPS: '1',
+  });
+  const { service } = createHarness();
+  const baseUrl = await startAuthServer(context, service);
+
+  const loginResponse = await postLogin(baseUrl);
+  const loginCookie = loginResponse.headers.get('set-cookie');
+  assert.equal(loginResponse.status, 200);
+  assert.ok(loginCookie);
+  assert.match(loginCookie, /Secure/i);
+  assert.match(loginCookie, /HttpOnly/i);
+  assert.match(loginCookie, /SameSite=Lax/i);
+  assert.match(loginCookie, /Path=\/api\/auth/i);
+
+  const refreshResponse = await fetch(`${baseUrl}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { cookie: requestCookie(loginCookie) },
+  });
+  const refreshCookie = refreshResponse.headers.get('set-cookie');
+  assert.equal(refreshResponse.status, 200);
+  assert.ok(refreshCookie);
+  assert.match(refreshCookie, /Secure/i);
+
+  const logoutResponse = await fetch(`${baseUrl}/api/auth/logout`, {
+    method: 'POST',
+    headers: { cookie: requestCookie(refreshCookie) },
+  });
+  const clearedCookie = logoutResponse.headers.get('set-cookie');
+  assert.equal(logoutResponse.status, 200);
+  assert.ok(clearedCookie);
+  assert.match(clearedCookie, /Expires=Thu, 01 Jan 1970/i);
+  assert.match(clearedCookie, /Secure/i);
+  assert.match(clearedCookie, /HttpOnly/i);
+  assert.match(clearedCookie, /SameSite=Lax/i);
+
+  const revokedRefresh = await fetch(`${baseUrl}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { cookie: requestCookie(refreshCookie) },
+  });
+  assert.equal(revokedRefresh.status, 401);
 });

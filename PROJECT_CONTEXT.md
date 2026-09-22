@@ -35,28 +35,22 @@
 - V2-06B1 added forward-only relational schema and composite organization/branch constraints, reviewed branch timezones, Customer/Service provenance, membership-backed providers, timezone-safe and overlap-safe Appointments, row-locked Queue sessions/tokens, append-only histories, exactly-once appointment check-in, dry-run-first Mongo transformation, reconciliation, read-only B2 preflight, and concurrency/migration/security tests without registering new production routes.
 - Completed milestone: V2-06B2 Customer/Service/Appointment/Queue Runtime Cutover.
 - V2-06B2 activated PostgreSQL Customer, Service, Appointment, Queue session/token/status runtime authority; canonical UUID APIs; branch-timezone business dates; atomic numbering; idempotent Appointment check-in; branch-scoped realtime; PostgreSQL Dashboard Queue counts; frontend Queue and Appointment workflows; and a durable post-cutover migration safety latch.
+- Completed milestone: V2-06B3 Deployment & Staging Readiness.
+- V2-06B3 added a validated hosted environment contract, managed PostgreSQL/Mongo TLS readiness, explicit reverse-proxy trust, auth throttling, Socket origin/shutdown handling, deterministic frontend/PWA hosting, unprivileged production containers, clean-staging bootstrap, deployment/backup/cost documentation, and hosted-topology security tests without deploying infrastructure or changing domain authority.
 - PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation and limits, Customer, Service, Appointment, and Queue. Attendance identity resolution is PostgreSQL-backed.
 - Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
 - Current MongoDB runtime authority: Attendance records, Inventory, Ledger/Customer Dues legacy, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit, and remaining legacy operational domains. Mongo Queue is legacy migration/recovery input only.
 - Queue writes are PostgreSQL-only. There is no Queue dual-write, Mongo read fallback, or automatic repair. Overall readiness still requires both PostgreSQL and MongoDB while accepted legacy domains remain.
-- Next milestone: V2-06B3 Deployment & Staging Readiness.
-- Do not automatically start Attendance migration.
+- Deployment status: the repository is ready for a runbook-conforming hosted staging deployment. Actual hosted staging is NOT YET DEPLOYED or validated.
+- Recommended hosted topology: static/PWA frontend, one Node/WebSocket backend, managed PostgreSQL, temporary managed MongoDB, and same-site `app.<domain>` / `api.<domain>` HTTPS subdomains.
+- Next: hosted staging deployment and validation.
+- After hosted staging is validated, V2-06C Attendance may begin. Do not automatically start Attendance migration.
 
-## Known dependency-audit risk (V2-03 closeout, 2026-09-14)
-
-No critical advisory was reported. Automated fixes and broad upgrades were intentionally deferred so this runtime closeout does not become a dependency-upgrade milestone.
+## Dependency-audit status (reviewed during V2-06B3, 2026-09-22)
 
 ### Backend production dependency tree
 
-`npm audit --omit=dev` reports 5 affected packages: 1 moderate and 4 high. All are transitive production dependencies and currently have fixes available.
-
-| Package | Severity | Dependency path / relevance | Applicability assessment | Later remediation |
-| --- | --- | --- | --- | --- |
-| `brace-expansion` | High | Transitive through `swagger-jsdoc` -> `glob` -> `minimatch`; present in the backend runtime and used to discover local API-documentation source files at startup. | No remotely supplied glob is used; the patterns are fixed local paths, so the reported expansion denial-of-service path does not appear externally reachable. | Refresh or override the transitive package to a fixed release after compatibility testing. |
-| `fast-uri` | High | Transitive through `swagger-jsdoc` -> Swagger parser -> AJV; present in the backend runtime for schema processing. | Swagger input and references are locally authored at startup; no untrusted remote schema/URI input was found, so the reported host-confusion/SSRF paths do not appear reachable. | Upgrade the Swagger/AJV chain or override `fast-uri` to a fixed compatible release. |
-| `ip-address` | High | Transitive through the directly used `express-rate-limit`; runtime request-IP handling. | Rate limiting uses the socket-derived Express IP, and the app does not enable proxy trust or accept a caller-supplied IP value. The reported parser/trust-boundary bypass does not appear directly triggerable in the current deployment, but this is internet-facing code. | Upgrade `express-rate-limit` or its transitive `ip-address` dependency promptly and retest proxy/IP behavior. |
-| `js-yaml` | High | Transitive through `swagger-jsdoc` -> Swagger parser; present in the backend runtime for documentation parsing. | Only repository-controlled documentation is parsed at startup; no endpoint accepts YAML, so the reported malicious-YAML CPU paths do not appear remotely reachable. | Upgrade the Swagger parser chain or override `js-yaml` to a fixed compatible release. |
-| `qs` | Moderate | Transitive through Express/body-parser; present in the HTTP runtime. | The app enables JSON bodies only and uses scalar query parameters. No attacker-controlled `qs` options or extended URL-encoded body parser was found; exposure appears limited but should not be ignored. | Upgrade Express/body-parser or override `qs` to a fixed compatible release and rerun request regression tests. |
+`npm audit --omit=dev` reports zero vulnerabilities after narrow, lockfile-only transitive updates to fixed `brace-expansion`, `fast-uri`, `ip-address`, `js-yaml`, and `qs` releases. No direct backend dependency range or major version was changed. Backend unit, integration, deployment, and container signal regressions were rerun successfully against this lockfile before B3 closed.
 
 ### Frontend dependency tree
 

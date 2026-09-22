@@ -8,6 +8,16 @@ node_modules/
 # Environment Variables
 # ==============================
 .env
+.env.*
+!.env.example
+!.env.sample
+
+# Local credentials and private key material
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
 
 # ==============================
 # Logs
@@ -64,4 +74,6 @@ Desktop.ini
 backups/
 *.dump
 *.sql.gz
+*.archive
+*.archive.gz
 *.operational-queue-mapping.json

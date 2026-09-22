@@ -32,14 +32,14 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
-The current work is focused on moving operational domains to the relational
-architecture while preserving tenant safety and migration compatibility.
+The repository is prepared for a first hosted staging deployment. No hosted
+environment has been created or validated yet.
 
 ---
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, and V2-06B2 cut that vertical's runtime authority to PostgreSQL. The next milestone is V2-06B3 Deployment & Staging Readiness; it is not part of this change.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, and V2-06B3 prepared the repository for hosted staging without deploying it.
 
 ## Prerequisites
 
@@ -58,7 +58,7 @@ Copy-Item backend/.env.sample backend/.env
 Copy-Item frontend/.env.example frontend/.env
 ```
 
-The committed examples contain development-only values. Replace all secrets for any shared or production environment. Backend startup validates `NODE_ENV`, `PORT`, `MONGO_URI`, `DATABASE_URL`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, and `SOCKET_ALLOWED_ORIGINS`. Comma-separate multiple allowed origins. Never log or commit a real database URL.
+The committed examples contain development-only values. Replace all secrets for any shared or production environment. Backend startup validates `NODE_ENV`, `PORT`, `MONGO_URI`, `DATABASE_URL`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, `SOCKET_ALLOWED_ORIGINS`, and `TRUST_PROXY_HOPS`. Production mode requires strong secrets, database TLS, HTTPS origins, and an explicit reviewed proxy-hop count. Comma-separate multiple exact allowed origins. Never log or commit a real database URL.
 
 The frontend requires `VITE_API_URL` (including `/api`) and `VITE_SOCKET_URL`. Vite embeds both values at build time.
 
@@ -94,7 +94,7 @@ The examples use `http://localhost:5000` for the backend and `http://localhost:5
 
 The browser receives the refresh credential only as the `ekavio_refresh` HttpOnly cookie. The frontend sends cookies with credentialed login, refresh, and logout requests and keeps the 15-minute access JWT only in application memory. On startup it attempts `/api/auth/refresh`; an HTTP 401 is the expected logged-out result when no valid cookie exists.
 
-The refresh cookie uses `SameSite=Lax`, is scoped to `/api/auth`, and expires after seven days. `Secure` is intentionally disabled for `NODE_ENV=development` and `NODE_ENV=test` so localhost HTTP works. Production must use HTTPS; production cookies always enable `Secure`. Backend CORS still accepts only `HTTP_ALLOWED_ORIGINS`, so configure the exact frontend origin rather than a wildcard.
+The refresh cookie uses `SameSite=Lax`, is scoped to `/api/auth`, and expires after seven days. `Secure` is intentionally disabled for `NODE_ENV=development` and `NODE_ENV=test` so localhost HTTP works. Hosted staging runs with `NODE_ENV=production`, HTTPS, and production-secure cookies. Backend CORS accepts only `HTTP_ALLOWED_ORIGINS`, so configure the exact frontend origin rather than a wildcard. Use sibling `app.<domain>` and `api.<domain>` names; unrelated provider domains are cross-site and are not supported by weakening the cookie.
 
 Logout calls `POST /api/auth/logout`, revokes the server session, clears the cookie, and clears the in-memory client state. A successful password change revokes all of that user's refresh sessions and requires sign-in again. Do not add access or refresh credentials to browser storage when extending the frontend.
 
@@ -313,6 +313,14 @@ docker compose up --build
 ```
 
 Compose uses pinned MongoDB and PostgreSQL images, local-only default credentials, separate named data volumes, and dependency health checks. Neither database is published to the host. Override the development defaults with environment variables before using the stack outside a local workstation. Stop it with `docker compose down`; do not use `docker compose down -v` unless destruction of both local database volumes is explicitly intended.
+
+## Hosted staging architecture
+
+The recommended hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, managed PostgreSQL, and managed MongoDB while deferred domains remain. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires both databases for readiness. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
+
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+
+See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). These documents prepare deployment; they do not claim a hosted environment exists.
 
 ## Health endpoints
 

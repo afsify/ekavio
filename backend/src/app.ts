@@ -2,6 +2,7 @@ import compression from 'compression';
 import cors, { type CorsOptions } from 'cors';
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
@@ -23,6 +24,20 @@ interface OperationalError extends Error {
   status?: 'fail' | 'error';
   isOperational?: boolean;
 }
+
+const sensitiveAuthPaths = new Set(['/login', '/refresh', '/register']);
+
+export const createAuthRateLimiter = () => rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (request) => !sensitiveAuthPaths.has(request.path),
+  message: {
+    status: 'fail',
+    message: 'Too many authentication attempts from this IP, please try again later',
+  },
+});
 
 const createOriginPolicy = (allowedOrigins: string[]): CorsOptions['origin'] => {
   return (origin, callback) => {
@@ -67,6 +82,8 @@ export const createApp = ({
   }),
 }: CreateAppOptions) => {
   const app = express();
+  app.set('trust proxy', config.trustProxyHops);
+
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -77,8 +94,18 @@ export const createApp = ({
       message: 'Too many requests from this IP, please try again after 15 minutes',
     },
   });
+  const authLimiter = createAuthRateLimiter();
 
+  app.use((_request, response, next) => {
+    response.locals.requestId = randomUUID();
+    response.setHeader('x-request-id', response.locals.requestId as string);
+    next();
+  });
   app.use(helmet());
+  app.use((_request, response, next) => {
+    response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
   app.use(compression());
   app.use(cors({
     origin: createOriginPolicy(config.httpAllowedOrigins),
@@ -88,6 +115,7 @@ export const createApp = ({
 
   app.use('/health', createHealthRouter(isReady));
   app.use(sanitizeMongoInputs);
+  app.use('/api/auth', authLimiter);
   app.use('/api', apiLimiter, routes);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
@@ -98,11 +126,19 @@ export const createApp = ({
   app.use(
     (
       error: OperationalError,
-      _request: Request,
+      request: Request,
       response: Response,
       _next: NextFunction,
     ) => {
-      console.error(error.stack);
+      const statusCode = error.statusCode ?? 500;
+      console.error('Request failed', {
+        requestId: response.locals.requestId,
+        method: request.method,
+        path: request.path,
+        statusCode,
+        errorType: error.name,
+        operational: Boolean(error instanceof AppError || error.isOperational),
+      });
 
       if (error instanceof AppError || error.isOperational) {
         response.status(error.statusCode ?? 400).json({
@@ -112,7 +148,6 @@ export const createApp = ({
         return;
       }
 
-      const statusCode = error.statusCode ?? 500;
       const status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
 
       response.status(statusCode).json({

@@ -32,6 +32,7 @@
     "entitlements:catalogue": "tsx src/scripts/bootstrapCommercialCatalogue.ts",
     "entitlements:catalogue:mongo-legacy": "tsx src/scripts/bootstrapLegacyMongoCommercialCatalogue.ts",
     "entitlements:backfill": "tsx src/scripts/backfillEntitlements.ts",
+    "staging:bootstrap": "node dist/scripts/bootstrapStaging.js",
     "build": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "start": "node dist/server.js"
   },

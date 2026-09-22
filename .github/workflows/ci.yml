@@ -103,6 +103,10 @@ jobs:
         working-directory: backend
         run: npm run test:operational-migration
 
+      - name: Test operational runtime cutover
+        working-directory: backend
+        run: npm run test:operational-runtime
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

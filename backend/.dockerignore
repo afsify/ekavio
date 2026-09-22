@@ -5,3 +5,13 @@ coverage
 .env.*
 !.env.sample
 *.log
+*.dump
+*.sql.gz
+*.archive
+*.archive.gz
+*.operational-queue-mapping.json
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json

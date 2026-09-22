@@ -27,6 +27,11 @@ export const authorizationRooms = (context: AuthorizationContext): string[] => [
   ...(context.branchId ? [branchRoom(context.branchId)] : []),
 ];
 
+export const isSocketOriginAllowed = (
+  origin: string | undefined,
+  allowedOrigins: readonly string[],
+): boolean => origin === undefined || allowedOrigins.includes(origin);
+
 export const createRealtimeAuthorizer = ({
   verifyToken,
   resolveContext,
@@ -57,7 +62,11 @@ export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => 
   io = new SocketIOServer(server, {
     cors: {
       origin: config.socketAllowedOrigins,
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      methods: ['GET', 'POST'],
+      credentials: false,
+    },
+    allowRequest: (request, callback) => {
+      callback(null, isSocketOriginAllowed(request.headers.origin, config.socketAllowedOrigins));
     },
   });
 
@@ -103,6 +112,12 @@ export const setupSocket = (server: HTTPServer, config: RuntimeConfig): void => 
 
     void socket.join(authorizationRooms(context));
   });
+};
+
+export const closeSocket = async (): Promise<void> => {
+  const activeServer = io;
+  io = undefined;
+  if (activeServer) await activeServer.close();
 };
 
 export const disconnectUserSockets = (userId: string): void => {

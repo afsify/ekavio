@@ -1,16 +1,16 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { frontendConfig } from '../config/env';
-import { useAppStore, type SessionPayload } from '../store/useAppStore';
+import axios, { type InternalAxiosRequestConfig } from "axios";
+import { frontendConfig } from "../config/env";
+import { useAppStore, type SessionPayload } from "../store/useAppStore";
 
 const sessionClient = axios.create({
   baseURL: frontendConfig.apiUrl,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
 
 export const client = axios.create({
   baseURL: frontendConfig.apiUrl,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { "Content-Type": "application/json" },
   withCredentials: true,
 });
 
@@ -22,10 +22,10 @@ client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   }
 
   if (activeTenantId) {
-    config.headers['x-tenant-id'] = activeTenantId;
+    config.headers["x-tenant-id"] = activeTenantId;
   }
   if (activeBranchId) {
-    config.headers['x-branch-id'] = activeBranchId;
+    config.headers["x-branch-id"] = activeBranchId;
   }
 
   return config;
@@ -44,7 +44,7 @@ let failedQueue: FailedRequest[] = [];
 const processQueue = (error: unknown, token?: string) => {
   for (const pendingRequest of failedQueue) {
     if (error || !token) {
-      pendingRequest.reject(error ?? new Error('Session refresh failed'));
+      pendingRequest.reject(error ?? new Error("Session refresh failed"));
     } else {
       pendingRequest.resolve(token);
     }
@@ -52,37 +52,49 @@ const processQueue = (error: unknown, token?: string) => {
   failedQueue = [];
 };
 
-export const restoreSession = async (selection: {
-  organizationId?: string;
-  branchId?: string;
-} = {}): Promise<SessionPayload> => {
-  const response = await sessionClient.post<SessionPayload>('/auth/refresh', undefined, {
-    headers: {
-      ...(selection.organizationId ? { 'x-tenant-id': selection.organizationId } : {}),
-      ...(selection.branchId ? { 'x-branch-id': selection.branchId } : {}),
+export const restoreSession = async (
+  selection: {
+    organizationId?: string;
+    branchId?: string;
+  } = {},
+): Promise<SessionPayload> => {
+  const response = await sessionClient.post<SessionPayload>(
+    "/auth/refresh",
+    undefined,
+    {
+      headers: {
+        ...(selection.organizationId
+          ? { "x-tenant-id": selection.organizationId }
+          : {}),
+        ...(selection.branchId ? { "x-branch-id": selection.branchId } : {}),
+      },
     },
-  });
+  );
   return response.data;
 };
 
 export const requestLogout = async (): Promise<void> => {
-  await sessionClient.post('/auth/logout');
+  await sessionClient.post("/auth/logout");
 };
 
 client.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
-    const requestUrl = String(originalRequest?.url ?? '');
+    const requestUrl = String(originalRequest?.url ?? "");
 
-    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
+    if (
+      !originalRequest ||
+      error.response?.status !== 401 ||
+      originalRequest._retry
+    ) {
       return Promise.reject(error);
     }
 
     if (
-      requestUrl.includes('/auth/login') ||
-      requestUrl.includes('/auth/refresh') ||
-      requestUrl.includes('/auth/logout')
+      requestUrl.includes("/auth/login") ||
+      requestUrl.includes("/auth/refresh") ||
+      requestUrl.includes("/auth/logout")
     ) {
       useAppStore.getState().clearSession();
       return Promise.reject(error);
@@ -114,8 +126,11 @@ client.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError);
       useAppStore.getState().clearSession();
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.href = "/login";
       }
       return Promise.reject(refreshError);
     } finally {
