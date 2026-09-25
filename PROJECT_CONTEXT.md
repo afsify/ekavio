@@ -37,14 +37,14 @@
 - V2-06B2 activated PostgreSQL Customer, Service, Appointment, Queue session/token/status runtime authority; canonical UUID APIs; branch-timezone business dates; atomic numbering; idempotent Appointment check-in; branch-scoped realtime; PostgreSQL Dashboard Queue counts; frontend Queue and Appointment workflows; and a durable post-cutover migration safety latch.
 - Completed milestone: V2-06B3 Deployment & Staging Readiness.
 - V2-06B3 added a validated hosted environment contract, managed PostgreSQL/Mongo TLS readiness, explicit reverse-proxy trust, auth throttling, Socket origin/shutdown handling, deterministic frontend/PWA hosting, unprivileged production containers, clean-staging bootstrap, deployment/backup/cost documentation, and hosted-topology security tests without deploying infrastructure or changing domain authority.
+- Partial closeout: V2-06B4 confirmed the hosted frontend/backend, HTTPS/DNS, health/readiness, managed PostgreSQL/MongoDB connectivity, migrations 001–005, exact CORS, public Socket transport, secure refresh-cookie/storage behavior, tenant/branch fail-closed authorization, and disposable Customer/Service/Appointment flows. Queue/realtime, Billing, logout/revocation, hosted-log review, and backup/restore proof remain explicitly open.
 - PostgreSQL is the current runtime authority for identity/users, organizations, branches, memberships and branch assignments, sessions, login, authorization, staff, registration, profile/password identity, commercial module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlement calculation and limits, Customer, Service, Appointment, and Queue. Attendance identity resolution is PostgreSQL-backed.
 - Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
 - Current MongoDB runtime authority: Attendance records, Inventory, Ledger/Customer Dues legacy, ParentOrganization/corporate operational data where applicable, ActivityLog/security audit, and remaining legacy operational domains. Mongo Queue is legacy migration/recovery input only.
 - Queue writes are PostgreSQL-only. There is no Queue dual-write, Mongo read fallback, or automatic repair. Overall readiness still requires both PostgreSQL and MongoDB while accepted legacy domains remain.
-- Deployment status: the repository is ready for a runbook-conforming hosted staging deployment. Actual hosted staging is NOT YET DEPLOYED or validated.
-- Recommended hosted topology: static/PWA frontend, one Node/WebSocket backend, managed PostgreSQL, temporary managed MongoDB, and same-site `app.<domain>` / `api.<domain>` HTTPS subdomains.
-- Next: hosted staging deployment and validation.
-- After hosted staging is validated, V2-06C Attendance may begin. Do not automatically start Attendance migration.
+- Deployment status: hosted staging is deployed at `https://ekavio.afsify.com` and `https://api.ekavio.afsify.com` and is partially validated for continued development/testing. It is not production-ready or approved for real pilot/customer data; remaining authenticated smoke flows, hosted-log review, and backup/restore proof are open.
+- Deployed topology: static/PWA frontend, one Render Node/WebSocket staging backend, managed Neon PostgreSQL, and temporary managed MongoDB Atlas on same-site HTTPS subdomains.
+- Next product work may continue without representing the partial staging validation as pilot acceptance. V2-06C Attendance must not begin automatically.
 
 ## Dependency-audit status (reviewed during V2-06B3, 2026-09-22)
 

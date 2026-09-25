@@ -32,14 +32,18 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
-The repository is prepared for a first hosted staging deployment. No hosted
-environment has been created or validated yet.
+Hosted staging is deployed at `https://ekavio.afsify.com` with its API at
+`https://api.ekavio.afsify.com`. Public infrastructure and selected
+authenticated flows are validated for continued development/testing. Full
+pilot-readiness validation, including the remaining authenticated smoke flows,
+hosted-log review, and backup/restore proof, is still open. Staging is not
+production and must not hold real paying-customer data.
 
 ---
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, and V2-06B3 prepared the repository for hosted staging without deploying it.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, and the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks.
 
 ## Prerequisites
 
@@ -320,7 +324,7 @@ The recommended hosted topology is a static/PWA frontend at `https://app.<domain
 
 Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
 
-See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). These documents prepare deployment; they do not claim a hosted environment exists.
+See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 
 ## Health endpoints
 
