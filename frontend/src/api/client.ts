@@ -14,6 +14,12 @@ export const client = axios.create({
   withCredentials: true,
 });
 
+export const publicClient = axios.create({
+  baseURL: frontendConfig.apiUrl,
+  headers: { "Content-Type": "application/json" },
+  withCredentials: false,
+});
+
 client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const { token, activeTenantId, activeBranchId } = useAppStore.getState();
 

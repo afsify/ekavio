@@ -16,6 +16,11 @@ import {
   upsertEntitlementSchema,
 } from '../schemas/billingSchemas.js';
 import { permissions } from '../services/authorizationPolicy.js';
+import { publicCommercialHandlers } from '../controllers/publicCommercialController.js';
+import {
+  operatorAccessRequestUpdateSchema,
+  publicPricingUpdateSchema,
+} from '../schemas/publicCommercialSchemas.js';
 
 const router = Router();
 
@@ -34,6 +39,33 @@ router.put(
   requirePlatformOperator,
   validateRequest(upsertEntitlementSchema),
   upsertEntitlement,
+);
+router.get(
+  '/operator/public-pricing',
+  requirePlatformOperator,
+  publicCommercialHandlers.getOperatorPricing,
+);
+router.put(
+  '/operator/public-pricing/:offerType/:offerKey',
+  requirePlatformOperator,
+  validateRequest(publicPricingUpdateSchema),
+  publicCommercialHandlers.updatePricing,
+);
+router.get(
+  '/operator/access-requests',
+  requirePlatformOperator,
+  publicCommercialHandlers.listRequests,
+);
+router.get(
+  '/operator/access-requests/:requestId',
+  requirePlatformOperator,
+  publicCommercialHandlers.getRequest,
+);
+router.patch(
+  '/operator/access-requests/:requestId',
+  requirePlatformOperator,
+  validateRequest(operatorAccessRequestUpdateSchema),
+  publicCommercialHandlers.updateRequest,
 );
 
 export default router;

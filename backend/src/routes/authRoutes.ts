@@ -10,6 +10,7 @@ import { validateRequest } from "../middlewares/validateRequest.js";
 import { authenticate, requirePermission } from "../middlewares/authMiddleware.js";
 import { permissions } from '../services/authorizationPolicy.js';
 import { registerSchema, loginSchema, updateThemeSchema } from "../schemas/authSchemas.js";
+import { requirePublicRegistrationAvailable } from '../middlewares/registrationAvailability.js';
 
 const router = Router();
 
@@ -73,7 +74,12 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.post("/register", validateRequest(registerSchema), registerAdmin);
+router.post(
+  "/register",
+  requirePublicRegistrationAvailable,
+  validateRequest(registerSchema),
+  registerAdmin,
+);
 
 /**
  * @openapi

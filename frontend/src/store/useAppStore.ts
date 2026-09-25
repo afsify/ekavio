@@ -55,6 +55,7 @@ export interface SessionPayload {
   memberships?: MembershipContext[];
   user: UserProfile;
   entitlements: EffectiveEntitlements;
+  platformOperator: boolean;
   theme?: ThemeConfig;
 }
 
@@ -67,6 +68,7 @@ export interface AppState {
   activeTenantId: string | null;
   activeBranchId: string | null;
   entitlements: EffectiveEntitlements | null;
+  isPlatformOperator: boolean;
   establishSession: (payload: SessionPayload) => void;
   bootstrapSession: () => Promise<void>;
   clearSession: () => void;
@@ -93,6 +95,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTenantId: null,
   activeBranchId: null,
   entitlements: null,
+  isPlatformOperator: false,
 
   establishSession: (payload) => {
     const organizationId =
@@ -121,6 +124,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeTenantId: organizationId,
       activeBranchId,
       entitlements: payload.entitlements,
+      isPlatformOperator: payload.platformOperator === true,
     });
     if (browserStorage && payload.theme) saveThemePreference(browserStorage, payload.theme);
     useSocketStore
@@ -153,6 +157,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeTenantId: null,
       activeBranchId: null,
       entitlements: null,
+      isPlatformOperator: false,
     });
     useSocketStore.getState().disconnectSocket();
   },

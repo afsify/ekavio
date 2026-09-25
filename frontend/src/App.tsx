@@ -32,6 +32,9 @@ const StaffManagementPage = React.lazy(
 const SettingsPage = React.lazy(() => import("./pages/Settings/SettingsPage"));
 const BillingPage = React.lazy(() => import("./pages/Billing/BillingPage"));
 const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
+const CommercialRequestsPage = React.lazy(
+  () => import('./pages/Commercial/CommercialRequestsPage'),
+);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -99,6 +102,11 @@ const PermissionGuard: React.FC<{ permission: string; children: React.ReactNode 
 }) => {
   const permissions = useAppStore((state) => state.user?.permissions ?? []);
   return permissions.includes(permission) ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
+const PlatformOperatorGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isPlatformOperator = useAppStore((state) => state.isPlatformOperator);
+  return isPlatformOperator ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 const PageLoader = () => (
@@ -240,6 +248,16 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <PermissionGuard permission="billing.read"><BillingPage /></PermissionGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/commercial/requests"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <PlatformOperatorGuard><CommercialRequestsPage /></PlatformOperatorGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }

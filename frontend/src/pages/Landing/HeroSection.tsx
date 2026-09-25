@@ -41,7 +41,7 @@ export const HeroSection: React.FC = () => {
             href="#pilot-access"
             className="w-full sm:w-auto inline-flex justify-center items-center gap-2 bg-slate-800/50 hover:bg-slate-800 text-white border border-slate-700 hover:border-slate-600 font-medium py-4 px-8 rounded-xl transition-all backdrop-blur-sm active:scale-95"
           >
-            How Pilot Access Works
+            View Plans & Modules
           </a>
         </div>
       </div>

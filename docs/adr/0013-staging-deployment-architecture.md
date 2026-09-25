@@ -38,7 +38,7 @@ Use normal `postgresql://` and `mongodb+srv://`/TLS connection contracts. Produc
 
 Apply PostgreSQL migrations through one explicit release command, never automatically from each web startup. The migration connection must be direct/session-capable because the runner uses a session advisory lock. Status is checked before and after apply. The managed PostgreSQL service must support the accepted `btree_gist` extension and relational features.
 
-A clean staging database applies migrations 001–005 from zero. It does not run historical Mongo shadow/cutover tooling. The guarded staging bootstrap creates/reuses the minimum operator/organization/main-branch context, reviewed IANA timezone, canonical catalogue, pilot-core entitlement, and durable PostgreSQL operational latch. It is explicit, idempotent for its supported case, secret-driven, and refuses `NODE_ENV=production`. It creates no operational sample rows. A real legacy environment continues to use the prior migration/cutover runbooks instead.
+A clean staging database applies all accepted migrations (currently 001–006) from zero. It does not run historical Mongo shadow/cutover tooling. The guarded staging bootstrap creates/reuses the minimum operator/organization/main-branch context, reviewed IANA timezone, canonical catalogue, pilot-core entitlement, and durable PostgreSQL operational latch. It is explicit, idempotent for its supported case, secret-driven, and refuses `NODE_ENV=production`. It creates no operational sample rows. A real legacy environment continues to use the prior migration/cutover runbooks instead.
 
 ### Frontend and PWA
 

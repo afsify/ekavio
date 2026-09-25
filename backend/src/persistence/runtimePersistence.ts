@@ -19,6 +19,8 @@ import { PostgresServiceRepository } from '../domains/services/repository.js';
 import { PostgresAppointmentRepository } from '../domains/appointments/repository.js';
 import { BranchTimezoneRepository } from '../domains/appointments/timezone.js';
 import { PostgresQueueRepository } from '../domains/queue/repository.js';
+import { PostgresPublicCommercialRepository } from '../postgres/publicCommercialRepository.js';
+import { createPublicCommercialService } from '../services/publicCommercialService.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -41,6 +43,8 @@ const commercial = Object.freeze({
   upsertEntitlement: commercialAdministration.upsertEntitlement,
 });
 const mongoIdentities = new PostgresMongoLegacyIdentityBridge(idMappings);
+const publicCommercialRepository = new PostgresPublicCommercialRepository(runtimePostgresDatabase);
+const publicCommercial = createPublicCommercialService(publicCommercialRepository);
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -60,6 +64,8 @@ export const runtimePersistence = Object.freeze({
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,
+  publicCommercial,
+  publicCommercialRepository,
   customers: new PostgresCustomerRepository(runtimePostgresDatabase),
   idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),

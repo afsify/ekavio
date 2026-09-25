@@ -16,6 +16,7 @@
     "test:operational": "tsx --test tests/operationalFoundation.integration.ts",
     "test:operational-migration": "tsx --test tests/operationalMigration.integration.ts",
     "test:operational-runtime": "tsx --test tests/operationalRuntime.integration.ts",
+    "test:commercial-intake": "tsx --test tests/publicCommercial.integration.ts",
     "db:migrate": "node dist/scripts/postgresMigrate.js",
     "db:migrate:status": "node dist/scripts/postgresMigrationStatus.js",
     "postgres:shadow": "node dist/scripts/postgresShadow.js",

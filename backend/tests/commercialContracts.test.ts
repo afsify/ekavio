@@ -202,7 +202,7 @@ test('platform operator can reach the intended manual pilot mutation boundary', 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const source = (relativePath: string) => readFile(path.join(repositoryRoot, relativePath), 'utf8');
 
-test('fake billing create-order behavior, pricing, and fabricated invoices no longer exist', async () => {
+test('public commercial intake does not restore fake checkout or fabricated invoices', async () => {
   const [routes, controller, billingPage, publicPricing, hero] = await Promise.all([
     source('backend/src/routes/billingRoutes.ts'),
     source('backend/src/controllers/billingController.ts'),
@@ -217,8 +217,30 @@ test('fake billing create-order behavior, pricing, and fabricated invoices no lo
     );
   }
   assert.match(billingPage, /No billing documents are available/);
-  assert.match(publicPricing, /Commercial access is configured manually/);
+  assert.match(publicPricing, /\/public\/commercial\/catalogue/);
+  assert.match(publicPricing, /Contact for pricing/);
+  assert.match(publicPricing, /Request Access/);
+  assert.doesNotMatch(publicPricing, /Buy Now|Pay Now|Subscribe Now/);
   assert.doesNotMatch(hero, /Start Free Trial|\/register/);
+});
+
+test('frontend commercial intake uses server quotes and platform-operator UI guards', async () => {
+  const [pricing, operatorPage, app, sidebar, store] = await Promise.all([
+    source('frontend/src/pages/Landing/PricingSection.tsx'),
+    source('frontend/src/pages/Commercial/CommercialRequestsPage.tsx'),
+    source('frontend/src/App.tsx'),
+    source('frontend/src/components/layout/AdminSidebar.tsx'),
+    source('frontend/src/store/useAppStore.ts'),
+  ]);
+  assert.match(pricing, /\/public\/commercial\/quote/);
+  assert.match(pricing, /\/public\/access-requests/);
+  assert.doesNotMatch(pricing, /subtotalMinor:/);
+  assert.match(operatorPage, /\/billing\/operator\/access-requests/);
+  assert.match(operatorPage, /Commercial\/payment activation is completed manually/);
+  assert.match(app, /PlatformOperatorGuard/);
+  assert.match(sidebar, /platformOperatorOnly/);
+  assert.match(store, /isPlatformOperator: payload\.platformOperator === true/);
+  assert.doesNotMatch(`${pricing}\n${operatorPage}`, /setEntitlements|upsertEntitlement|updateSubscription/);
 });
 
 test('frontend consumes canonical backend entitlement state without local activation', async () => {

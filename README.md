@@ -23,6 +23,7 @@ business capabilities, and maintainable backend architecture.
 - Organization and branch-aware multi-tenancy
 - Membership-based RBAC and permission enforcement
 - PostgreSQL-backed identity, authorization, and commercial entitlements
+- Server-authoritative public catalogue pricing and commercial access requests
 - PostgreSQL operational authority for Customer, Service, Appointment, and Queue, with MongoDB retained for deferred legacy domains
 - Transactional migrations and cutover tooling
 - Docker health/readiness checks
@@ -43,7 +44,7 @@ production and must not hold real paying-customer data.
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, and the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, and V2-06B5A added public catalogue pricing and operator-reviewed access requests without payment or activation.
 
 ## Prerequisites
 
@@ -145,6 +146,23 @@ npm.cmd run entitlements:backfill -- --apply
 ```
 
 This deprecated-field backfill writes only legacy Mongo commercial source data and is retained for migration/recovery compatibility. It cannot change post-V2-05D runtime entitlements. Do not run its apply mode as routine administration or against an unreviewed shared/production database.
+
+## Public commercial catalogue and access requests
+
+The landing page reads the live public catalogue from `GET /api/public/commercial/catalogue`. Platform operators configure optional monthly/yearly INR list prices in whole paise; no arbitrary price is seeded or hard-coded in React. Unpublished pricing appears publicly as “Contact for pricing.”
+
+Visitors can request a server-authoritative estimate with `POST /api/public/commercial/quote` and submit `POST /api/public/access-requests`. Submission accepts selections rather than a client total, recalculates against PostgreSQL, stores an immutable list-price snapshot, and returns a safe opaque receipt. IP throttling and a normalized-phone cooldown provide low-cost abuse resistance.
+
+Platform operators manage pricing and requests at `/commercial/requests` through protected `/api/billing/operator/*` APIs. Tenant owners/admins cannot access those endpoints. `pending` requests may move to `contacted`, `approved`, or `rejected`; `contacted` may move to `approved` or `rejected`. Approval does not grant an entitlement or create an organization/subscription.
+
+Hosted production-mode deployments return 404 from public `POST /api/auth/register`. Controlled test/bootstrap repository paths remain available. The deliberate commercial flow is:
+
+```text
+Public catalogue -> Access request -> Operator review
+-> V2-06B5B manual payment/onboarding -> Subscription/entitlement activation
+```
+
+No payment gateway is configured or required. See [ADR 0014](docs/adr/0014-server-authoritative-public-commercial-intake.md) and the [V2-06B5A review](docs/reviews/V2-06B5A_PUBLIC_COMMERCIAL_INTAKE.md).
 
 ## Manual pilot subscription administration
 
@@ -292,6 +310,7 @@ npm.cmd run test:commercial
 npm.cmd run test:operational
 npm.cmd run test:operational-migration
 npm.cmd run test:operational-runtime
+npm.cmd run test:commercial-intake
 npm.cmd start
 ```
 

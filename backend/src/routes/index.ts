@@ -12,6 +12,7 @@ import profileRoutes from './profileRoutes.js';
 import customerRoutes from './customerRoutes.js';
 import serviceRoutes from './serviceRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
+import publicRoutes from './publicRoutes.js';
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use('/profile', profileRoutes);
 router.use('/customers', customerRoutes);
 router.use('/services', serviceRoutes);
 router.use('/appointments', appointmentRoutes);
+router.use('/public', publicRoutes);
 
 export default router;
