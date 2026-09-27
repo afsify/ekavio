@@ -107,6 +107,14 @@ jobs:
         working-directory: backend
         run: npm run test:operational-runtime
 
+      - name: Test public commercial intake
+        working-directory: backend
+        run: npm run test:commercial-intake
+
+      - name: Test manual commercial activation
+        working-directory: backend
+        run: npm run test:manual-commercial
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

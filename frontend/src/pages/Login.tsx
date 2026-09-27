@@ -3,8 +3,8 @@
  * Strictly functional login screen leveraging controlled inputs, reusable UI components,
  * and database-driven theme injection upon login.
  */
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -39,7 +39,15 @@ export const Login: React.FC = () => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
   const loginMutation = useLogin();
+
+  useEffect(() => {
+    if ((location.state as { accountReady?: boolean } | null)?.accountReady) {
+      toast.success('Your EkaVio account is ready. Sign in with your phone number and password.');
+      navigate('/login', { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
 
   const onSubmit: SubmitHandler<LoginFormInputs> = (formData) => {
     loginMutation.mutate(

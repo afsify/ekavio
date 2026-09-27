@@ -202,7 +202,7 @@ test('platform operator can reach the intended manual pilot mutation boundary', 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const source = (relativePath: string) => readFile(path.join(repositoryRoot, relativePath), 'utf8');
 
-test('public commercial intake does not restore fake checkout or fabricated invoices', async () => {
+test('public commercial intake and manual payments do not restore fake checkout or fabricated invoices', async () => {
   const [routes, controller, billingPage, publicPricing, hero] = await Promise.all([
     source('backend/src/routes/billingRoutes.ts'),
     source('backend/src/controllers/billingController.ts'),
@@ -216,7 +216,8 @@ test('public commercial intake does not restore fake checkout or fabricated invo
       /create-order|mockInvoices|order_|Pro Tier|Enterprise|Starter|Growth|₹999|₹1,999/,
     );
   }
-  assert.match(billingPage, /No billing documents are available/);
+  assert.match(billingPage, /Manual payment history/);
+  assert.match(billingPage, /not statutory tax invoices/);
   assert.match(publicPricing, /\/public\/commercial\/catalogue/);
   assert.match(publicPricing, /Contact for pricing/);
   assert.match(publicPricing, /Request Access/);
@@ -225,9 +226,10 @@ test('public commercial intake does not restore fake checkout or fabricated invo
 });
 
 test('frontend commercial intake uses server quotes and platform-operator UI guards', async () => {
-  const [pricing, operatorPage, app, sidebar, store] = await Promise.all([
+  const [pricing, operatorPage, activationPanel, app, sidebar, store] = await Promise.all([
     source('frontend/src/pages/Landing/PricingSection.tsx'),
     source('frontend/src/pages/Commercial/CommercialRequestsPage.tsx'),
+    source('frontend/src/pages/Commercial/CommercialActivationPanel.tsx'),
     source('frontend/src/App.tsx'),
     source('frontend/src/components/layout/AdminSidebar.tsx'),
     source('frontend/src/store/useAppStore.ts'),
@@ -236,11 +238,13 @@ test('frontend commercial intake uses server quotes and platform-operator UI gua
   assert.match(pricing, /\/public\/access-requests/);
   assert.doesNotMatch(pricing, /subtotalMinor:/);
   assert.match(operatorPage, /\/billing\/operator\/access-requests/);
-  assert.match(operatorPage, /Commercial\/payment activation is completed manually/);
+  assert.match(operatorPage, /CommercialActivationPanel/);
+  assert.match(activationPanel, /Finalize commercial agreement/);
+  assert.match(activationPanel, /\/billing\/operator\/agreements/);
   assert.match(app, /PlatformOperatorGuard/);
   assert.match(sidebar, /platformOperatorOnly/);
   assert.match(store, /isPlatformOperator: payload\.platformOperator === true/);
-  assert.doesNotMatch(`${pricing}\n${operatorPage}`, /setEntitlements|upsertEntitlement|updateSubscription/);
+  assert.doesNotMatch(`${pricing}\n${operatorPage}\n${activationPanel}`, /setEntitlements|upsertEntitlement|updateSubscription/);
 });
 
 test('frontend consumes canonical backend entitlement state without local activation', async () => {
@@ -257,4 +261,45 @@ test('frontend consumes canonical backend entitlement state without local activa
   assert.match(sidebar, /hasEntitlement\(entitlements, item\.module\)/);
   assert.doesNotMatch(`${store}\n${app}\n${dashboard}\n${sidebar}`, /activeModules|subscribedModules|digital-khata/);
   assert.doesNotMatch(dashboard, /setSubscribed|Subscribe Now|Module activated/);
+});
+
+test('manual activation routes preserve operator authorization and body-only public onboarding', async () => {
+  const [billingRoutes, publicRoutes, schemas, onboardingPage] = await Promise.all([
+    source('backend/src/routes/billingRoutes.ts'),
+    source('backend/src/routes/publicRoutes.ts'),
+    source('backend/src/schemas/manualCommercialSchemas.ts'),
+    source('frontend/src/pages/Onboarding/OnboardingPage.tsx'),
+  ]);
+  assert.match(billingRoutes, /router\.use\(authenticate\)/);
+  assert.ok((billingRoutes.match(/requirePlatformOperator/g) ?? []).length >= 8);
+  assert.match(publicRoutes, /post\(\s*'\/onboarding\/inspect'/);
+  assert.match(publicRoutes, /post\(\s*'\/onboarding\/complete'/);
+  assert.doesNotMatch(publicRoutes, /get\(\s*'\/onboarding/);
+  assert.match(schemas, /\.strict\(\)/);
+  assert.doesNotMatch(schemas, /upiPin|cardNumber|cvv|bankPassword|otp/i);
+  assert.match(onboardingPage, /window\.location\.hash/);
+  assert.match(onboardingPage, /window\.history\.replaceState/);
+  assert.match(onboardingPage, /\/public\/onboarding\/inspect/);
+  assert.match(onboardingPage, /\/public\/onboarding\/complete/);
+  assert.doesNotMatch(onboardingPage, /localStorage|sessionStorage/);
+});
+
+test('manual onboarding provisions canonical commercial state without client entitlement mutation', async () => {
+  const [repository, service, migration, activationPanel] = await Promise.all([
+    source('backend/src/postgres/manualCommercialRepository.ts'),
+    source('backend/src/services/manualCommercialService.ts'),
+    source('backend/postgres/migrations/007_manual_commercial_activation.sql'),
+    source('frontend/src/pages/Commercial/CommercialActivationPanel.tsx'),
+  ]);
+  assert.match(repository, /INSERT INTO organizations/);
+  assert.match(repository, /INSERT INTO memberships/);
+  assert.match(repository, /INSERT INTO subscriptions/);
+  assert.match(repository, /status = 'activated'/);
+  assert.match(repository, /platform_role/);
+  assert.match(service, /randomBytes\(32\)/);
+  assert.match(service, /createHash\('sha256'\)/);
+  assert.match(migration, /token_hash CHAR\(64\)/);
+  assert.match(migration, /manual payment history is append-only/);
+  assert.match(activationPanel, /This link is shown once/);
+  assert.doesNotMatch(activationPanel, /setEntitlements|upsertEntitlement|updateSubscription/);
 });

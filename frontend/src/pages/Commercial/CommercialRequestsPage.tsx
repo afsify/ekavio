@@ -11,6 +11,7 @@ import {
   type OperatorAccessRequest,
   type OperatorPricing,
 } from '../../commercial/publicCommercial';
+import { CommercialActivationPanel } from './CommercialActivationPanel';
 
 const errorMessage = (error: unknown): string => {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -248,10 +249,12 @@ const CommercialRequestsPage: React.FC = () => {
                     ))}
                   </div>
                 )}
-                {selected.status === 'approved' && (
-                  <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100/80">
-                    Commercial/payment activation is completed manually in the next workflow.
-                  </p>
+                {(selected.status === 'approved' || selected.status === 'activated') && (
+                  <CommercialActivationPanel
+                    key={selected.id}
+                    request={selected}
+                    offers={pricingQuery.data ?? []}
+                  />
                 )}
                 {updateRequest.isError && <p className="text-sm text-rose-300">{errorMessage(updateRequest.error)}</p>}
               </div>

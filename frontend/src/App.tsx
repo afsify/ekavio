@@ -35,6 +35,7 @@ const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
 const CommercialRequestsPage = React.lazy(
   () => import('./pages/Commercial/CommercialRequestsPage'),
 );
+const OnboardingPage = React.lazy(() => import('./pages/Onboarding/OnboardingPage'));
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -287,6 +288,14 @@ export const App: React.FC = () => {
               element={
                 <PublicLayout>
                   <LandingPage />
+                </PublicLayout>
+              }
+            />
+            <Route
+              path="/onboarding"
+              element={
+                <PublicLayout>
+                  <OnboardingPage />
                 </PublicLayout>
               }
             />

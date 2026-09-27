@@ -21,6 +21,10 @@ import { BranchTimezoneRepository } from '../domains/appointments/timezone.js';
 import { PostgresQueueRepository } from '../domains/queue/repository.js';
 import { PostgresPublicCommercialRepository } from '../postgres/publicCommercialRepository.js';
 import { createPublicCommercialService } from '../services/publicCommercialService.js';
+import { PostgresManualCommercialRepository } from '../postgres/manualCommercialRepository.js';
+import { createManualCommercialService } from '../services/manualCommercialService.js';
+import { normalizePhone } from '../domains/customers/normalization.js';
+import { AppError } from '../utils/AppError.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -45,6 +49,18 @@ const commercial = Object.freeze({
 const mongoIdentities = new PostgresMongoLegacyIdentityBridge(idMappings);
 const publicCommercialRepository = new PostgresPublicCommercialRepository(runtimePostgresDatabase);
 const publicCommercial = createPublicCommercialService(publicCommercialRepository);
+const manualCommercialRepository = new PostgresManualCommercialRepository(runtimePostgresDatabase);
+const manualCommercial = createManualCommercialService(manualCommercialRepository, {
+  normalizePhone: (value) => {
+    try {
+      const normalized = normalizePhone(value, { defaultCallingCode: '91' });
+      if (!normalized) throw new Error('Billing phone is required');
+      return normalized;
+    } catch {
+      throw new AppError('Billing phone must be a valid Indian local or E.164 number', 400);
+    }
+  },
+});
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -66,6 +82,8 @@ export const runtimePersistence = Object.freeze({
   commercialRepository,
   publicCommercial,
   publicCommercialRepository,
+  manualCommercial,
+  manualCommercialRepository,
   customers: new PostgresCustomerRepository(runtimePostgresDatabase),
   idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),

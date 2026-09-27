@@ -68,7 +68,7 @@ npm run db:migrate
 npm run db:migrate:status
 ```
 
-The first status must report accepted migrations as pending on a clean database; the final status must report migrations 001 through 005 applied with matching checksums. The migration runner serializes a release with an advisory lock and each migration is transactional. Do not edit accepted SQL and do not run migrations from every web instance startup.
+The first status must report accepted migrations as pending on a clean database; the final status must report migrations 001 through 007 applied with matching checksums. V2-06B5B specifically requires migration `007_manual_commercial_activation.sql` before its hosted APIs are exercised. Use the direct/session-capable migration URL supplied outside source control; application auto-deployment alone is not migration evidence. The migration runner serializes a release with an advisory lock and each migration is transactional. Do not edit accepted SQL and do not run migrations from every web instance startup.
 
 Clean initialization is not a legacy cutover. Do not run `postgres:shadow`, commercial/identity cutover activation, or `operations:queue:shadow/verify/preflight/activate` unless a real reviewed legacy source and its runbook exist.
 

@@ -6,6 +6,11 @@ import {
   publicAccessRequestSchema,
   publicQuoteSchema,
 } from '../schemas/publicCommercialSchemas.js';
+import { manualCommercialHandlers } from '../controllers/manualCommercialController.js';
+import {
+  completeOnboardingSchema,
+  inspectOnboardingSchema,
+} from '../schemas/manualCommercialSchemas.js';
 
 export const createAccessRequestRateLimiter = ({
   limit = 5,
@@ -23,6 +28,7 @@ export const createAccessRequestRateLimiter = ({
 
 const router = Router();
 const accessRequestLimiter = createAccessRequestRateLimiter();
+const onboardingLimiter = createAccessRequestRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
 
 router.get('/commercial/catalogue', publicCommercialHandlers.getCatalogue);
 router.post(
@@ -35,6 +41,18 @@ router.post(
   accessRequestLimiter,
   validateRequest(publicAccessRequestSchema),
   publicCommercialHandlers.submitRequest,
+);
+router.post(
+  '/onboarding/inspect',
+  onboardingLimiter,
+  validateRequest(inspectOnboardingSchema),
+  manualCommercialHandlers.inspectOnboarding,
+);
+router.post(
+  '/onboarding/complete',
+  onboardingLimiter,
+  validateRequest(completeOnboardingSchema),
+  manualCommercialHandlers.completeOnboarding,
 );
 
 export default router;

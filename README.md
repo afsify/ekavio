@@ -44,7 +44,7 @@ production and must not hold real paying-customer data.
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, and V2-06B5A added public catalogue pricing and operator-reviewed access requests without payment or activation.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, V2-06B5A added public catalogue pricing and operator-reviewed access requests, and V2-06B5B added manual commercial settlement plus secure atomic customer onboarding.
 
 ## Prerequisites
 
@@ -153,16 +153,29 @@ The landing page reads the live public catalogue from `GET /api/public/commercia
 
 Visitors can request a server-authoritative estimate with `POST /api/public/commercial/quote` and submit `POST /api/public/access-requests`. Submission accepts selections rather than a client total, recalculates against PostgreSQL, stores an immutable list-price snapshot, and returns a safe opaque receipt. IP throttling and a normalized-phone cooldown provide low-cost abuse resistance.
 
-Platform operators manage pricing and requests at `/commercial/requests` through protected `/api/billing/operator/*` APIs. Tenant owners/admins cannot access those endpoints. `pending` requests may move to `contacted`, `approved`, or `rejected`; `contacted` may move to `approved` or `rejected`. Approval does not grant an entitlement or create an organization/subscription.
+Platform operators manage pricing and requests at `/commercial/requests` through protected `/api/billing/operator/*` APIs. Tenant owners/admins cannot access those endpoints. `pending` requests may move to `contacted`, `approved`, or `rejected`; `contacted` may move to `approved` or `rejected`. Approval alone does not grant an entitlement or create an organization/subscription.
 
 Hosted production-mode deployments return 404 from public `POST /api/auth/register`. Controlled test/bootstrap repository paths remain available. The deliberate commercial flow is:
 
 ```text
 Public catalogue -> Access request -> Operator review
--> V2-06B5B manual payment/onboarding -> Subscription/entitlement activation
+-> Approved -> Negotiated agreement -> Manual payment
+-> Secure one-time onboarding -> Organization/subscription activation -> Customer login
 ```
 
 No payment gateway is configured or required. See [ADR 0014](docs/adr/0014-server-authoritative-public-commercial-intake.md) and the [V2-06B5A review](docs/reviews/V2-06B5A_PUBLIC_COMMERCIAL_INTAKE.md).
+
+## Manual commercial activation and onboarding
+
+An approved access request can be finalized once into a separate commercial agreement. The backend reloads the canonical PostgreSQL catalogue, validates plan/add-on compatibility, calculates the current list subtotal, and stores exact INR paise plus a negotiated total. A zero or list-different total requires an operator reason. Exact period timestamps are operator-reviewed; B5B does not approximate a month as 30 days.
+
+Platform operators may append manual `upi`, `bank_transfer`, `cash`, or `other` payment records. Partial entries are allowed, retry keys are idempotent, and only an exact confirmed non-void total unlocks onboarding. Confirmed financial facts cannot be edited or deleted; an incorrect record is voided with actor, reason, and time. These entries are human assertions that payment was received, not automatic bank/UPI verification, PCI processing, tax accounting, or statutory invoices.
+
+Once settled, an operator can issue a 72-hour one-time link. The server generates at least 32 random bytes, persists only a SHA-256 hash, and returns the raw fragment link once. The `/onboarding` page removes the fragment from browser history immediately, keeps the token only in component memory, and sends it only in strict POST bodies. It never stores the token in local/session storage. Replacement revokes an older active invitation.
+
+The customer chooses a password of at least 12 characters and reviews the Main-branch IANA timezone (default `Asia/Kolkata`). One PostgreSQL transaction creates the normal user, organization, Main branch, owner membership/assignment, billing profile, active manual-source subscription, and selected add-ons, then consumes the token and marks both agreement and request activated. An existing normalized phone fails closed for operator resolution; B5B does not silently link identities. Effective modules remain exclusively server-computed from the resulting subscription.
+
+Authenticated customers see factual current subscription, agreement amount, manual payment history, and billing profile at Billing. No onboarding token, operator note, other-tenant record, or fabricated invoice number is returned. Manual renewal is deferred to V2-06B5C. See [ADR 0015](docs/adr/0015-manual-commercial-activation-and-onboarding.md) and the [V2-06B5B review](docs/reviews/V2-06B5B_MANUAL_COMMERCIAL_ACTIVATION.md).
 
 ## Manual pilot subscription administration
 
@@ -311,6 +324,7 @@ npm.cmd run test:operational
 npm.cmd run test:operational-migration
 npm.cmd run test:operational-runtime
 npm.cmd run test:commercial-intake
+npm.cmd run test:manual-commercial
 npm.cmd start
 ```
 
@@ -341,7 +355,7 @@ Compose uses pinned MongoDB and PostgreSQL images, local-only default credential
 
 The recommended hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, managed PostgreSQL, and managed MongoDB while deferred domains remain. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires both databases for readiness. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. V2-06B5B requires checking and applying migration `007_manual_commercial_activation.sql` through the direct/session-capable Neon migration URL before hosted onboarding validation; a pushed application commit is not migration evidence. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
 
 See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 

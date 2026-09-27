@@ -18,6 +18,8 @@ import {
 } from '../../commercial/catalogue';
 import { DetailViewLayout } from '../../components/layout/DetailViewLayout';
 import { useAppStore } from '../../store/useAppStore';
+import type { CustomerCommercialSummary } from '../../commercial/manualCommercial';
+import { formatInrMinor } from '../../commercial/publicCommercial';
 
 const moduleIcons: Record<ModuleKey, React.ElementType> = {
   [MODULES.LEDGER]: BookOpenCheck,
@@ -49,6 +51,15 @@ export const BillingPage: React.FC = () => {
     queryKey: ['commercial-catalogue'],
     queryFn: async () => {
       const response = await client.get<{ data: CommercialCatalogue }>('/billing/catalogue');
+      return response.data.data;
+    },
+  });
+  const commercialQuery = useQuery({
+    queryKey: ['customer-commercial-summary', activeTenantId],
+    queryFn: async () => {
+      const response = await client.get<{ data: CustomerCommercialSummary | null }>(
+        '/billing/commercial',
+      );
       return response.data.data;
     },
   });
@@ -178,10 +189,33 @@ export const BillingPage: React.FC = () => {
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-        <h2 className="text-lg font-bold text-white">Billing history</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          No billing documents are available. EkaVio does not generate fabricated invoices, and automated payment ordering is not configured.
-        </p>
+        <h2 className="text-lg font-bold text-white">Commercial agreement</h2>
+        {commercialQuery.isError && <p className="mt-2 text-sm text-rose-300">Commercial agreement details could not be loaded.</p>}
+        {!commercialQuery.isLoading && !commercialQuery.data && (
+          <p className="mt-2 text-sm text-slate-400">No activated commercial agreement is linked to this organization.</p>
+        )}
+        {commercialQuery.data && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4"><p className="text-xs text-slate-500">Final agreed amount</p><p className="mt-1 text-xl font-bold text-white">{formatInrMinor(commercialQuery.data.agreement.agreedTotalMinor)}</p><p className="mt-1 text-xs capitalize text-slate-400">{commercialQuery.data.agreement.billingCycle} · {commercialQuery.data.agreement.status}</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4"><p className="text-xs text-slate-500">Subscription period</p><p className="mt-1 font-semibold text-white">{new Date(commercialQuery.data.agreement.startsAt).toLocaleDateString()} – {new Date(commercialQuery.data.agreement.currentPeriodEndsAt).toLocaleDateString()}</p><p className="mt-1 text-xs text-slate-400">Plan: {commercialQuery.data.agreement.selectedPlanKey ?? 'No base plan'}</p><p className="text-xs text-slate-400">Add-ons: {commercialQuery.data.agreement.selectedAddOnKeys.join(', ') || 'None'}</p></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 sm:col-span-2"><p className="text-xs text-slate-500">Billing profile</p><p className="mt-1 font-semibold text-white">{commercialQuery.data.billingProfile.legalName}</p><p className="text-sm text-slate-400">{commercialQuery.data.billingProfile.contactName} · {commercialQuery.data.billingProfile.phone}</p>{commercialQuery.data.billingProfile.email && <p className="text-sm text-slate-400">{commercialQuery.data.billingProfile.email}</p>}<p className="mt-1 text-sm text-slate-500">{[commercialQuery.data.billingProfile.addressLine1, commercialQuery.data.billingProfile.addressLine2, commercialQuery.data.billingProfile.city, commercialQuery.data.billingProfile.state, commercialQuery.data.billingProfile.postalCode].filter(Boolean).join(', ') || 'No billing address recorded'}</p>{commercialQuery.data.billingProfile.gstin && <p className="mt-1 text-xs text-slate-500">GSTIN: {commercialQuery.data.billingProfile.gstin}</p>}</div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+        <h2 className="text-lg font-bold text-white">Manual payment history</h2>
+        <p className="mt-1 text-xs text-slate-500">These records are operator assertions of manually received payments, not statutory tax invoices.</p>
+        {commercialQuery.data?.payments.length ? (
+          <div className="mt-4 space-y-3">
+            {commercialQuery.data.payments.map((payment, index) => (
+              <div key={`${payment.paidAt}:${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm">
+                <div><p className="font-semibold text-white">{formatInrMinor(payment.amountMinor)}</p><p className="text-xs capitalize text-slate-400">{payment.method.replace('_', ' ')} · {new Date(payment.paidAt).toLocaleString()}</p>{payment.reference && <p className="text-xs text-slate-500">Reference: {payment.reference}</p>}</div>
+                <span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-rose-300'}>{formatStatus(payment.status)}</span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="mt-3 text-sm text-slate-400">No manual payment records are available.</p>}
       </div>
     </div>
   );
