@@ -25,6 +25,8 @@ import { PostgresManualCommercialRepository } from '../postgres/manualCommercial
 import { createManualCommercialService } from '../services/manualCommercialService.js';
 import { normalizePhone } from '../domains/customers/normalization.js';
 import { AppError } from '../utils/AppError.js';
+import { PostgresCommercialRenewalRepository } from '../postgres/commercialRenewalRepository.js';
+import { createCommercialRenewalService } from '../services/commercialRenewalService.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -61,6 +63,8 @@ const manualCommercial = createManualCommercialService(manualCommercialRepositor
     }
   },
 });
+const commercialRenewalRepository = new PostgresCommercialRenewalRepository(runtimePostgresDatabase);
+const commercialRenewals = createCommercialRenewalService(commercialRenewalRepository);
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -84,6 +88,8 @@ export const runtimePersistence = Object.freeze({
   publicCommercialRepository,
   manualCommercial,
   manualCommercialRepository,
+  commercialRenewals,
+  commercialRenewalRepository,
   customers: new PostgresCustomerRepository(runtimePostgresDatabase),
   idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),

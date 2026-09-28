@@ -6,6 +6,7 @@ import {
   Clock,
   CreditCard,
   PackageCheck,
+  RefreshCw,
   ShieldAlert,
   Users,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import {
 import { DetailViewLayout } from '../../components/layout/DetailViewLayout';
 import { useAppStore } from '../../store/useAppStore';
 import type { CustomerCommercialSummary } from '../../commercial/manualCommercial';
+import type { CustomerRenewalHistory } from '../../commercial/renewals';
 import { formatInrMinor } from '../../commercial/publicCommercial';
 
 const moduleIcons: Record<ModuleKey, React.ElementType> = {
@@ -63,9 +65,27 @@ export const BillingPage: React.FC = () => {
       return response.data.data;
     },
   });
+  const renewalsQuery = useQuery({
+    queryKey: ['customer-commercial-renewals', activeTenantId],
+    queryFn: async () => {
+      const response = await client.get<{ data: CustomerRenewalHistory[] }>('/billing/renewals');
+      return response.data.data;
+    },
+  });
 
   const state = subscriptionQuery.data;
   const subscription = state?.subscription;
+  const periodEnd = subscription?.currentPeriodEndsAt
+    ? new Date(subscription.currentPeriodEndsAt)
+    : null;
+  const entitlementCheckedAt = subscriptionQuery.dataUpdatedAt;
+  const expired = subscription?.status === 'expired';
+  const approachingExpiry = Boolean(
+    periodEnd
+    && !expired
+    && periodEnd.getTime() > entitlementCheckedAt
+    && periodEnd.getTime() <= entitlementCheckedAt + 30 * 24 * 60 * 60 * 1000,
+  );
 
   const header = (
     <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
@@ -101,6 +121,8 @@ export const BillingPage: React.FC = () => {
                 Current period ends {new Date(subscription.currentPeriodEndsAt).toLocaleDateString()}
               </p>
             )}
+            {expired && <p className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-200">Your commercial access period has expired. You can still review Billing and contact EkaVio to renew.</p>}
+            {approachingExpiry && periodEnd && <p className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-100">Your subscription period ends on {periodEnd.toLocaleDateString()}. Contact EkaVio to renew.</p>}
           </>
         ) : (
           <p className="text-sm text-slate-300">No commercial subscription has been assigned.</p>
@@ -216,6 +238,23 @@ export const BillingPage: React.FC = () => {
             ))}
           </div>
         ) : <p className="mt-3 text-sm text-slate-400">No manual payment records are available.</p>}
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+        <div className="flex items-center gap-2"><RefreshCw className="h-5 w-5 text-indigo-400" /><h2 className="text-lg font-bold text-white">Renewal history</h2></div>
+        <p className="mt-1 text-xs text-slate-500">Renewals are negotiated and settled manually. EkaVio does not charge automatically or provide a Pay Now flow.</p>
+        {renewalsQuery.isError && <p className="mt-2 text-sm text-rose-300">Renewal history could not be loaded.</p>}
+        {(renewalsQuery.data ?? []).length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {(renewalsQuery.data ?? []).map(({ renewal, payments }) => (
+              <article key={renewal.id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-white">{renewal.renewalKind === 'reactivation' ? 'Reactivation' : 'Continuous renewal'}</p><p className="mt-1 text-xs text-slate-400">{new Date(renewal.renewalStartsAt).toLocaleDateString()} – {new Date(renewal.renewalEndsAt).toLocaleDateString()}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${renewal.status === 'applied' ? 'bg-emerald-500/15 text-emerald-300' : renewal.status === 'cancelled' ? 'bg-rose-500/15 text-rose-300' : 'bg-amber-500/15 text-amber-300'}`}>{renewal.status.replace('_', ' ')}</span></div>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><p className="text-xs text-slate-500">Agreed amount</p><p className="font-semibold text-white">{formatInrMinor(renewal.agreedTotalMinor)}</p></div><div><p className="text-xs text-slate-500">Previous period ended</p><p className="text-white">{new Date(renewal.priorPeriodEndsAt).toLocaleDateString()}</p></div><div><p className="text-xs text-slate-500">Plan</p><p className="text-white">{renewal.selectedPlanKey ?? 'No base plan'}</p></div><div><p className="text-xs text-slate-500">Add-ons</p><p className="text-white">{renewal.selectedAddOnKeys.join(', ') || 'None'}</p></div></div>
+                {payments.length > 0 && <div className="mt-4 border-t border-slate-800 pt-3"><p className="text-xs font-semibold uppercase text-slate-500">Manual renewal payments</p>{payments.map((payment, index) => <div key={`${payment.paidAt}:${index}`} className="mt-2 flex flex-wrap justify-between gap-2 text-sm"><span className="text-slate-300">{formatInrMinor(payment.amountMinor)} · {payment.method.replace('_', ' ')}</span><span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-rose-300'}>{formatStatus(payment.status)}</span></div>)}</div>}
+              </article>
+            ))}
+          </div>
+        ) : !renewalsQuery.isLoading && !renewalsQuery.isError && <p className="mt-3 text-sm text-slate-400">No renewal record exists for this organization.</p>}
       </div>
     </div>
   );

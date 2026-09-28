@@ -263,6 +263,63 @@ test('frontend consumes canonical backend entitlement state without local activa
   assert.doesNotMatch(dashboard, /setSubscribed|Subscribe Now|Module activated/);
 });
 
+test('manual renewal lifecycle keeps mutation operator-only and billing read-only for tenants', async () => {
+  const [
+    routes,
+    controller,
+    repository,
+    runtime,
+    operatorPage,
+    billingPage,
+    app,
+    sidebar,
+  ] = await Promise.all([
+    source('backend/src/routes/billingRoutes.ts'),
+    source('backend/src/controllers/commercialRenewalController.ts'),
+    source('backend/src/postgres/commercialRenewalRepository.ts'),
+    source('backend/src/persistence/runtimePersistence.ts'),
+    source('frontend/src/pages/Commercial/CommercialRenewalsPage.tsx'),
+    source('frontend/src/pages/Billing/BillingPage.tsx'),
+    source('frontend/src/App.tsx'),
+    source('frontend/src/components/layout/AdminSidebar.tsx'),
+  ]);
+
+  for (const path of [
+    '/operator/renewals',
+    '/operator/subscriptions/:subscriptionId/renewal-preview',
+    '/operator/subscriptions/:subscriptionId/renewals',
+    '/operator/renewals/:renewalId',
+    '/operator/renewals/:renewalId/payments',
+    '/operator/renewals/:renewalId/payments/:paymentId/void',
+    '/operator/renewals/:renewalId/apply',
+    '/operator/renewals/:renewalId/cancel',
+  ]) {
+    const routeStart = routes.indexOf(`'${path}'`);
+    assert.notEqual(routeStart, -1, path);
+    assert.match(routes.slice(routeStart, routeStart + 180), /requirePlatformOperator/);
+  }
+  assert.match(routes, /'\/commercial'[\s\S]*requirePermission\(permissions\.BILLING_READ\)/);
+  assert.match(routes, /'\/renewals'[\s\S]*requirePermission\(permissions\.BILLING_READ\)/);
+  assert.match(controller, /requireAuthorizationContext/);
+  assert.match(repository, /SELECT EXISTS\([\s\S]*FROM users[\s\S]*platform_role = 'operator'/);
+  assert.match(runtime, /PostgresCommercialRenewalRepository/);
+  assert.doesNotMatch(runtime, /Mongo.*Renewal|Renewal.*Mongo/);
+
+  assert.match(operatorPage, /Record manual renewal payment/);
+  assert.match(operatorPage, /Current server list-price preview/);
+  assert.match(operatorPage, /window\.confirm/);
+  assert.match(operatorPage, /\/billing\/operator\/renewals/);
+  assert.doesNotMatch(operatorPage, /setEntitlements|upsertEntitlement|Pay Now/);
+  assert.match(billingPage, /Renewal history/);
+  assert.match(billingPage, /\/billing\/renewals/);
+  assert.match(billingPage, /does not charge automatically or provide a Pay Now flow/);
+  assert.match(app, /path="\/commercial\/renewals"[\s\S]*PlatformOperatorGuard/);
+  assert.match(sidebar, /name: 'Renewals'[\s\S]*platformOperatorOnly: true/);
+
+  const renewalRuntime = `${controller}\n${repository}`;
+  assert.doesNotMatch(renewalRuntime, /stripe|razorpay|paypal|webhook|setInterval|node-cron/i);
+});
+
 test('manual activation routes preserve operator authorization and body-only public onboarding', async () => {
   const [billingRoutes, publicRoutes, schemas, onboardingPage] = await Promise.all([
     source('backend/src/routes/billingRoutes.ts'),

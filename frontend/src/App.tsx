@@ -35,6 +35,9 @@ const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
 const CommercialRequestsPage = React.lazy(
   () => import('./pages/Commercial/CommercialRequestsPage'),
 );
+const CommercialRenewalsPage = React.lazy(
+  () => import('./pages/Commercial/CommercialRenewalsPage'),
+);
 const OnboardingPage = React.lazy(() => import('./pages/Onboarding/OnboardingPage'));
 
 interface ProtectedRouteProps {
@@ -259,6 +262,16 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <PlatformOperatorGuard><CommercialRequestsPage /></PlatformOperatorGuard>
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/commercial/renewals"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout>
+                    <PlatformOperatorGuard><CommercialRenewalsPage /></PlatformOperatorGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }

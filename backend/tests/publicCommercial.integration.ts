@@ -47,7 +47,7 @@ test('V2-06B5A PostgreSQL pricing and public commercial intake', async (context)
   await migrate(database);
   assert.deepEqual(
     (await getMigrationStatus(database)).map(({ state }) => state),
-    ['applied', 'applied', 'applied', 'applied', 'applied', 'applied', 'applied'],
+    Array.from({ length: 8 }, () => 'applied'),
   );
 
   await new PostgresCommercialRepository(database).reconcileCatalogue();

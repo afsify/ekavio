@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard, CalendarClock, ClipboardList } from 'lucide-react';
+import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard, CalendarClock, ClipboardList, RefreshCw } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAppStore } from '../../store/useAppStore';
@@ -57,6 +57,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: MODULES.ATTENDANCE },
     { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },
     { name: 'Commercial Intake', path: '/commercial/requests', icon: <ClipboardList className="w-5 h-5" />, platformOperatorOnly: true },
+    { name: 'Renewals', path: '/commercial/renewals', icon: <RefreshCw className="w-5 h-5" />, platformOperatorOnly: true },
     { name: 'Corporate HQ', path: '/corporate', icon: <Building2 className="w-5 h-5" />, permission: 'corporate.manage' },
     { name: 'Staff', path: '/staff', icon: <UserCog className="w-5 h-5" />, permission: 'staff.read' },
     { name: 'Settings', path: '/settings', icon: <Settings className="w-5 h-5" />, permission: 'organization.manage' },

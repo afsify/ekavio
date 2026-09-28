@@ -29,6 +29,14 @@ import {
   revokeOnboardingInvitationSchema,
   voidManualPaymentSchema,
 } from '../schemas/manualCommercialSchemas.js';
+import { commercialRenewalHandlers } from '../controllers/commercialRenewalController.js';
+import {
+  applyCommercialRenewalSchema,
+  cancelCommercialRenewalSchema,
+  finalizeCommercialRenewalSchema,
+  recordRenewalPaymentSchema,
+  voidRenewalPaymentSchema,
+} from '../schemas/commercialRenewalSchemas.js';
 
 const router = Router();
 
@@ -39,6 +47,11 @@ router.get(
   '/commercial',
   requirePermission(permissions.BILLING_READ),
   manualCommercialHandlers.getCustomerCommercialSummary,
+);
+router.get(
+  '/renewals',
+  requirePermission(permissions.BILLING_READ),
+  commercialRenewalHandlers.getCustomerRenewals,
 );
 
 router.put(
@@ -114,6 +127,51 @@ router.post(
   requirePlatformOperator,
   validateRequest(revokeOnboardingInvitationSchema),
   manualCommercialHandlers.revokeInvitation,
+);
+router.get(
+  '/operator/renewals',
+  requirePlatformOperator,
+  commercialRenewalHandlers.listQueue,
+);
+router.get(
+  '/operator/subscriptions/:subscriptionId/renewal-preview',
+  requirePlatformOperator,
+  commercialRenewalHandlers.previewRenewal,
+);
+router.post(
+  '/operator/subscriptions/:subscriptionId/renewals',
+  requirePlatformOperator,
+  validateRequest(finalizeCommercialRenewalSchema),
+  commercialRenewalHandlers.finalizeRenewal,
+);
+router.get(
+  '/operator/renewals/:renewalId',
+  requirePlatformOperator,
+  commercialRenewalHandlers.getRenewal,
+);
+router.post(
+  '/operator/renewals/:renewalId/payments',
+  requirePlatformOperator,
+  validateRequest(recordRenewalPaymentSchema),
+  commercialRenewalHandlers.recordPayment,
+);
+router.post(
+  '/operator/renewals/:renewalId/payments/:paymentId/void',
+  requirePlatformOperator,
+  validateRequest(voidRenewalPaymentSchema),
+  commercialRenewalHandlers.voidPayment,
+);
+router.post(
+  '/operator/renewals/:renewalId/apply',
+  requirePlatformOperator,
+  validateRequest(applyCommercialRenewalSchema),
+  commercialRenewalHandlers.applyRenewal,
+);
+router.post(
+  '/operator/renewals/:renewalId/cancel',
+  requirePlatformOperator,
+  validateRequest(cancelCommercialRenewalSchema),
+  commercialRenewalHandlers.cancelRenewal,
 );
 
 export default router;
