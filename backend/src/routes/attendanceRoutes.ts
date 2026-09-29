@@ -1,11 +1,15 @@
 import { Router } from 'express';
-import { markAttendance, getDailyAttendance } from '../controllers/attendanceController.js';
+import {
+  getAttendanceHistory,
+  getDailyAttendance,
+  markAttendance,
+} from '../controllers/attendanceController.js';
 import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
-import { permissions } from '../services/authorizationPolicy.js';
 import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
-import { MODULES } from '../commercial/catalogue.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
 import { markAttendanceSchema } from '../schemas/attendanceSchemas.js';
+import { permissions } from '../services/authorizationPolicy.js';
+import { MODULES } from '../commercial/catalogue.js';
 
 const router = Router();
 
@@ -15,90 +19,76 @@ router.use(requireEntitlement(MODULES.ATTENDANCE));
 /**
  * @openapi
  * /attendance:
+ *   get:
+ *     summary: Get the selected branch roster and Attendance state for one business date
+ *     tags: [Attendance]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema: { type: string, format: date, example: "2026-09-28" }
+ *         description: Branch-local business date; defaults to today in the selected branch timezone
+ *     responses:
+ *       200: { description: Branch roster with marked and unmarked memberships }
+ *       400: { description: Missing branch context or invalid date }
+ *       403: { description: Entitlement or permission denied }
+ */
+router.get('/', requirePermission(permissions.ATTENDANCE_READ), getDailyAttendance);
+
+/**
+ * @openapi
+ * /attendance/{recordId}/history:
+ *   get:
+ *     summary: Get immutable corrections for a branch-scoped Attendance record
+ *     tags: [Attendance]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: recordId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200: { description: Immutable correction history }
+ *       404: { description: Record not found in the selected tenant and branch }
+ */
+router.get(
+  '/:recordId/history',
+  requirePermission(permissions.ATTENDANCE_READ),
+  getAttendanceHistory,
+);
+
+/**
+ * @openapi
+ * /attendance:
  *   post:
- *     summary: Mark or upsert staff attendance for a specific date
- *     tags:
- *       - Attendance
- *     security:
- *       - bearerAuth: []
+ *     summary: Mark or version-correct daily Attendance for a canonical membership
+ *     tags: [Attendance]
+ *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - userId
- *               - date
- *               - status
+ *             required: [membershipId, attendanceDate, status]
  *             properties:
- *               userId:
- *                 type: string
- *                 description: The ID of the user (staff member)
- *                 example: 60d0fe4f5311236168a109ca
- *               date:
- *                 type: string
- *                 format: date
- *                 description: Date of attendance (YYYY-MM-DD or ISO string)
- *                 example: "2026-07-03"
- *               status:
- *                 type: string
- *                 enum: [present, absent, half-day]
- *                 description: Attendance status
- *                 example: present
+ *               membershipId: { type: string, format: uuid }
+ *               attendanceDate: { type: string, format: date, example: "2026-09-28" }
+ *               status: { type: string, enum: [present, absent, half_day] }
+ *               checkInAt: { type: string, nullable: true, description: ISO instant or branch-local datetime }
+ *               checkOutAt: { type: string, nullable: true, description: ISO instant or branch-local datetime }
+ *               expectedVersion: { type: integer, minimum: 1 }
+ *               correctionReason: { type: string, minLength: 3, maxLength: 500 }
+ *               idempotencyKey: { type: string, maxLength: 128 }
  *     responses:
- *       200:
- *         description: Attendance marked successfully
- *       400:
- *         description: Bad request (validation error or invalid date)
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied (attendance module inactive)
- *       500:
- *         description: Internal server error
+ *       200: { description: Persisted PostgreSQL Attendance projection }
+ *       409: { description: Stale version, cross-branch ownership, or retry conflict }
  */
-router.post('/', requirePermission(permissions.ATTENDANCE_MANAGE), validateRequest(markAttendanceSchema), markAttendance);
-
-/**
- * @openapi
- * /attendance:
- *   get:
- *     summary: Get daily staff attendance for the tenant on a given date
- *     tags:
- *       - Attendance
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: date
- *         required: false
- *         schema:
- *           type: string
- *           format: date
- *         description: Optional date to filter attendance records (defaults to today)
- *         example: "2026-07-03"
- *     responses:
- *       200:
- *         description: List of attendance records for the specified date
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       400:
- *         description: Invalid date parameter
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied (attendance module inactive)
- *       500:
- *         description: Internal server error
- */
-router.get('/', requirePermission(permissions.ATTENDANCE_READ), getDailyAttendance);
+router.post(
+  '/',
+  requirePermission(permissions.ATTENDANCE_MANAGE),
+  validateRequest(markAttendanceSchema),
+  markAttendance,
+);
 
 export default router;

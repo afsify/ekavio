@@ -38,7 +38,7 @@ import { createPasswordChange } from '../src/services/accountPersistence.js';
 import {
   createAttendanceReader,
   createAttendanceWriter,
-} from '../src/services/attendanceService.js';
+} from '../src/services/legacyAttendanceCompatibility.js';
 import {
   createAuthService,
 } from '../src/services/authService.js';
@@ -347,7 +347,7 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
     assert.notEqual(operationalA.legacyMongoOrganizationId, idsA.organizationId);
   });
 
-  await context.test('attendance identity is PostgreSQL while records remain isolated in MongoDB', async () => {
+  await context.test('legacy Mongo Attendance compatibility retains PostgreSQL identity and tenant isolation', async () => {
     const dependencies = {
       storage: mongooseAttendanceStorageRepository,
       identities: attendanceIdentities,

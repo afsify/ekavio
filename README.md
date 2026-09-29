@@ -13,7 +13,7 @@ business capabilities, and maintainable backend architecture.
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express.js, TypeScript
 - **Relational data:** PostgreSQL
-- **Operational data:** PostgreSQL for Customer, Service, Appointment, and Queue; MongoDB for remaining legacy domains
+- **Operational data:** PostgreSQL for Customer, Service, Appointment, Queue, and Attendance; MongoDB for remaining legacy domains
 - **Infrastructure:** Docker Compose
 - **Realtime:** Socket.IO
 
@@ -25,7 +25,7 @@ business capabilities, and maintainable backend architecture.
 - PostgreSQL-backed identity, authorization, and commercial entitlements
 - Server-authoritative public catalogue pricing and commercial access requests
 - Manual exact-settlement subscription renewal and post-expiry reactivation
-- PostgreSQL operational authority for Customer, Service, Appointment, and Queue, with MongoDB retained for deferred legacy domains
+- PostgreSQL operational authority for Customer, Service, Appointment, Queue, and Attendance, with MongoDB retained for deferred legacy domains
 - Transactional migrations and cutover tooling
 - Docker health/readiness checks
 - Automated lint, typecheck, build, migration, parity and integration gates
@@ -45,7 +45,7 @@ production and must not hold real paying-customer data.
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, and Queue authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, V2-06B5A added public catalogue pricing and operator-reviewed access requests, V2-06B5B added manual commercial settlement plus secure atomic customer onboarding, and V2-06B5C added manual exact-settlement renewal and safe subscription reactivation.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, Queue, and Attendance authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, V2-06B5A added public catalogue pricing and operator-reviewed access requests, V2-06B5B added manual commercial settlement plus secure atomic customer onboarding, V2-06B5C added manual exact-settlement renewal and safe subscription reactivation, and V2-06C cut branch-scoped Attendance runtime authority to PostgreSQL.
 
 ## Prerequisites
 
@@ -231,9 +231,9 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL identity, commercial, and Queue-vertical authority
+## PostgreSQL identity, commercial, Queue, and Attendance authority
 
-PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, Attendance identity resolution, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, and Queue sessions/tokens/status. MongoDB remains authoritative for Inventory, Ledger/Customer Dues legacy, Attendance records, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, Queue sessions/tokens/status, and Attendance. MongoDB remains authoritative for Inventory, Ledger/Customer Dues legacy, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains.
 
 The composition decision is source-controlled and has no environment/request switch or automatic Mongo fallback. Shared-core identity and commercial writes are PostgreSQL-only. Commercial code uses canonical PostgreSQL UUIDs directly. Operational/audit code receives validated, entity-specific legacy Mongo IDs through separate compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
 
@@ -262,6 +262,28 @@ npm.cmd run operations:queue:activate -- --mapping C:\secure\tenant.operational-
 Dry-run receives no target database and cannot mutate operational tables. Apply refuses unmapped organizations/branches, invalid timezones/phones/statuses/token labels, unresolved customer or service collisions, and duplicate numbers within a reviewed historical session. Source fingerprints make a later unreviewed source change fail closed. Verification distinguishes migrated legacy rows from PostgreSQL-native rows. Migration 005 stores the durable authority latch; after activation, normal shadow `--apply` refuses unless an explicit reviewed recovery mode is used.
 
 See [ADR 0011](docs/adr/0011-customer-service-appointment-queue-foundation.md), [ADR 0012](docs/adr/0012-customer-service-appointment-queue-runtime-authority.md), and the executed [V2-06B cutover runbook](docs/runbooks/V2-06B_QUEUE_VERTICAL_CUTOVER.md).
+
+## Attendance runtime (V2-06C)
+
+Migration 009 adds branch-scoped `attendance_records`, immutable versioned `attendance_record_changes`, and a durable Attendance authority latch. The canonical subject is an existing PostgreSQL organization membership. The database enforces one record per organization/membership/business date, preserves the branch that owns the fact, and requires membership/actor assignment to that organization and branch. New manual marks require active memberships; deactivated staff retain authorized historical visibility.
+
+The selected branch's IANA timezone defines the business date and converts optional local check-in/out values to authoritative instants. Absent records cannot contain times and checkout must be later than check-in. Initial marks are transaction/concurrency safe and support an idempotency key. Corrections require the exact current version plus a reason and append immutable before/after history. EkaVio does not infer hours, shifts, lateness, payroll, overtime, or half-day from duration.
+
+`GET /api/attendance` returns the complete selected-branch daily roster with marked and unmarked memberships and factual totals. `POST /api/attendance` marks or corrects canonical membership UUIDs. Read and mutation remain separately gated by the Attendance entitlement plus `attendance.read` or `attendance.manage`. The frontend uses these APIs with loading, empty, error, persisted-state, permission-aware, and stale-correction behavior. Dashboard present-today uses the same PostgreSQL branch-local date rule. No Attendance Socket.IO events are introduced.
+
+The legacy Mongo transform is dry-run first and accepts no guessed branch. Exactly one plausible active assigned branch is automatic; ambiguity requires a reviewed per-document mapping. Imported rows preserve date/status/provenance and intentionally have no fabricated times, shift, actor, or reason. Build first, then use a secure ignored mapping file:
+
+```powershell
+npm.cmd run operations:attendance:shadow -- --mapping C:\secure\tenant.attendance-mapping.json
+npm.cmd run operations:attendance:shadow -- --mapping C:\secure\tenant.attendance-mapping.json --apply
+npm.cmd run operations:attendance:verify -- --mapping C:\secure\tenant.attendance-mapping.json
+npm.cmd run operations:attendance:preflight -- --mapping C:\secure\tenant.attendance-mapping.json
+npm.cmd run operations:attendance:activate -- --mapping C:\secure\tenant.attendance-mapping.json
+npm.cmd run operations:attendance:activate -- --mapping C:\secure\tenant.attendance-mapping.json --apply
+npm.cmd run operations:attendance:status
+```
+
+Activation is explicit after zero-blocker reconciliation/preflight. Once active, ordinary shadow apply refuses unless the separately reviewed recovery flag is supplied. Ordinary Attendance and Dashboard runtime contain no Mongo Attendance read, write, fallback, or dual-write; the old model remains migration/recovery compatibility only. See [ADR 0017](docs/adr/0017-postgresql-attendance-runtime-authority.md), the [V2-06C review](docs/reviews/V2-06C_ATTENDANCE_POSTGRESQL_CUTOVER.md), and the [Attendance cutover runbook](docs/runbooks/V2-06C_ATTENDANCE_CUTOVER.md).
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -369,7 +391,7 @@ Compose uses pinned MongoDB and PostgreSQL images, local-only default credential
 
 The recommended hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, managed PostgreSQL, and managed MongoDB while deferred domains remain. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires both databases for readiness. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires the forward-only `008_manual_subscription_renewals.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migration 009 is applied, but hosted Attendance reconciliation and authority activation remain pending from a network-authorized Atlas environment. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
 
 See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 

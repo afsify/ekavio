@@ -1,6 +1,5 @@
 import { getRuntimeConfig } from '../config/env.js';
 import { PostgresAccountRepository } from '../postgres/accountRepository.js';
-import { PostgresAttendanceIdentityResolver } from '../postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../postgres/authorizationContextRepository.js';
 import { PostgresCommercialRepository } from '../postgres/commercialRepository.js';
 import { PostgresDatabase } from '../postgres/database.js';
@@ -12,7 +11,6 @@ import { createCommercialAdministrationService } from '../services/commercialAdm
 import { createCommercialCatalogueService } from '../services/commercialCatalogueService.js';
 import { createEntitlementService } from '../services/entitlementService.js';
 import { PostgresMongoLegacyIdentityBridge } from './legacyIdentity.js';
-import { mongooseAttendanceStorageRepository } from './mongoAttendance.js';
 import { PostgresOperationalIdentityBridge } from './operationalIdentity.js';
 import { PostgresCustomerRepository } from '../domains/customers/repository.js';
 import { PostgresServiceRepository } from '../domains/services/repository.js';
@@ -27,6 +25,8 @@ import { normalizePhone } from '../domains/customers/normalization.js';
 import { AppError } from '../utils/AppError.js';
 import { PostgresCommercialRenewalRepository } from '../postgres/commercialRenewalRepository.js';
 import { createCommercialRenewalService } from '../services/commercialRenewalService.js';
+import { PostgresAttendanceRepository } from '../domains/attendance/repository.js';
+import { createAttendanceService } from '../services/attendanceService.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -65,6 +65,9 @@ const manualCommercial = createManualCommercialService(manualCommercialRepositor
 });
 const commercialRenewalRepository = new PostgresCommercialRenewalRepository(runtimePostgresDatabase);
 const commercialRenewals = createCommercialRenewalService(commercialRenewalRepository);
+const branchTimezones = new BranchTimezoneRepository(runtimePostgresDatabase);
+const attendanceRepository = new PostgresAttendanceRepository(runtimePostgresDatabase);
+const attendanceService = createAttendanceService(attendanceRepository);
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -77,10 +80,10 @@ export const runtimePersistence = Object.freeze({
   authorizationAuthority: 'postgresql' as const,
   commercialAuthority: 'postgresql' as const,
   operationalAuthority: 'postgresql' as const,
+  attendanceAuthority: 'postgresql' as const,
   accounts: new PostgresAccountRepository(runtimePostgresDatabase),
-  attendanceIdentities: new PostgresAttendanceIdentityResolver(runtimePostgresDatabase),
-  // Attendance records remain an operational MongoDB domain.
-  attendanceStorage: mongooseAttendanceStorageRepository,
+  attendance: attendanceRepository,
+  attendanceService,
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,
@@ -97,7 +100,7 @@ export const runtimePersistence = Object.freeze({
   services: new PostgresServiceRepository(runtimePostgresDatabase),
   appointments: new PostgresAppointmentRepository(runtimePostgresDatabase),
   queue: new PostgresQueueRepository(runtimePostgresDatabase),
-  branchTimezones: new BranchTimezoneRepository(runtimePostgresDatabase),
+  branchTimezones,
   operationalIdentity: new PostgresOperationalIdentityBridge(idMappings),
   sessions: new PostgresSessionRepository(runtimePostgresDatabase),
   staff: new PostgresStaffRepository(runtimePostgresDatabase),

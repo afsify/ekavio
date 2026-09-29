@@ -5,7 +5,10 @@ import type {
   AttendanceIdentity,
   AttendanceIdentityResolver,
   AttendanceStorageRepository,
-} from '../services/attendanceService.js';
+} from '../services/legacyAttendanceCompatibility.js';
+
+// V2-06C legacy boundary: migration/recovery and compatibility tests only.
+// Ordinary Attendance runtime is composed exclusively in runtimePersistence.
 
 export const mongooseAttendanceStorageRepository: AttendanceStorageRepository = {
   upsert(input) {

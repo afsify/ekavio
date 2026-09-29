@@ -65,7 +65,7 @@ test('PostgreSQL identity failure is propagated without a Mongo fallback', async
   assert.equal(sessionCreates, 0);
 });
 
-test('runtime composition contains no Mongo identity, authorization, staff, account, or session adapter', async () => {
+test('runtime composition contains no Mongo identity, authorization, staff, account, session, or Attendance adapter', async () => {
   const source = await readFile(
     new URL('../src/persistence/runtimePersistence.ts', import.meta.url),
     'utf8',
@@ -76,9 +76,14 @@ test('runtime composition contains no Mongo identity, authorization, staff, acco
     'mongoSessionRepository',
     'mongoStaffRepository',
     'mongoAccountRepository',
+    'mongooseAttendanceStorageRepository',
+    'PostgresAttendanceIdentityResolver',
+    'attendanceStorage',
+    'attendanceIdentities',
   ]) {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
   assert.match(source, /authority: 'postgresql'/);
-  assert.match(source, /mongooseAttendanceStorageRepository/);
+  assert.match(source, /attendanceAuthority: 'postgresql'/);
+  assert.match(source, /PostgresAttendanceRepository/);
 });

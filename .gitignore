@@ -77,3 +77,4 @@ backups/
 *.archive
 *.archive.gz
 *.operational-queue-mapping.json
+*.attendance-mapping.json

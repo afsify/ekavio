@@ -2,7 +2,7 @@ import type { PostgresDatabase } from './database.js';
 import type {
   AttendanceIdentity,
   AttendanceIdentityResolver,
-} from '../services/attendanceService.js';
+} from '../services/legacyAttendanceCompatibility.js';
 import type { OperationalIdentityContext } from '../persistence/operationalIdentity.js';
 import {
   asLegacyMongoUserId,
@@ -11,6 +11,9 @@ import {
   asPostgresUserId,
   isUuid,
 } from '../persistence/identifiers.js';
+
+// V2-06C legacy boundary: resolves canonical identities only for explicit
+// Mongo Attendance migration/recovery compatibility, never ordinary runtime.
 
 interface AttendanceIdentityRow {
   id: string;

@@ -184,7 +184,7 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <ModuleGuard module={MODULES.ATTENDANCE}>
-                      <AttendancePage />
+                      <PermissionGuard permission="attendance.read"><AttendancePage /></PermissionGuard>
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>

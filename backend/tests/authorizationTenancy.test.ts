@@ -12,7 +12,7 @@ import {
   createAttendanceWriter,
   type AttendanceIdentityResolver,
   type AttendanceStorageRepository,
-} from '../src/services/attendanceService.js';
+} from '../src/services/legacyAttendanceCompatibility.js';
 import type {
   LegacyMongoBranchId,
   LegacyMongoOrganizationId,

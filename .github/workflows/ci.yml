@@ -119,6 +119,18 @@ jobs:
         working-directory: backend
         run: npm run test:commercial-renewal
 
+      - name: Test PostgreSQL Attendance runtime
+        working-directory: backend
+        run: npm run test:attendance
+
+      - name: Test Attendance migration and reconciliation
+        working-directory: backend
+        run: npm run test:attendance-migration
+
+      - name: Test Attendance cutover controls
+        working-directory: backend
+        run: npm run test:attendance-cutover
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
