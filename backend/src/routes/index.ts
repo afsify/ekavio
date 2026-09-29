@@ -13,6 +13,7 @@ import customerRoutes from './customerRoutes.js';
 import serviceRoutes from './serviceRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import publicRoutes from './publicRoutes.js';
+import customerDuesRoutes from './customerDuesRoutes.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use('/auth', authRoutes);
 router.use('/queue', queueRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/ledger', ledgerRoutes);
+router.use('/customer-dues', customerDuesRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/corporate', corporateRoutes);

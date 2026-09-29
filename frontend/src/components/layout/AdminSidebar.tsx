@@ -53,7 +53,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY },
     { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: MODULES.QUEUE },
     { name: 'Appointments', path: '/appointments', icon: <CalendarClock className="w-5 h-5" />, module: MODULES.QUEUE },
-    { name: 'Ledger', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER },
+    { name: 'Customer Dues', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER, permission: 'ledger.read' },
     { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: MODULES.ATTENDANCE, permission: 'attendance.read' },
     { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },
     { name: 'Commercial Intake', path: '/commercial/requests', icon: <ClipboardList className="w-5 h-5" />, platformOperatorOnly: true },

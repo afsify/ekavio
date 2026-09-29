@@ -172,7 +172,7 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <ModuleGuard module={MODULES.LEDGER}>
-                      <LedgerPage />
+                      <PermissionGuard permission="ledger.read"><LedgerPage /></PermissionGuard>
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>

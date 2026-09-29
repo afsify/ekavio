@@ -18,7 +18,9 @@ export type SecurityAuditAction =
   | 'appointment.status_changed'
   | 'appointment.checked_in'
   | 'queue.token.created'
-  | 'queue.token.status_changed';
+  | 'queue.token.status_changed'
+  | 'customer_dues.entry_created'
+  | 'customer_dues.entry_reversed';
 
 type SafeAuditValue = string | number | boolean | null;
 

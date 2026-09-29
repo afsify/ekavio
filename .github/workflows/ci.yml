@@ -131,6 +131,18 @@ jobs:
         working-directory: backend
         run: npm run test:attendance-cutover
 
+      - name: Test PostgreSQL Customer Dues runtime
+        working-directory: backend
+        run: npm run test:customer-dues
+
+      - name: Test Customer Dues migration and reconciliation
+        working-directory: backend
+        run: npm run test:customer-dues-migration
+
+      - name: Test Customer Dues cutover controls
+        working-directory: backend
+        run: npm run test:customer-dues-cutover
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

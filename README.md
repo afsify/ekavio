@@ -13,7 +13,7 @@ business capabilities, and maintainable backend architecture.
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express.js, TypeScript
 - **Relational data:** PostgreSQL
-- **Operational data:** PostgreSQL for Customer, Service, Appointment, Queue, and Attendance; MongoDB for remaining legacy domains
+- **Operational data:** PostgreSQL for Customer, Service, Appointment, Queue, Attendance, and Customer Dues; MongoDB for remaining legacy domains
 - **Infrastructure:** Docker Compose
 - **Realtime:** Socket.IO
 
@@ -25,7 +25,7 @@ business capabilities, and maintainable backend architecture.
 - PostgreSQL-backed identity, authorization, and commercial entitlements
 - Server-authoritative public catalogue pricing and commercial access requests
 - Manual exact-settlement subscription renewal and post-expiry reactivation
-- PostgreSQL operational authority for Customer, Service, Appointment, Queue, and Attendance, with MongoDB retained for deferred legacy domains
+- PostgreSQL operational authority for Customer, Service, Appointment, Queue, Attendance, and exact Customer Dues, with MongoDB retained for deferred legacy domains
 - Transactional migrations and cutover tooling
 - Docker health/readiness checks
 - Automated lint, typecheck, build, migration, parity and integration gates
@@ -231,9 +231,9 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL identity, commercial, Queue, and Attendance authority
+## PostgreSQL identity, commercial, Queue, Attendance, and Customer Dues authority
 
-PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, Queue sessions/tokens/status, and Attendance. MongoDB remains authoritative for Inventory, Ledger/Customer Dues legacy, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, Queue sessions/tokens/status, Attendance, and Customer Dues. MongoDB remains authoritative for Inventory, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains. Mongo Ledger is retained only as migration/recovery input.
 
 The composition decision is source-controlled and has no environment/request switch or automatic Mongo fallback. Shared-core identity and commercial writes are PostgreSQL-only. Commercial code uses canonical PostgreSQL UUIDs directly. Operational/audit code receives validated, entity-specific legacy Mongo IDs through separate compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
 
@@ -284,6 +284,28 @@ npm.cmd run operations:attendance:status
 ```
 
 Activation is explicit after zero-blocker reconciliation/preflight. Once active, ordinary shadow apply refuses unless the separately reviewed recovery flag is supplied. Ordinary Attendance and Dashboard runtime contain no Mongo Attendance read, write, fallback, or dual-write; the old model remains migration/recovery compatibility only. See [ADR 0017](docs/adr/0017-postgresql-attendance-runtime-authority.md), the [V2-06C review](docs/reviews/V2-06C_ATTENDANCE_POSTGRESQL_CUTOVER.md), and the [Attendance cutover runbook](docs/runbooks/V2-06C_ATTENDANCE_CUTOVER.md).
+
+## Customer Dues runtime (V2-06D)
+
+Migration 010 replaces the ambiguous Mongo Ledger runtime with append-only `customer_due_entries`. Customer Dues is strictly money a business's customers owe and payments that reduce that amount; it is not general accounting, invoicing, tax, Sales/POS, or a payment gateway. Every entry references a canonical organization, originating branch, Customer, and actor. Positive INR paise are stored as `BIGINT`; charge/increase-adjustment add to balance, payment/decrease-adjustment subtract, and a full reversal contributes the exact inverse of its target. Balance is a server-derived journal aggregate, never a mutable independent field.
+
+Ordinary payments transactionally lock the organization/Customer boundary and cannot exceed the authoritative organization-wide outstanding balance. Adjustments require a reason. Historical rows cannot be updated or deleted, and each non-reversal entry can be reversed once with an actor and reason. Organization-scoped idempotency keys make same-command retries safe while rejecting conflicting reuse. Branch journal rows remain branch-isolated; the Customer balance endpoint separately labels organization-wide and selected-branch aggregates.
+
+The canonical APIs are `/api/customer-dues/entries`, `/api/customer-dues/customers`, Customer balance/history, and entry reversal. They require the stable `ledger` entitlement and separate `ledger.read`/`ledger.manage` permissions. `/api/ledger` is retained only as a read-only PostgreSQL compatibility view; legacy free-text writes are removed. Public DTOs use canonical UUIDs and decimal strings and do not expose migration Mongo ObjectIds.
+
+Legacy transformation is dry-run first. It maps `credit` to `charge`, keeps `payment`, blocks any amount that cannot convert exactly to two-decimal INR paise, reuses accepted Customer source links or explicit reviewed overrides, and requires reviewed originating branch evidence for every document. Use a secure ignored mapping file:
+
+```powershell
+npm.cmd run operations:customer-dues:shadow -- --mapping C:\secure\tenant.customer-dues-mapping.json
+npm.cmd run operations:customer-dues:shadow -- --mapping C:\secure\tenant.customer-dues-mapping.json --apply
+npm.cmd run operations:customer-dues:verify -- --mapping C:\secure\tenant.customer-dues-mapping.json
+npm.cmd run operations:customer-dues:preflight -- --mapping C:\secure\tenant.customer-dues-mapping.json
+npm.cmd run operations:customer-dues:activate -- --mapping C:\secure\tenant.customer-dues-mapping.json
+npm.cmd run operations:customer-dues:activate -- --mapping C:\secure\tenant.customer-dues-mapping.json --apply
+npm.cmd run operations:customer-dues:status
+```
+
+Activation is explicit after clean reconciliation/preflight and writes a durable authority latch. Ordinary migration apply then refuses unless separately reviewed recovery mode is requested. Runtime has no Mongo Ledger read, write, fallback, dual-write, or automatic repair. See [ADR 0018](docs/adr/0018-postgresql-customer-dues-runtime-authority.md), the [V2-06D review](docs/reviews/V2-06D_CUSTOMER_DUES_POSTGRESQL_CUTOVER.md), and the [Customer Dues cutover runbook](docs/runbooks/V2-06D_CUSTOMER_DUES_CUTOVER.md).
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -361,6 +383,12 @@ npm.cmd run test:operational-runtime
 npm.cmd run test:commercial-intake
 npm.cmd run test:manual-commercial
 npm.cmd run test:commercial-renewal
+npm.cmd run test:attendance
+npm.cmd run test:attendance-migration
+npm.cmd run test:attendance-cutover
+npm.cmd run test:customer-dues
+npm.cmd run test:customer-dues-migration
+npm.cmd run test:customer-dues-cutover
 npm.cmd start
 ```
 
@@ -391,7 +419,7 @@ Compose uses pinned MongoDB and PostgreSQL images, local-only default credential
 
 The recommended hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, managed PostgreSQL, and managed MongoDB while deferred domains remain. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires both databases for readiness. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migration 009 is applied, but hosted Attendance reconciliation and authority activation remain pending from a network-authorized Atlas environment. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 009 and 010 are applied. Attendance and Customer Dues source reconciliation and authority activation remain pending from a network-authorized Atlas environment; no hosted mapping or latch state was guessed. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
 
 See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 

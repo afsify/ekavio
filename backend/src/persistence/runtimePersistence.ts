@@ -27,6 +27,8 @@ import { PostgresCommercialRenewalRepository } from '../postgres/commercialRenew
 import { createCommercialRenewalService } from '../services/commercialRenewalService.js';
 import { PostgresAttendanceRepository } from '../domains/attendance/repository.js';
 import { createAttendanceService } from '../services/attendanceService.js';
+import { PostgresCustomerDuesRepository } from '../domains/customerDues/repository.js';
+import { createCustomerDuesService } from '../services/customerDuesService.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -68,6 +70,9 @@ const commercialRenewals = createCommercialRenewalService(commercialRenewalRepos
 const branchTimezones = new BranchTimezoneRepository(runtimePostgresDatabase);
 const attendanceRepository = new PostgresAttendanceRepository(runtimePostgresDatabase);
 const attendanceService = createAttendanceService(attendanceRepository);
+const customerRepository = new PostgresCustomerRepository(runtimePostgresDatabase);
+const customerDuesRepository = new PostgresCustomerDuesRepository(runtimePostgresDatabase);
+const customerDuesService = createCustomerDuesService(customerDuesRepository, customerRepository);
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -81,9 +86,12 @@ export const runtimePersistence = Object.freeze({
   commercialAuthority: 'postgresql' as const,
   operationalAuthority: 'postgresql' as const,
   attendanceAuthority: 'postgresql' as const,
+  customerDuesAuthority: 'postgresql' as const,
   accounts: new PostgresAccountRepository(runtimePostgresDatabase),
   attendance: attendanceRepository,
   attendanceService,
+  customerDues: customerDuesRepository,
+  customerDuesService,
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,
@@ -93,7 +101,7 @@ export const runtimePersistence = Object.freeze({
   manualCommercialRepository,
   commercialRenewals,
   commercialRenewalRepository,
-  customers: new PostgresCustomerRepository(runtimePostgresDatabase),
+  customers: customerRepository,
   idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),
   mongoIdentities,
