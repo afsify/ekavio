@@ -143,6 +143,18 @@ jobs:
         working-directory: backend
         run: npm run test:customer-dues-cutover
 
+      - name: Test PostgreSQL Inventory runtime
+        working-directory: backend
+        run: npm run test:inventory
+
+      - name: Test Inventory migration and reconciliation
+        working-directory: backend
+        run: npm run test:inventory-migration
+
+      - name: Test Inventory cutover controls
+        working-directory: backend
+        run: npm run test:inventory-cutover
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

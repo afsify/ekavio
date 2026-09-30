@@ -20,7 +20,11 @@ export type SecurityAuditAction =
   | 'queue.token.created'
   | 'queue.token.status_changed'
   | 'customer_dues.entry_created'
-  | 'customer_dues.entry_reversed';
+  | 'customer_dues.entry_reversed'
+  | 'inventory.item_created'
+  | 'inventory.item_updated'
+  | 'inventory.stock_changed'
+  | 'inventory.movement_reversed';
 
 type SafeAuditValue = string | number | boolean | null;
 

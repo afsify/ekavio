@@ -1,8 +1,6 @@
 import type { Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { Inventory } from '../models/Inventory.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
-import { legacyOrganizationScope } from '../persistence/operationalIdentity.js';
 import { createAppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
 import { MODULES } from '../commercial/catalogue.js';
@@ -22,14 +20,9 @@ export const getDashboardStats = async (req: AuthenticatedRequest, res: Response
       : 0;
 
     // 2. Count of low stock items
-    let lowStockCount = 0;
-    if (enabledModules.has(MODULES.INVENTORY)) {
-      const operational = await runtimePersistence.operationalIdentity.resolve(context);
-      lowStockCount = await Inventory.countDocuments({
-        ...legacyOrganizationScope(operational),
-        $expr: { $lte: ['$currentStock', '$lowStockThreshold'] },
-      });
-    }
+    const lowStockCount = enabledModules.has(MODULES.INVENTORY)
+      ? await runtimePersistence.inventoryService.countLowStock(context)
+      : 0;
 
     const staffPresentCount = enabledModules.has(MODULES.ATTENDANCE)
       ? await runtimePersistence.attendanceService.countPresentToday(context)

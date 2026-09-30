@@ -220,7 +220,7 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <ModuleGuard module={MODULES.INVENTORY}>
-                      <InventoryPage />
+                      <PermissionGuard permission="inventory.read"><InventoryPage /></PermissionGuard>
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>

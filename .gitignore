@@ -79,3 +79,4 @@ backups/
 *.operational-queue-mapping.json
 *.attendance-mapping.json
 *.customer-dues-mapping.json
+*.inventory-mapping.json

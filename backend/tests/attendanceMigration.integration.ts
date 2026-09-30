@@ -57,7 +57,7 @@ test('V2-06C Attendance migration transforms, reconciles, and blocks ambiguity s
   });
 
   await migrate(database);
-  assert.equal((await getMigrationStatus(database)).length, 10);
+  assert.equal((await getMigrationStatus(database)).length, 11);
   const migrationDirectory = path.resolve(process.cwd(), 'postgres', 'migrations');
   const accepted = (await readdir(migrationDirectory)).filter((name) => /^00[1-8]_.*\.sql$/.test(name));
   for (const name of accepted) {
@@ -66,7 +66,7 @@ test('V2-06C Attendance migration transforms, reconciles, and blocks ambiguity s
   await migrate(upgrade, temporaryMigrations);
   assert.equal((await getMigrationStatus(upgrade, temporaryMigrations)).length, 8);
   await migrate(upgrade);
-  assert.equal((await getMigrationStatus(upgrade)).length, 10);
+  assert.equal((await getMigrationStatus(upgrade)).length, 11);
 
   const now = new Date('2026-09-28T00:00:00.000Z');
   const organizationId = randomUUID();

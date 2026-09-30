@@ -29,6 +29,8 @@ import { PostgresAttendanceRepository } from '../domains/attendance/repository.j
 import { createAttendanceService } from '../services/attendanceService.js';
 import { PostgresCustomerDuesRepository } from '../domains/customerDues/repository.js';
 import { createCustomerDuesService } from '../services/customerDuesService.js';
+import { PostgresInventoryRepository } from '../domains/inventory/repository.js';
+import { createInventoryService } from '../services/inventoryService.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
@@ -73,6 +75,8 @@ const attendanceService = createAttendanceService(attendanceRepository);
 const customerRepository = new PostgresCustomerRepository(runtimePostgresDatabase);
 const customerDuesRepository = new PostgresCustomerDuesRepository(runtimePostgresDatabase);
 const customerDuesService = createCustomerDuesService(customerDuesRepository, customerRepository);
+const inventoryRepository = new PostgresInventoryRepository(runtimePostgresDatabase);
+const inventoryService = createInventoryService(inventoryRepository);
 
 /**
  * Source-controlled authority decisions. There are deliberately no environment,
@@ -87,11 +91,14 @@ export const runtimePersistence = Object.freeze({
   operationalAuthority: 'postgresql' as const,
   attendanceAuthority: 'postgresql' as const,
   customerDuesAuthority: 'postgresql' as const,
+  inventoryAuthority: 'postgresql' as const,
   accounts: new PostgresAccountRepository(runtimePostgresDatabase),
   attendance: attendanceRepository,
   attendanceService,
   customerDues: customerDuesRepository,
   customerDuesService,
+  inventory: inventoryRepository,
+  inventoryService,
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,

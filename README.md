@@ -13,7 +13,7 @@ business capabilities, and maintainable backend architecture.
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express.js, TypeScript
 - **Relational data:** PostgreSQL
-- **Operational data:** PostgreSQL for Customer, Service, Appointment, Queue, Attendance, and Customer Dues; MongoDB for remaining legacy domains
+- **Operational data:** PostgreSQL for Customer, Service, Appointment, Queue, Attendance, Customer Dues, and Inventory; MongoDB for deferred corporate/audit runtime and retained migration sources
 - **Infrastructure:** Docker Compose
 - **Realtime:** Socket.IO
 
@@ -25,7 +25,7 @@ business capabilities, and maintainable backend architecture.
 - PostgreSQL-backed identity, authorization, and commercial entitlements
 - Server-authoritative public catalogue pricing and commercial access requests
 - Manual exact-settlement subscription renewal and post-expiry reactivation
-- PostgreSQL operational authority for Customer, Service, Appointment, Queue, Attendance, and exact Customer Dues, with MongoDB retained for deferred legacy domains
+- PostgreSQL operational authority for Customer, Service, Appointment, Queue, Attendance, exact Customer Dues, and branch-scoped movement-based Inventory, with MongoDB retained for deferred corporate/audit work and migration sources
 - Transactional migrations and cutover tooling
 - Docker health/readiness checks
 - Automated lint, typecheck, build, migration, parity and integration gates
@@ -45,7 +45,7 @@ production and must not hold real paying-customer data.
 
 ## Development Documentation
 
-EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, Queue, and Attendance authority, and MongoDB authority only for deferred legacy operational domains. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, V2-06B5A added public catalogue pricing and operator-reviewed access requests, V2-06B5B added manual commercial settlement plus secure atomic customer onboarding, V2-06B5C added manual exact-settlement renewal and safe subscription reactivation, and V2-06C cut branch-scoped Attendance runtime authority to PostgreSQL.
+EkaVio is a React/Vite PWA with an Express/TypeScript backend, PostgreSQL identity, commercial, Customer, Service, Appointment, Queue, Attendance, Customer Dues, and Inventory authority, and MongoDB runtime authority only for deferred corporate/audit work. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1 added the inactive Customer/Service/Appointment/Queue relational and migration foundation, V2-06B2 cut that vertical's runtime authority to PostgreSQL, V2-06B3 prepared the repository for hosted staging, the partial V2-06B4 closeout recorded the real hosted environment without overstating unfinished pilot-readiness checks, V2-06B5A added public catalogue pricing and operator-reviewed access requests, V2-06B5B added manual commercial settlement plus secure atomic customer onboarding, V2-06B5C added manual exact-settlement renewal and safe subscription reactivation, V2-06C cut branch-scoped Attendance runtime authority to PostgreSQL, V2-06D cut exact Customer Dues authority to PostgreSQL, and V2-06E cut movement-based Inventory authority to PostgreSQL.
 
 ## Prerequisites
 
@@ -231,9 +231,9 @@ Example pilot grant body:
 
 No payment provider is configured or required. EkaVio exposes no fake payment-order success or fabricated invoices; payment automation and real billing documents are future optional integrations.
 
-## PostgreSQL identity, commercial, Queue, Attendance, and Customer Dues authority
+## PostgreSQL identity, commercial, Queue, Attendance, Customer Dues, and Inventory authority
 
-PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, Queue sessions/tokens/status, Attendance, and Customer Dues. MongoDB remains authoritative for Inventory, ParentOrganization/corporate operational data where applicable, ActivityLog audits, and remaining legacy operational domains. Mongo Ledger is retained only as migration/recovery input.
+PostgreSQL is the runtime authority for users, organizations, branches, memberships, login identity, refresh sessions, request authorization, staff, registration, profile/password state, module definitions, plans, add-ons, subscriptions, entitlement overrides, effective entitlements and limits, Customers, Services, Appointments, Queue sessions/tokens/status, Attendance, Customer Dues, and Inventory. MongoDB remains authoritative only for ParentOrganization/corporate operational data where applicable and ActivityLog audits. Mongo Queue, Attendance, Ledger, and Inventory are retained only as migration/recovery input.
 
 The composition decision is source-controlled and has no environment/request switch or automatic Mongo fallback. Shared-core identity and commercial writes are PostgreSQL-only. Commercial code uses canonical PostgreSQL UUIDs directly. Operational/audit code receives validated, entity-specific legacy Mongo IDs through separate compatibility bridges; PostgreSQL UUIDs are not used as Mongo ObjectIds.
 
@@ -306,6 +306,30 @@ npm.cmd run operations:customer-dues:status
 ```
 
 Activation is explicit after clean reconciliation/preflight and writes a durable authority latch. Ordinary migration apply then refuses unless separately reviewed recovery mode is requested. Runtime has no Mongo Ledger read, write, fallback, dual-write, or automatic repair. See [ADR 0018](docs/adr/0018-postgresql-customer-dues-runtime-authority.md), the [V2-06D review](docs/reviews/V2-06D_CUSTOMER_DUES_POSTGRESQL_CUTOVER.md), and the [Customer Dues cutover runbook](docs/runbooks/V2-06D_CUSTOMER_DUES_CUTOVER.md).
+
+## Inventory runtime (V2-06E)
+
+Migration 011 replaces mutable, organization-wide Mongo stock with an organization catalogue (`inventory_items`), branch-owned default `stock_locations`, immutable `stock_movements`, and transactionally maintained `stock_balances`. Quantity and reorder threshold use PostgreSQL `NUMERIC(18,3)` and decimal-string APIs. Optional reference price uses exact non-negative INR paise in `BIGINT`; it is not accounting valuation or purchase cost.
+
+The initial unit vocabulary is `unit`, `piece`, `pack`, `box`, `kg`, `g`, `litre`, and `ml`. An item's unit cannot change after any movement exists. New items may include optional opening quantity only through one transaction that creates the catalogue row, balance, and opening movement. Zero opening stock creates a zero balance without a fictional zero movement.
+
+Receive, consume, increase/decrease adjustment, and full reversal are permanent stock facts. The server derives delta sign from operation type, locks the item/location balance, rejects any command or reversal that would make stock negative, appends one idempotent movement, and updates the projection atomically. Reversal is one exact inverse of a same-scope non-reversal target; partial and duplicate reversal are not supported. Adjustment, consume, and reversal require reasons.
+
+Catalogue identity is organization-shared, while quantity, threshold, location, history, and low-stock are selected-branch scoped. All routes require the stable `inventory` entitlement; reads use `inventory.read`, and catalogue/stock changes use `inventory.manage`. Dashboard low-stock uses the same PostgreSQL selected-branch aggregate. The frontend uses UUIDs, exact strings, server pagination/search, real movement commands, permission-aware controls, and a current-page-only CSV export.
+
+Legacy transformation requires explicit per-document branch and unit evidence; it never guesses Main/first/current branch or `unit`, and it never merges duplicate names. Build first, then use a secure ignored mapping file:
+
+```powershell
+npm.cmd run operations:inventory:shadow -- --mapping C:\secure\tenant.inventory-mapping.json
+npm.cmd run operations:inventory:shadow -- --mapping C:\secure\tenant.inventory-mapping.json --apply
+npm.cmd run operations:inventory:verify -- --mapping C:\secure\tenant.inventory-mapping.json
+npm.cmd run operations:inventory:preflight -- --mapping C:\secure\tenant.inventory-mapping.json
+npm.cmd run operations:inventory:activate -- --mapping C:\secure\tenant.inventory-mapping.json
+npm.cmd run operations:inventory:activate -- --mapping C:\secure\tenant.inventory-mapping.json --apply
+npm.cmd run operations:inventory:status
+```
+
+Activation is explicit after migration 011, zero-blocker reconciliation, exact balance-to-movement checks, and preflight. Once active, ordinary migration apply refuses unless the separately reviewed recovery flag is supplied. Ordinary Inventory and Dashboard runtime contain no Mongo Inventory read, write, fallback, dual-write, or automatic repair. See [ADR 0019](docs/adr/0019-postgresql-inventory-runtime-authority.md), the [V2-06E review](docs/reviews/V2-06E_INVENTORY_POSTGRESQL_CUTOVER.md), and the [Inventory cutover runbook](docs/runbooks/V2-06E_INVENTORY_CUTOVER.md).
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
@@ -389,6 +413,9 @@ npm.cmd run test:attendance-cutover
 npm.cmd run test:customer-dues
 npm.cmd run test:customer-dues-migration
 npm.cmd run test:customer-dues-cutover
+npm.cmd run test:inventory
+npm.cmd run test:inventory-migration
+npm.cmd run test:inventory-cutover
 npm.cmd start
 ```
 
@@ -419,7 +446,7 @@ Compose uses pinned MongoDB and PostgreSQL images, local-only default credential
 
 The recommended hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, managed PostgreSQL, and managed MongoDB while deferred domains remain. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires both databases for readiness. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 009 and 010 are applied. Attendance and Customer Dues source reconciliation and authority activation remain pending from a network-authorized Atlas environment; no hosted mapping or latch state was guessed. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`; V2-06E requires `011_inventory_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 009 through 011 are applied. Hosted Attendance, Customer Dues, and Inventory source reconciliation and authority activation remain pending from a network-authorized Atlas environment; no hosted mapping or latch state was guessed. Do not run historical Mongo shadow/cutover tools against a clean environment. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
 
 See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 

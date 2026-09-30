@@ -1,126 +1,80 @@
 import { Router } from 'express';
-import { addItem, getInventory, getLowStockAlerts } from '../controllers/inventoryController.js';
-import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
-import { permissions } from '../services/authorizationPolicy.js';
-import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
 import { MODULES } from '../commercial/catalogue.js';
+import {
+  adjustInventoryStock,
+  consumeInventoryStock,
+  createInventoryItem,
+  getInventoryItem,
+  listInventoryItems,
+  listInventoryMovements,
+  listInventoryUnits,
+  listLowStockInventory,
+  receiveInventoryStock,
+  reverseInventoryMovement,
+  updateInventoryItem,
+} from '../controllers/inventoryController.js';
+import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
+import { requireEntitlement } from '../middlewares/tenantMiddleware.js';
 import { validateRequest } from '../middlewares/validateRequest.js';
-import { addItemSchema } from '../schemas/inventorySchemas.js';
+import {
+  addItemSchema,
+  adjustStockSchema,
+  consumeStockSchema,
+  receiveStockSchema,
+  reverseStockMovementSchema,
+  updateInventoryItemSchema,
+} from '../schemas/inventorySchemas.js';
+import { permissions } from '../services/authorizationPolicy.js';
 
 const router = Router();
 
-router.use(authenticate);
-router.use(requireEntitlement(MODULES.INVENTORY));
+router.use(authenticate, requireEntitlement(MODULES.INVENTORY));
 
-/**
- * @openapi
- * /inventory:
- *   post:
- *     summary: Add a new item to the inventory
- *     tags:
- *       - Inventory
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - itemName
- *               - currentStock
- *               - lowStockThreshold
- *               - price
- *             properties:
- *               itemName:
- *                 type: string
- *                 description: Name of the inventory item
- *                 example: Paracetamol 500mg
- *               currentStock:
- *                 type: number
- *                 description: Current quantity in stock
- *                 example: 100
- *               lowStockThreshold:
- *                 type: number
- *                 description: Threshold quantity below which low stock alert triggers
- *                 example: 15
- *               price:
- *                 type: number
- *                 description: Price per unit
- *                 example: 2.5
- *     responses:
- *       201:
- *         description: Inventory item added successfully
- *       400:
- *         description: Bad request (validation error)
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied (inventory module inactive)
- *       500:
- *         description: Internal server error
- */
-router.post('/', requirePermission(permissions.INVENTORY_MANAGE), validateRequest(addItemSchema), addItem);
+router.get('/units', requirePermission(permissions.INVENTORY_READ), listInventoryUnits);
+router.get('/low-stock', requirePermission(permissions.INVENTORY_READ), listLowStockInventory);
+router.post(
+  '/movements/:movementId/reversal',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(reverseStockMovementSchema),
+  reverseInventoryMovement,
+);
 
-/**
- * @openapi
- * /inventory:
- *   get:
- *     summary: Get all inventory items for the tenant
- *     tags:
- *       - Inventory
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of inventory items
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied (inventory module inactive)
- *       500:
- *         description: Internal server error
- */
-router.get('/', requirePermission(permissions.INVENTORY_READ), getInventory);
-
-/**
- * @openapi
- * /inventory/low-stock:
- *   get:
- *     summary: Get inventory items triggering low-stock alerts (currentStock <= lowStockThreshold)
- *     tags:
- *       - Inventory
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of low-stock inventory items
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied (inventory module inactive)
- *       500:
- *         description: Internal server error
- */
-router.get('/low-stock', requirePermission(permissions.INVENTORY_READ), getLowStockAlerts);
+router.get('/', requirePermission(permissions.INVENTORY_READ), listInventoryItems);
+router.post(
+  '/',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(addItemSchema),
+  createInventoryItem,
+);
+router.get('/:itemId', requirePermission(permissions.INVENTORY_READ), getInventoryItem);
+router.patch(
+  '/:itemId',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(updateInventoryItemSchema),
+  updateInventoryItem,
+);
+router.get(
+  '/:itemId/movements',
+  requirePermission(permissions.INVENTORY_READ),
+  listInventoryMovements,
+);
+router.post(
+  '/:itemId/receive',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(receiveStockSchema),
+  receiveInventoryStock,
+);
+router.post(
+  '/:itemId/consume',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(consumeStockSchema),
+  consumeInventoryStock,
+);
+router.post(
+  '/:itemId/adjust',
+  requirePermission(permissions.INVENTORY_MANAGE),
+  validateRequest(adjustStockSchema),
+  adjustInventoryStock,
+);
 
 export default router;

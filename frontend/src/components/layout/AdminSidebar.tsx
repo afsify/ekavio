@@ -50,7 +50,7 @@ export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     platformOperatorOnly?: boolean;
   }> = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY },
+    { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY, permission: 'inventory.read' },
     { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: MODULES.QUEUE },
     { name: 'Appointments', path: '/appointments', icon: <CalendarClock className="w-5 h-5" />, module: MODULES.QUEUE },
     { name: 'Customer Dues', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER, permission: 'ledger.read' },
