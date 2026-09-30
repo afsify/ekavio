@@ -2,7 +2,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { activateCustomerDuesAuthority } from '../domains/customerDues/authority.js';
 import { runCustomerDuesCutoverPreflight } from '../domains/customerDues/migration.js';
 import { loadCustomerDuesMigrationMapping } from '../domains/customerDues/migrationMapping.js';
@@ -16,7 +16,7 @@ const mappingIndex = args.indexOf('--mapping');
 const mappingArgument = mappingIndex >= 0 ? args[mappingIndex + 1] : undefined;
 const apply = args.includes('--apply');
 const known = new Set(['--mapping', '--apply', mappingArgument]);
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const database = new PostgresDatabase(config.databaseUrl);
 
 try {

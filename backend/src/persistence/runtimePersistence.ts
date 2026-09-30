@@ -3,15 +3,12 @@ import { PostgresAccountRepository } from '../postgres/accountRepository.js';
 import { PostgresAuthorizationContextRepository } from '../postgres/authorizationContextRepository.js';
 import { PostgresCommercialRepository } from '../postgres/commercialRepository.js';
 import { PostgresDatabase } from '../postgres/database.js';
-import { PostgresIdMappingRepository } from '../postgres/idMappingRepository.js';
 import { PostgresIdentityRepository } from '../postgres/identityRepository.js';
 import { PostgresSessionRepository } from '../postgres/sessionRepository.js';
 import { PostgresStaffRepository } from '../postgres/staffRepository.js';
 import { createCommercialAdministrationService } from '../services/commercialAdministrationService.js';
 import { createCommercialCatalogueService } from '../services/commercialCatalogueService.js';
 import { createEntitlementService } from '../services/entitlementService.js';
-import { PostgresMongoLegacyIdentityBridge } from './legacyIdentity.js';
-import { PostgresOperationalIdentityBridge } from './operationalIdentity.js';
 import { PostgresCustomerRepository } from '../domains/customers/repository.js';
 import { PostgresServiceRepository } from '../domains/services/repository.js';
 import { PostgresAppointmentRepository } from '../domains/appointments/repository.js';
@@ -31,13 +28,13 @@ import { PostgresCustomerDuesRepository } from '../domains/customerDues/reposito
 import { createCustomerDuesService } from '../services/customerDuesService.js';
 import { PostgresInventoryRepository } from '../domains/inventory/repository.js';
 import { createInventoryService } from '../services/inventoryService.js';
+import { PostgresCorporateRepository } from '../postgres/corporateRepository.js';
 
 // The connection URL is resolved lazily after startup has validated configuration.
 export const runtimePostgresDatabase = new PostgresDatabase(
   () => getRuntimeConfig().databaseUrl,
 );
 
-const idMappings = new PostgresIdMappingRepository(runtimePostgresDatabase);
 const commercialRepository = new PostgresCommercialRepository(runtimePostgresDatabase);
 const commercialEntitlements = createEntitlementService(commercialRepository);
 const commercialCatalogue = createCommercialCatalogueService(commercialRepository);
@@ -52,7 +49,6 @@ const commercial = Object.freeze({
   updateSubscription: commercialAdministration.updateSubscription,
   upsertEntitlement: commercialAdministration.upsertEntitlement,
 });
-const mongoIdentities = new PostgresMongoLegacyIdentityBridge(idMappings);
 const publicCommercialRepository = new PostgresPublicCommercialRepository(runtimePostgresDatabase);
 const publicCommercial = createPublicCommercialService(publicCommercialRepository);
 const manualCommercialRepository = new PostgresManualCommercialRepository(runtimePostgresDatabase);
@@ -92,6 +88,9 @@ export const runtimePersistence = Object.freeze({
   attendanceAuthority: 'postgresql' as const,
   customerDuesAuthority: 'postgresql' as const,
   inventoryAuthority: 'postgresql' as const,
+  corporateAuthority: 'postgresql' as const,
+  securityAuditAuthority: 'postgresql' as const,
+  mongoRuntimeAuthority: 'offline-only' as const,
   accounts: new PostgresAccountRepository(runtimePostgresDatabase),
   attendance: attendanceRepository,
   attendanceService,
@@ -99,6 +98,7 @@ export const runtimePersistence = Object.freeze({
   customerDuesService,
   inventory: inventoryRepository,
   inventoryService,
+  corporate: new PostgresCorporateRepository(runtimePostgresDatabase),
   authorization: new PostgresAuthorizationContextRepository(runtimePostgresDatabase),
   commercial,
   commercialRepository,
@@ -109,14 +109,11 @@ export const runtimePersistence = Object.freeze({
   commercialRenewals,
   commercialRenewalRepository,
   customers: customerRepository,
-  idMappings,
   identities: new PostgresIdentityRepository(runtimePostgresDatabase, commercial),
-  mongoIdentities,
   services: new PostgresServiceRepository(runtimePostgresDatabase),
   appointments: new PostgresAppointmentRepository(runtimePostgresDatabase),
   queue: new PostgresQueueRepository(runtimePostgresDatabase),
   branchTimezones,
-  operationalIdentity: new PostgresOperationalIdentityBridge(idMappings),
   sessions: new PostgresSessionRepository(runtimePostgresDatabase),
   staff: new PostgresStaffRepository(runtimePostgresDatabase),
 });

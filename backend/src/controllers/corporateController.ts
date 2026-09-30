@@ -1,16 +1,28 @@
 import type { NextFunction, Response } from 'express';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { Organization } from '../models/Organization.js';
-import { ParentOrganization } from '../models/ParentOrganization.js';
-import { asLegacyMongoOrganizationId } from '../persistence/identifiers.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
-import {
-  assertConsolidatedBillingAuthority,
-  assertCorporateLinkAuthority,
-} from '../services/corporateAuthorizationService.js';
+import { corporateParentIdSchema } from '../schemas/corporateSchemas.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
+
+const parentDto = (parent: {
+  id: string;
+  name: string;
+  consolidated_billing: boolean;
+  created_at: Date;
+  updated_at: Date;
+}) => ({
+  id: parent.id,
+  name: parent.name,
+  consolidatedBilling: parent.consolidated_billing,
+  createdAt: parent.created_at,
+  updatedAt: parent.updated_at,
+});
+
+const handleCorporateError = (error: unknown, next: NextFunction): void => {
+  next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+};
 
 export const createParentOrg = async (
   request: AuthenticatedRequest,
@@ -19,21 +31,37 @@ export const createParentOrg = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
-    const parentOrg = await ParentOrganization.create({
-      name: request.body.name,
-      ownerId: legacyActorUserId,
-      consolidatedBilling: request.body.consolidatedBilling ?? true,
+    const parent = await runtimePersistence.corporate.createParent({
+      ownerUserId: context.userId,
+      name: request.body.name as string,
+      consolidatedBilling: (request.body.consolidatedBilling as boolean | undefined) ?? true,
     });
     await recordSecurityAudit(
       context,
       'corporate.parent.created',
-      { parentOrganizationId: String(parentOrg._id) },
+      { parentOrganizationId: parent.id },
       request.ip,
     );
-    response.status(201).json({ message: 'Parent organization created successfully', data: parentOrg });
+    response.status(201).json({
+      message: 'Parent organization created successfully',
+      data: parentDto(parent),
+    });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    handleCorporateError(error, next);
+  }
+};
+
+export const listParentOrgs = async (
+  request: AuthenticatedRequest,
+  response: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const context = requireAuthorizationContext(request);
+    const parents = await runtimePersistence.corporate.listParents(context.userId);
+    response.status(200).json({ data: parents.map(parentDto) });
+  } catch (error: unknown) {
+    handleCorporateError(error, next);
   }
 };
 
@@ -45,72 +73,48 @@ export const linkChildOrg = async (
   try {
     const context = requireAuthorizationContext(request);
     const { parentId, childOrgId } = request.body as { parentId: string; childOrgId: string };
-    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
-    const [parentOrg, childMembership] = await Promise.all([
-      ParentOrganization.findOne({ _id: parentId, ownerId: legacyActorUserId }).lean(),
-      runtimePersistence.authorization.findActiveMembership(context.userId, childOrgId),
-    ]);
-    if (!parentOrg) throw new AppError('Corporate relationship not found', 404);
-    assertCorporateLinkAuthority({
-      actorUserId: legacyActorUserId,
-      parentOwnerId: String(parentOrg.ownerId),
-      ...(childMembership ? { childMembershipRole: childMembership.role } : {}),
+    const child = await runtimePersistence.corporate.linkChild({
+      actorUserId: context.userId,
+      parentId,
+      childOrganizationId: childOrgId,
     });
-
-    const legacyChildOrganizationId = await runtimePersistence.mongoIdentities.organizationToLegacy(
-      childOrgId,
-    );
-    const childOrg = await Organization.findOneAndUpdate(
-      { _id: legacyChildOrganizationId },
-      { $set: { parentId } },
-      { new: true, runValidators: true },
-    );
-    if (!childOrg) {
-      throw new AppError(
-        'Corporate linking is temporarily unavailable for organizations created after the PostgreSQL identity cutover',
-        409,
-      );
-    }
     await recordSecurityAudit(
       context,
       'corporate.child.linked',
       { parentOrganizationId: parentId, childOrganizationId: childOrgId },
       request.ip,
+      childOrgId,
     );
-    response.status(200).json({ message: 'Organization linked successfully', data: childOrg });
+    response.status(200).json({
+      message: 'Organization linked successfully',
+      data: { id: child.id, name: child.name, type: child.type, parentOrganizationId: parentId },
+    });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    handleCorporateError(error, next);
   }
 };
 
-export const getConsolidatedBilling = async (
+export const getCorporateSummary = async (
   request: AuthenticatedRequest,
   response: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const parentId = request.params.parentId as string;
-    const legacyActorUserId = await runtimePersistence.mongoIdentities.userToLegacy(context.userId);
-    const parentOrg = await ParentOrganization.findOne({
-      _id: parentId,
-      ownerId: legacyActorUserId,
-    }).lean();
-    if (!parentOrg) throw new AppError('Corporate relationship not found', 404);
-    assertConsolidatedBillingAuthority(legacyActorUserId, String(parentOrg.ownerId));
-
-    const childOrgs = await Organization.find({ parentId }).lean();
-    const billingDetails = await Promise.all(childOrgs.map(async (organization) => {
-      const legacyOrganizationId = asLegacyMongoOrganizationId(String(organization._id));
-      const canonicalOrganizationId = await runtimePersistence.idMappings.organizationToPostgres(
-        legacyOrganizationId,
-      );
-      const commercialState = await runtimePersistence.commercial.getEffective(
-        canonicalOrganizationId,
-      );
+    const parsedParentId = corporateParentIdSchema.safeParse(request.params.parentId);
+    if (!parsedParentId.success) throw new AppError('Parent organization id is invalid', 400);
+    const parent = await runtimePersistence.corporate.findParentForOwner(
+      context.userId,
+      parsedParentId.data,
+    );
+    if (!parent) throw new AppError('Corporate relationship not found', 404);
+    const children = await runtimePersistence.corporate.listChildren(context.userId, parent.id);
+    const organizations = await Promise.all(children.map(async (organization) => {
+      const commercialState = await runtimePersistence.commercial.getEffective(organization.id);
       return {
-        organizationId: canonicalOrganizationId,
+        organizationId: organization.id,
         name: organization.name,
+        type: organization.type,
         subscriptionStatus: commercialState.subscription?.status ?? 'none',
         enabledModules: commercialState.modules
           .filter((module) => module.enabled)
@@ -119,11 +123,11 @@ export const getConsolidatedBilling = async (
     }));
     response.status(200).json({
       data: {
-        parentOrganization: parentOrg.name,
-        billingDetails,
+        parent: parentDto(parent),
+        organizations,
       },
     });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    handleCorporateError(error, next);
   }
 };

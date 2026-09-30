@@ -1,11 +1,11 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { reconcileLegacyMongoCatalogue } from '../postgres/legacyMongoCatalogue.js';
 
 dotenv.config({ quiet: true });
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 
 try {
   await connectDB(config.mongoUri);

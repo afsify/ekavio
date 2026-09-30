@@ -1,82 +1,45 @@
-import { ActivityLog } from '../models/ActivityLog.js';
-import { runtimePersistence } from '../persistence/runtimePersistence.js';
+import { PostgresAuditRepository, type SecurityAuditRepository } from '../postgres/auditRepository.js';
+import { runtimePostgresDatabase } from '../persistence/runtimePersistence.js';
+import {
+  boundedAuditIpAddress,
+  isSecurityAuditAction,
+  validateAuditDetails,
+  type SafeAuditDetails,
+  type SecurityAuditAction,
+} from './auditPolicy.js';
 import type { AuthorizationContext } from './requestContextService.js';
 
-export type SecurityAuditAction =
-  | 'membership.created'
-  | 'membership.revoked'
-  | 'corporate.parent.created'
-  | 'corporate.child.linked'
-  | 'commercial.subscription.updated'
-  | 'commercial.entitlement.updated'
-  | 'customer.created'
-  | 'customer.updated'
-  | 'service.created'
-  | 'service.updated'
-  | 'service.provider.updated'
-  | 'appointment.created'
-  | 'appointment.status_changed'
-  | 'appointment.checked_in'
-  | 'queue.token.created'
-  | 'queue.token.status_changed'
-  | 'customer_dues.entry_created'
-  | 'customer_dues.entry_reversed'
-  | 'inventory.item_created'
-  | 'inventory.item_updated'
-  | 'inventory.stock_changed'
-  | 'inventory.movement_reversed';
-
-type SafeAuditValue = string | number | boolean | null;
-
-export interface SecurityAuditRepository {
-  create(record: {
-    tenantId: string;
-    userId: string;
-    action: SecurityAuditAction;
-    details: Readonly<Record<string, SafeAuditValue>>;
-    ipAddress?: string;
-  }): Promise<unknown>;
-}
-
-export interface SecurityAuditIdentityBridge {
-  organizationToLegacy(organizationId: string): Promise<string>;
-  userToLegacy(userId: string): Promise<string>;
-}
+export type { SecurityAuditAction } from './auditPolicy.js';
 
 export const createSecurityAuditRecorder = ({
   repository,
-  identities,
+  signal = () => console.error('Security audit event could not be persisted'),
 }: {
   repository: SecurityAuditRepository;
-  identities: SecurityAuditIdentityBridge;
+  signal?: () => void;
 }) => async (
   context: AuthorizationContext,
   action: SecurityAuditAction,
-  metadata: Readonly<Record<string, SafeAuditValue>>,
+  metadata: SafeAuditDetails,
   ipAddress?: string,
   targetOrganizationId?: string,
 ): Promise<void> => {
   try {
-    const [legacyOrganizationId, legacyUserId] = await Promise.all([
-      identities.organizationToLegacy(targetOrganizationId ?? context.organizationId),
-      identities.userToLegacy(context.userId),
-    ]);
+    if (!isSecurityAuditAction(action)) throw new Error('Security audit action is not allowed');
     await repository.create({
-      tenantId: legacyOrganizationId,
-      userId: legacyUserId,
+      organizationId: targetOrganizationId ?? context.organizationId,
+      actorUserId: context.userId,
       action,
-      details: { ...metadata },
-      ...(ipAddress ? { ipAddress: ipAddress.slice(0, 128) } : {}),
+      details: validateAuditDetails(metadata),
+      ipAddress: boundedAuditIpAddress(ipAddress),
     });
   } catch {
-    // Report a safe operational signal without leaking request or credential data.
-    console.error('Security audit event could not be persisted');
+    // The business mutation remains successful, but persistence failure is
+    // surfaced through one metadata-free operational signal.
+    signal();
   }
 };
 
 export const recordSecurityAudit = createSecurityAuditRecorder({
-  identities: runtimePersistence.mongoIdentities,
-  repository: {
-    create: (record) => ActivityLog.create(record),
-  },
+  repository: new PostgresAuditRepository(runtimePostgresDatabase),
 });

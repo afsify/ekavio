@@ -2,7 +2,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { MongoAttendanceLegacySource } from '../domains/attendance/mongoMigrationSource.js';
 import { verifyAttendanceMigration } from '../domains/attendance/migration.js';
 import { loadAttendanceMigrationMapping } from '../domains/attendance/migrationMapping.js';
@@ -12,7 +12,7 @@ dotenv.config({ quiet: true });
 const args = process.argv.slice(2);
 const mappingIndex = args.indexOf('--mapping');
 const mappingArgument = mappingIndex >= 0 ? args[mappingIndex + 1] : undefined;
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const database = new PostgresDatabase(config.databaseUrl);
 
 try {

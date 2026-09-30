@@ -2,7 +2,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import {
   InventoryMigrationBlockedError,
   runInventoryMigration,
@@ -18,7 +18,7 @@ const mappingArgument = mappingIndex >= 0 ? args[mappingIndex + 1] : undefined;
 const apply = args.includes('--apply');
 const recovery = args.includes('--recover-inventory-authority');
 const known = new Set(['--mapping', '--apply', '--recover-inventory-authority', mappingArgument]);
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const database = new PostgresDatabase(config.databaseUrl);
 
 try {

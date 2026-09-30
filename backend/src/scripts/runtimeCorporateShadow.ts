@@ -1,0 +1,32 @@
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import { connectDB } from '../config/db.js';
+import { loadLegacyToolConfig } from '../config/env.js';
+import { runCorporateMigration } from '../domains/runtimeRetirement/migration.js';
+import { MongoCorporateLegacySource } from '../domains/runtimeRetirement/mongoLegacySource.js';
+import { PostgresDatabase } from '../postgres/database.js';
+
+dotenv.config({ quiet: true });
+const args = process.argv.slice(2);
+const apply = args.includes('--apply');
+const allowRecovery = args.includes('--recover-corporate-authority');
+const known = new Set(['--apply', '--recover-corporate-authority']);
+const config = loadLegacyToolConfig(process.env);
+const database = new PostgresDatabase(config.databaseUrl);
+
+try {
+  if (args.some((argument) => !known.has(argument))) {
+    throw new Error('Usage: runtime:corporate:shadow -- [--apply] [--recover-corporate-authority]');
+  }
+  await connectDB(config.mongoUri);
+  const report = await runCorporateMigration({
+    source: new MongoCorporateLegacySource(), database, apply, allowRecovery,
+  });
+  console.log(JSON.stringify(report, null, 2));
+  if (report.blockerCount > 0) process.exitCode = 1;
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Corporate migration failed');
+  process.exitCode = 1;
+} finally {
+  await Promise.allSettled([mongoose.disconnect(), database.close()]);
+}

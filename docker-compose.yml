@@ -1,5 +1,6 @@
 services:
   mongo:
+    profiles: ["legacy-migration"]
     image: mongo:8.0.30-noble
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-ekavio}
@@ -44,7 +45,6 @@ services:
     environment:
       NODE_ENV: development
       PORT: 5000
-      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-ekavio}:${MONGO_ROOT_PASSWORD:-ekavio-local-development-only}@mongo:27017/ekavio?authSource=admin
       DATABASE_URL: postgresql://${POSTGRES_USER:-ekavio}:${POSTGRES_PASSWORD:-ekavio-local-development-only}@postgres:5432/${POSTGRES_DB:-ekavio}
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-before-production}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-local-development-refresh-secret-change-before-production}
@@ -52,8 +52,6 @@ services:
       SOCKET_ALLOWED_ORIGINS: ${SOCKET_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
       TRUST_PROXY_HOPS: 0
     depends_on:
-      mongo:
-        condition: service_healthy
       postgres:
         condition: service_healthy
     healthcheck:
@@ -66,6 +64,22 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  legacy-tools:
+    profiles: ["legacy-migration"]
+    build:
+      context: ./backend
+      target: development
+    environment:
+      NODE_ENV: development
+      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-ekavio}:${MONGO_ROOT_PASSWORD:-ekavio-local-development-only}@mongo:27017/ekavio?authSource=admin
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ekavio}:${POSTGRES_PASSWORD:-ekavio-local-development-only}@postgres:5432/${POSTGRES_DB:-ekavio}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: ["node", "--version"]
 
   frontend:
     build:

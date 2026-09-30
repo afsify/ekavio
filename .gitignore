@@ -80,3 +80,5 @@ backups/
 *.attendance-mapping.json
 *.customer-dues-mapping.json
 *.inventory-mapping.json
+*.audit-archive.json
+*.activity-log-archive.json

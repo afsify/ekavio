@@ -1,14 +1,14 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { activateCommercialAuthority } from '../postgres/commercialAuthority.js';
 import { runCommercialPreflight } from '../postgres/commercialPreflight.js';
 import { PostgresDatabase } from '../postgres/database.js';
 import { MongoSharedCoreSource } from '../postgres/mongoShadowSource.js';
 
 dotenv.config({ quiet: true });
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const database = new PostgresDatabase(config.databaseUrl);
 const argumentsList = process.argv.slice(2);
 const shouldApply = argumentsList.includes('--apply');

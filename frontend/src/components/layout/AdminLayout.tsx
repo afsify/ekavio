@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
 import { TenantSwitcher } from './TenantSwitcher';
-import { NotificationBell } from './NotificationBell';
 import { ProfileSettingsModal } from '../ui/ProfileSettingsModal';
 
 export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -15,7 +14,6 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       <div className="md:hidden flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="font-bold text-xl text-white tracking-tight">Ekavio</div>
         <div className="flex items-center gap-2">
-          <NotificationBell />
           <button 
             onClick={() => setIsSidebarOpen(true)} 
             className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors"
@@ -36,7 +34,6 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
              <h1 className="text-xl font-bold text-white tracking-tight">Dashboard</h1>
           </div>
           <div className="flex items-center gap-6">
-             <NotificationBell />
              <TenantSwitcher />
              <div 
                 onClick={() => setIsProfileModalOpen(true)}

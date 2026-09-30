@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadConfig } from '../src/config/env.js';
+import { loadConfig, loadLegacyToolConfig } from '../src/config/env.js';
 
 const validEnvironment = (): NodeJS.ProcessEnv => ({
   NODE_ENV: 'test',
@@ -38,10 +38,17 @@ test('loads and types a valid environment', () => {
   assert.equal(config.trustProxyHops, 0);
 });
 
-test('accepts a standard multi-host MongoDB TLS connection string', () => {
+test('normal web configuration does not require or expose MongoDB', () => {
+  const environment = validEnvironment();
+  delete environment.MONGO_URI;
+  const config = loadConfig(environment);
+  assert.equal('mongoUri' in config, false);
+});
+
+test('legacy tooling accepts a standard multi-host MongoDB TLS connection string', () => {
   const environment = validEnvironment();
   environment.MONGO_URI = 'mongodb://user:password@mongo-a.example.test:27017,mongo-b.example.test:27017/ekavio?tls=true';
-  assert.equal(loadConfig(environment).mongoUri, environment.MONGO_URI);
+  assert.equal(loadLegacyToolConfig(environment).mongoUri, environment.MONGO_URI);
 });
 
 test('accepts secure managed database URLs and explicit proxy hops in production', () => {
@@ -52,11 +59,11 @@ test('accepts secure managed database URLs and explicit proxy hops in production
   assert.deepEqual(config.httpAllowedOrigins, ['https://app.example.test']);
 });
 
-test('rejects missing required configuration without exposing values', () => {
+test('legacy tooling rejects a missing Mongo configuration without exposing values', () => {
   const environment = validEnvironment();
   delete environment.MONGO_URI;
 
-  assert.throws(() => loadConfig(environment), /MONGO_URI:.*required/);
+  assert.throws(() => loadLegacyToolConfig(environment), /MONGO_URI:.*required/);
 });
 
 test('rejects an invalid PostgreSQL URL without echoing its value', () => {
@@ -85,7 +92,6 @@ test('requires strong security secrets in production', () => {
 test('requires TLS database URLs, HTTPS origins, and explicit proxy trust in production', () => {
   const environment = productionEnvironment();
   environment.DATABASE_URL = 'postgresql://user:password@pg.example.test/ekavio';
-  environment.MONGO_URI = 'mongodb://user:password@mongo.example.test/ekavio';
   environment.HTTP_ALLOWED_ORIGINS = 'http://app.example.test';
   delete environment.TRUST_PROXY_HOPS;
 
@@ -93,17 +99,16 @@ test('requires TLS database URLs, HTTPS origins, and explicit proxy trust in pro
     () => loadConfig(environment),
     (error: unknown) => error instanceof Error &&
       error.message.includes('DATABASE_URL: must enable TLS') &&
-      error.message.includes('MONGO_URI: must enable TLS') &&
       error.message.includes('HTTP_ALLOWED_ORIGINS: must contain only HTTPS') &&
       error.message.includes('TRUST_PROXY_HOPS: is required'),
   );
 });
 
-test('rejects malformed MongoDB URLs and origin values with paths', () => {
+test('legacy tooling rejects malformed MongoDB URLs and web config rejects origin paths', () => {
   const badMongo = validEnvironment();
   badMongo.MONGO_URI = 'https://secret-user:secret-password@example.test/database';
   assert.throws(
-    () => loadConfig(badMongo),
+    () => loadLegacyToolConfig(badMongo),
     (error: unknown) => error instanceof Error &&
       error.message.includes('MONGO_URI: must be a valid MongoDB connection URL') &&
       !error.message.includes('secret-password'),
@@ -112,6 +117,19 @@ test('rejects malformed MongoDB URLs and origin values with paths', () => {
   const badOrigin = validEnvironment();
   badOrigin.HTTP_ALLOWED_ORIGINS = 'https://app.example.test/path';
   assert.throws(() => loadConfig(badOrigin), /HTTP_ALLOWED_ORIGINS: contains invalid HTTP origin/);
+});
+
+test('legacy production tooling independently requires TLS for both databases', () => {
+  const environment = productionEnvironment();
+  environment.DATABASE_URL = 'postgresql://user:password@pg.example.test/ekavio';
+  environment.MONGO_URI = 'mongodb://user:password@mongo.example.test/ekavio';
+  assert.throws(
+    () => loadLegacyToolConfig(environment),
+    (error: unknown) => error instanceof Error &&
+      error.message.includes('DATABASE_URL: must enable TLS') &&
+      error.message.includes('MONGO_URI: must enable TLS') &&
+      !error.message.includes('password@'),
+  );
 });
 
 test('rejects wildcard and non-HTTP origins', () => {

@@ -1,14 +1,14 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { PostgresDatabase } from '../postgres/database.js';
 import { MongoSharedCoreSource } from '../postgres/mongoShadowSource.js';
 import { PostgresSharedCoreRepository } from '../postgres/sharedCoreRepository.js';
 import { runShadowMigration, ShadowValidationError } from '../postgres/shadowMigration.js';
 
 dotenv.config({ quiet: true });
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const shouldApply = process.argv.slice(2).includes('--apply');
 const allowCommercialRecovery = process.argv.slice(2).includes('--recover-commercial-authority');
 const unknownArguments = process.argv.slice(2).filter(

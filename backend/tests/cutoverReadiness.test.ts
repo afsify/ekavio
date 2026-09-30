@@ -9,7 +9,6 @@ import {
   isUuid,
 } from '../src/persistence/identifiers.js';
 import { mongooseOperationalIdentityBridge } from '../src/persistence/operationalIdentity.js';
-import { PostgresOperationalIdentityBridge } from '../src/persistence/operationalIdentity.js';
 import { runtimePersistence } from '../src/persistence/runtimePersistence.js';
 import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
@@ -21,6 +20,7 @@ import { createStaff, type StaffRepository } from '../src/services/staffService.
 import type { AuthorizationContext } from '../src/services/requestContextService.js';
 import type { MembershipRole } from '../src/models/Membership.js';
 import { PostgresAttendanceRepository } from '../src/domains/attendance/repository.js';
+import { PostgresCorporateRepository } from '../src/postgres/corporateRepository.js';
 
 test('canonical UUID and legacy Mongo identifier namespaces validate independently', () => {
   const uuid = randomUUID();
@@ -33,7 +33,7 @@ test('canonical UUID and legacy Mongo identifier namespaces validate independent
   assert.throws(() => asLegacyMongoOrganizationId(uuid));
 });
 
-test('runtime composition selects PostgreSQL identity, commercial, Queue, and Attendance authority', () => {
+test('runtime composition selects PostgreSQL authority for every active domain', () => {
   assert.equal(runtimePersistence.authority, 'postgresql');
   assert.equal(Object.isFrozen(runtimePersistence), true);
   assert.ok(runtimePersistence.accounts instanceof PostgresAccountRepository);
@@ -44,11 +44,16 @@ test('runtime composition selects PostgreSQL identity, commercial, Queue, and At
   assert.equal(runtimePersistence.operationalAuthority, 'postgresql');
   assert.ok(runtimePersistence.commercialRepository instanceof PostgresCommercialRepository);
   assert.ok(runtimePersistence.identities instanceof PostgresIdentityRepository);
-  assert.ok(runtimePersistence.operationalIdentity instanceof PostgresOperationalIdentityBridge);
+  assert.equal(runtimePersistence.corporateAuthority, 'postgresql');
+  assert.equal(runtimePersistence.securityAuditAuthority, 'postgresql');
+  assert.equal(runtimePersistence.mongoRuntimeAuthority, 'offline-only');
+  assert.ok(runtimePersistence.corporate instanceof PostgresCorporateRepository);
   assert.ok(runtimePersistence.sessions instanceof PostgresSessionRepository);
   assert.ok(runtimePersistence.staff instanceof PostgresStaffRepository);
   assert.equal('attendanceStorage' in runtimePersistence, false);
   assert.equal('attendanceIdentities' in runtimePersistence, false);
+  assert.equal('mongoIdentities' in runtimePersistence, false);
+  assert.equal('operationalIdentity' in runtimePersistence, false);
   assert.equal('select' in runtimePersistence, false);
 });
 

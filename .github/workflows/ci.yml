@@ -155,6 +155,30 @@ jobs:
         working-directory: backend
         run: npm run test:inventory-cutover
 
+      - name: Test PostgreSQL corporate runtime
+        working-directory: backend
+        run: npm run test:corporate
+
+      - name: Test corporate migration and reconciliation
+        working-directory: backend
+        run: npm run test:corporate-migration
+
+      - name: Test PostgreSQL security audit runtime
+        working-directory: backend
+        run: npm run test:audit
+
+      - name: Test ActivityLog migration and reconciliation
+        working-directory: backend
+        run: npm run test:audit-migration
+
+      - name: Test Mongo runtime retirement controls
+        working-directory: backend
+        run: npm run test:mongo-retirement
+
+      - name: Test Mongo source boundary
+        working-directory: backend
+        run: npm run test:mongo-source-contract
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci

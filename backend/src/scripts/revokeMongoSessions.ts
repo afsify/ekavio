@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { Session } from '../models/Session.js';
 import { runMongoSessionRevocation } from '../services/mongoSessionCutoverService.js';
 
@@ -12,7 +12,7 @@ if (args.some((argument) => argument !== '--apply') || args.filter((argument) =>
   throw new Error('Usage: sessions:mongo:revoke [-- --apply]');
 }
 const apply = args.includes('--apply');
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const hostname = new URL(config.mongoUri).hostname;
 const localDevelopmentTarget = config.nodeEnv === 'development' &&
   ['mongo', 'localhost', '127.0.0.1', '::1'].includes(hostname);

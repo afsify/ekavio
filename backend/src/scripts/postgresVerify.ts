@@ -1,13 +1,13 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { PostgresDatabase } from '../postgres/database.js';
 import { MongoSharedCoreSource } from '../postgres/mongoShadowSource.js';
 import { verifyShadowState } from '../postgres/verification.js';
 
 dotenv.config({ quiet: true });
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 const database = new PostgresDatabase(config.databaseUrl);
 
 try {

@@ -5,7 +5,6 @@ import type { NextFunction, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import mongoose from 'mongoose';
 import mongoSanitize from 'express-mongo-sanitize';
 import swaggerUi from 'swagger-ui-express';
 import type { RuntimeConfig } from './config/env.js';
@@ -77,7 +76,6 @@ export const sanitizeMongoInputs = (
 export const createApp = ({
   config,
   isReady = async () => ({
-    mongodb: mongoose.connection.readyState === 1,
     postgresql: false,
   }),
 }: CreateAppOptions) => {

@@ -72,7 +72,6 @@ const environmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(5000),
-    MONGO_URI: mongoUrlSchema,
     DATABASE_URL: postgresUrlSchema,
     JWT_SECRET: requiredString,
     REFRESH_TOKEN_SECRET: requiredString,
@@ -109,14 +108,6 @@ const environmentSchema = z
       });
     }
 
-    if (!hasMongoTls(environment.MONGO_URI)) {
-      context.addIssue({
-        code: 'custom',
-        path: ['MONGO_URI'],
-        message: 'must enable TLS in production (mongodb+srv or tls=true)',
-      });
-    }
-
     for (const field of ['HTTP_ALLOWED_ORIGINS', 'SOCKET_ALLOWED_ORIGINS'] as const) {
       for (const origin of environment[field]) {
         if (!origin.startsWith('https://')) {
@@ -141,7 +132,6 @@ const environmentSchema = z
 export interface RuntimeConfig {
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
-  mongoUri: string;
   databaseUrl: string;
   jwtSecret: string;
   refreshTokenSecret: string;
@@ -154,6 +144,11 @@ export interface DatabaseConfig {
   databaseUrl: string;
 }
 
+export interface LegacyToolConfig extends DatabaseConfig {
+  nodeEnv: 'development' | 'test' | 'production';
+  mongoUri: string;
+}
+
 export const loadDatabaseConfig = (environment: NodeJS.ProcessEnv): DatabaseConfig => {
   const result = z.object({ DATABASE_URL: postgresUrlSchema }).safeParse(environment);
   if (!result.success) {
@@ -163,6 +158,41 @@ export const loadDatabaseConfig = (environment: NodeJS.ProcessEnv): DatabaseConf
     throw new Error(`Invalid database configuration: ${details}`);
   }
   return { databaseUrl: result.data.DATABASE_URL };
+};
+
+export const loadLegacyToolConfig = (environment: NodeJS.ProcessEnv): LegacyToolConfig => {
+  const result = z.object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    DATABASE_URL: postgresUrlSchema,
+    MONGO_URI: mongoUrlSchema,
+  }).superRefine((configuration, context) => {
+    if (configuration.NODE_ENV !== 'production') return;
+    if (!hasPostgresTls(configuration.DATABASE_URL)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['DATABASE_URL'],
+        message: 'must enable TLS in production (sslmode=require, verify-ca, or verify-full)',
+      });
+    }
+    if (!hasMongoTls(configuration.MONGO_URI)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MONGO_URI'],
+        message: 'must enable TLS in production (mongodb+srv or tls=true)',
+      });
+    }
+  }).safeParse(environment);
+  if (!result.success) {
+    const details = result.error.issues
+      .map((issue) => `${issue.path.join('.') || 'environment'}: ${issue.message}`)
+      .join('; ');
+    throw new Error(`Invalid legacy-tool configuration: ${details}`);
+  }
+  return {
+    nodeEnv: result.data.NODE_ENV,
+    databaseUrl: result.data.DATABASE_URL,
+    mongoUri: result.data.MONGO_URI,
+  };
 };
 
 export const loadConfig = (environment: NodeJS.ProcessEnv): RuntimeConfig => {
@@ -178,7 +208,6 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): RuntimeConfig => {
   return {
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
-    mongoUri: result.data.MONGO_URI,
     databaseUrl: result.data.DATABASE_URL,
     jwtSecret: result.data.JWT_SECRET,
     refreshTokenSecret: result.data.REFRESH_TOKEN_SECRET,

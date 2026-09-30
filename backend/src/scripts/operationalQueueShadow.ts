@@ -2,7 +2,7 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { loadConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { MongoOperationalLegacySource } from '../domains/queue/mongoMigrationSource.js';
 import { loadOperationalMigrationMapping } from '../domains/queue/migrationMapping.js';
 import { OperationalMigrationBlockedError, runOperationalMigration } from '../domains/queue/migration.js';
@@ -15,7 +15,7 @@ const mappingArgument = mappingIndex >= 0 ? args[mappingIndex + 1] : undefined;
 const apply = args.includes('--apply');
 const recovery = args.includes('--recover-operational-authority');
 const known = new Set(['--mapping', '--apply', '--recover-operational-authority', mappingArgument]);
-const config = loadConfig(process.env);
+const config = loadLegacyToolConfig(process.env);
 let database: PostgresDatabase | undefined;
 
 try {

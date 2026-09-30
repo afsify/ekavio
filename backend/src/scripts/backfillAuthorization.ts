@@ -1,11 +1,11 @@
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import { initializeRuntimeConfig } from '../config/env.js';
+import { loadLegacyToolConfig } from '../config/env.js';
 import { runAuthorizationBackfill } from '../services/authorizationBackfillService.js';
 
 dotenv.config();
-const config = initializeRuntimeConfig();
+const config = loadLegacyToolConfig(process.env);
 const apply = process.argv.includes('--apply');
 
 try {

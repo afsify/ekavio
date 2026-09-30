@@ -1,7 +1,6 @@
 import { Router } from 'express';
 
 export interface DependencyReadiness {
-  mongodb: boolean;
   postgresql: boolean;
 }
 
@@ -17,12 +16,11 @@ export const createHealthRouter = (isReady: ReadinessProbe): Router => {
   router.get('/ready', async (_request, response) => {
     try {
       const readiness = await isReady();
-      const ready = readiness.mongodb && readiness.postgresql;
+      const ready = readiness.postgresql;
 
       response.status(ready ? 200 : 503).json({
         status: ready ? 'ready' : 'not_ready',
         dependencies: {
-          mongodb: readiness.mongodb ? 'ready' : 'not_ready',
           postgresql: readiness.postgresql ? 'ready' : 'not_ready',
         },
       });
@@ -30,7 +28,6 @@ export const createHealthRouter = (isReady: ReadinessProbe): Router => {
       response.status(503).json({
         status: 'not_ready',
         dependencies: {
-          mongodb: 'not_ready',
           postgresql: 'not_ready',
         },
       });

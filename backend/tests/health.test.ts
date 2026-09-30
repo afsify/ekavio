@@ -9,7 +9,6 @@ import { loadConfig } from '../src/config/env.js';
 const testConfig = loadConfig({
   NODE_ENV: 'test',
   PORT: '5000',
-  MONGO_URI: 'mongodb://localhost:27017/unused-by-health-tests',
   DATABASE_URL: 'postgresql://ekavio:test-only@localhost:5432/unused-by-health-tests',
   JWT_SECRET: 'test-jwt-secret',
   REFRESH_TOKEN_SECRET: 'test-refresh-secret',
@@ -19,7 +18,7 @@ const testConfig = loadConfig({
 
 const startTestServer = async (
   context: TestContext,
-  isReady: () => Promise<{ mongodb: boolean; postgresql: boolean }>,
+  isReady: () => Promise<{ postgresql: boolean }>,
 ): Promise<string> => {
   const app = createApp({ config: testConfig, isReady });
   const server = await new Promise<Server>((resolve) => {
@@ -58,43 +57,32 @@ test('Mongo input sanitization supports the Express 5 read-only query getter', (
   assert.deepEqual(request.query, { safe: 'query' });
 });
 
-test('liveness succeeds when MongoDB is unavailable', async (context) => {
-  const baseUrl = await startTestServer(context, async () => ({ mongodb: false, postgresql: false }));
+test('liveness does not depend on PostgreSQL readiness', async (context) => {
+  const baseUrl = await startTestServer(context, async () => ({ postgresql: false }));
   const response = await fetch(`${baseUrl}/health/live`);
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: 'ok' });
 });
 
-test('readiness reports unavailable MongoDB', async (context) => {
-  const baseUrl = await startTestServer(context, async () => ({ mongodb: false, postgresql: true }));
-  const response = await fetch(`${baseUrl}/health/ready`);
-
-  assert.equal(response.status, 503);
-  assert.deepEqual(await response.json(), {
-    status: 'not_ready',
-    dependencies: { mongodb: 'not_ready', postgresql: 'ready' },
-  });
-});
-
-test('readiness succeeds when MongoDB is connected', async (context) => {
-  const baseUrl = await startTestServer(context, async () => ({ mongodb: true, postgresql: true }));
+test('readiness succeeds when PostgreSQL is connected without a Mongo dependency', async (context) => {
+  const baseUrl = await startTestServer(context, async () => ({ postgresql: true }));
   const response = await fetch(`${baseUrl}/health/ready`);
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {
     status: 'ready',
-    dependencies: { mongodb: 'ready', postgresql: 'ready' },
+    dependencies: { postgresql: 'ready' },
   });
 });
 
 test('readiness reports unavailable PostgreSQL', async (context) => {
-  const baseUrl = await startTestServer(context, async () => ({ mongodb: true, postgresql: false }));
+  const baseUrl = await startTestServer(context, async () => ({ postgresql: false }));
   const response = await fetch(`${baseUrl}/health/ready`);
 
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), {
     status: 'not_ready',
-    dependencies: { mongodb: 'ready', postgresql: 'not_ready' },
+    dependencies: { postgresql: 'not_ready' },
   });
 });

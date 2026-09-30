@@ -4,7 +4,6 @@ import test from 'node:test';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { moduleKeys } from '../src/commercial/catalogue.js';
-import { ActivityLog } from '../src/models/ActivityLog.js';
 import { Attendance } from '../src/models/Attendance.js';
 import { Inventory } from '../src/models/Inventory.js';
 import { Ledger } from '../src/models/Ledger.js';
@@ -25,6 +24,7 @@ import {
   isUuid,
 } from '../src/persistence/identifiers.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { PostgresAuditRepository } from '../src/postgres/auditRepository.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
 import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
@@ -412,15 +412,17 @@ test('V2-05C PostgreSQL identity authority preserves Mongo compatibility and ten
     assert.equal(await User.countDocuments({}), 0);
   });
 
-  await context.test('security audit events retain mapped Mongo compatibility without identity mirrors', async () => {
+  await context.test('security audit events use canonical PostgreSQL identities without Mongo mirrors', async () => {
     const recordAudit = createSecurityAuditRecorder({
-      identities: mongoIdentities,
-      repository: { create: (record) => ActivityLog.create(record) },
+      repository: new PostgresAuditRepository(database),
     });
     await recordAudit(contextA, 'membership.created', { targetUserId: staffAResult.id }, '127.0.0.1');
-    const audit = await ActivityLog.findOne({ action: 'membership.created' }).lean();
-    assert.equal(String(audit?.tenantId), legacyOrganizationA);
-    assert.equal(String(audit?.userId), legacyOwnerA);
+    const audit = await database.query<{ organization_id: string; actor_user_id: string }>(`
+      SELECT organization_id, actor_user_id FROM audit_events
+      WHERE action = 'membership.created'
+    `);
+    assert.equal(audit.rows[0]?.organization_id, idsA.organizationId);
+    assert.equal(audit.rows[0]?.actor_user_id, idsA.userId);
   });
 
   await context.test('new organization registration needs no Mongo identity mirror', async () => {
