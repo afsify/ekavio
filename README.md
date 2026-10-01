@@ -36,12 +36,15 @@ business capabilities, and maintainable backend architecture.
 🚧 Active development
 
 Hosted staging is deployed at `https://ekavio.afsify.com` with its API at
-`https://api.ekavio.afsify.com`. Public infrastructure and selected
-authenticated flows are validated for continued development/testing. Full
-pilot-readiness validation, including the remaining authenticated smoke flows,
-provider backup evidence, and a hosted disposable restore drill, is still open.
-V2-07A proves logical backup/restore locally only. Staging is not production and
-must not hold real paying-customer data.
+`https://api.ekavio.afsify.com`. The V2-07B final acceptance decision is
+**NO-GO FOR REAL CUSTOMER DATA**. The public routes, schema, local quality
+gates, and selected earlier authenticated staging flows passed, but operating
+encrypted backups, authenticated provider recovery, hosted restore, always-on
+pilot hosting, legacy-source reconciliation, and final hosted authenticated
+acceptance remain open. Staging is for disposable development data only. See
+the [decision and ordered MUST-FIX list](docs/reviews/V2-07B_FINAL_PILOT_ACCEPTANCE.md),
+[pilot operations](docs/runbooks/PILOT_OPERATIONS.md), and
+[incident response](docs/runbooks/INCIDENT_RESPONSE.md).
 
 ---
 
@@ -508,9 +511,9 @@ Normal Compose contains PostgreSQL, backend, and frontend. PostgreSQL uses local
 
 The recommended normal hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, and managed PostgreSQL. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires PostgreSQL for readiness. Managed MongoDB Atlas is temporarily retained outside the normal application dependency graph for explicit legacy reconciliation/archive/recovery only. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`; V2-06E requires `011_inventory_runtime_authority.sql`; V2-06F requires `012_corporate_audit_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 001 through 012 are applied. Hosted source reconciliation and authority activation for Attendance, Customer Dues, Inventory, corporate, and audit remain open because the current Node/Mongo SRV lookup is refused before source facts load, even though a credential-safe OS resolver diagnostic can see SRV records. Do not change runtime DNS, guess mappings or latch state, weaken Atlas network access, or delete Atlas. V2-07A proved PostgreSQL logical restore locally, not against Neon. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, verified provider recovery settings, scheduled encrypted backups, monitoring, and a hosted restore drill.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`; V2-06E requires `011_inventory_runtime_authority.sql`; V2-06F requires `012_corporate_audit_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 001 through 012 are applied. Hosted source reconciliation and authority activation for Attendance, Customer Dues, Inventory, corporate, and audit remain open: the V2-07B Docker attempt reached Atlas but was denied by its network policy before source facts loaded. Do not change runtime DNS, guess mappings or latch state, weaken Atlas network access, or delete Atlas. V2-07A proved PostgreSQL logical restore locally, not against Neon. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, verified provider recovery settings, scheduled encrypted backups, monitoring, and a hosted restore drill.
 
-See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
+See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), [ADR 0013](docs/adr/0013-staging-deployment-architecture.md), and the [V2-07B final acceptance](docs/reviews/V2-07B_FINAL_PILOT_ACCEPTANCE.md). The V2-07B decision is NO-GO for real customer data until its operating and hosted-evidence blockers are closed.
 
 ## Health endpoints
 
