@@ -9,7 +9,7 @@
 - The chosen architecture is a modular monolith.
 - The client direction is a mobile-first React progressive web app (PWA).
 - The backend direction is Node.js with TypeScript.
-- PostgreSQL is the intended transactional system of record and will be adopted incrementally.
+- PostgreSQL is the sole normal-runtime transactional system of record; MongoDB is retained only for explicit legacy migration, reconciliation, archive, recovery, and compatibility testing.
 - WhatsApp API, SMS, payment-gateway automation, and paid AI are optional adapters, not core dependencies.
 - Backend authorization is mandatory. Frontend menu hiding is never authorization.
 - Tenant isolation, permissions, entitlements, money correctness, stock correctness, backups, and tests take priority over feature count.
@@ -58,41 +58,35 @@
 - Completed milestone: V2-06F Corporate, Audit & Mongo Runtime Retirement.
 - V2-06F moved ParentOrganization/corporate creation, authorized listing, child linking, and commercial summary to canonical PostgreSQL UUIDs; moved security audit writes to bounded scalar-safe append-only PostgreSQL events; added selective ActivityLog migration with hash-only dispositions for unsafe rows; removed dormant Message/Notification/NotificationBell/Chat sources without replacements; and removed MongoDB from normal server startup, environment validation, readiness, and Compose topology.
 - The preserved local corporate source contained zero parents/links. The local ActivityLog source contained 11 rows: 6 safe events and 5 unsafe-details dispositions, with exact reconciliation and both local PostgreSQL authority latches activated. Hosted PostgreSQL migration 012 is applied, but the isolated Atlas dry-run was refused by the network access list before source facts loaded; hosted corporate/audit reconciliation and activation therefore remain open for an Atlas-authorized environment. Atlas was not deleted.
+- Completed milestone: V2-07A Pilot Readiness Recovery, Security & Production Hardening.
+- V2-07A added a fail-closed PostgreSQL custom-format backup command, count-only restored-state verification, and a disposable local restore procedure. A 273,046-byte local archive restored with migrations 001 through 012, all required identity/commercial/operational/audit structures countable, and zero core orphans in 12.379 seconds; the disposable database and unencrypted temp archive were removed afterward. This is local proof only, not a hosted Neon restore or RTO claim.
+- V2-07A remediated current backend/frontend dependency advisories without forced majors; pinned tested Node, Nginx, PostgreSQL, and offline Mongo image manifests; tightened production secret/bootstrap validation; and retained the unprivileged compiled/static container boundaries. Provider recovery settings, scheduled encrypted backups, hosted restore rehearsal, and the V2-07B pilot decision remain open.
 - PostgreSQL is the sole normal runtime authority for identity/users, organizations, parent organizations and corporate links, branches, memberships and branch assignments, sessions, login, authorization, staff, controlled onboarding, profile/password identity, commercial module definitions, plans, add-ons, public pricing, access requests, negotiated agreements, initial and renewal manual payment records, onboarding invitations, billing profiles, subscriptions, commercial renewals, entitlement overrides, effective entitlement calculation and limits, Customer, Service, Appointment, Queue, Attendance, Customer Dues, Inventory, and security audit events.
 - Multi-query commercial entitlement and catalogue reads use read-only, repeatable-read PostgreSQL transactions so each request observes one consistent commercial snapshot.
 - Current MongoDB normal runtime authority: none. Retained Mongo models and collections are explicit legacy migration, reconciliation, archive, recovery, and compatibility-test input only.
 - Normal application writes and reads are PostgreSQL-only. There is no Mongo dual-write, runtime read fallback, automatic repair, or tenant-selected authority. Normal readiness requires PostgreSQL only; `MONGO_URI` belongs only to explicit legacy tools.
-- Deployment status: hosted staging is deployed at `https://ekavio.afsify.com` and `https://api.ekavio.afsify.com` and is partially validated for continued development/testing. The controlled V2-06B5B activation/onboarding/Billing flow and its scoped log review are verified, while the deferred V2-06B4 flows and backup/restore proof remain open. Staging is not production-ready or approved for real pilot/customer data.
+- Deployment status: hosted staging is deployed at `https://ekavio.afsify.com` and `https://api.ekavio.afsify.com` and is partially validated for continued development/testing. The controlled V2-06B5B activation/onboarding/Billing flow and its scoped log review are verified, and V2-07A proves local PostgreSQL logical restore only. Deferred V2-06B4 flows, authenticated Neon recovery-setting evidence, scheduled encrypted backups, and a hosted disposable restore drill remain open. Staging is not production-ready or approved for real pilot/customer data.
 - Deployed target topology after V2-06F rollout: static/PWA frontend, one Render Node/WebSocket staging backend, and managed Neon PostgreSQL. Temporary MongoDB Atlas is retained outside normal runtime for explicit legacy reconciliation/archive/recovery and has not been deleted.
 - Public commercial flow: catalogue -> access request -> platform-operator review -> approved -> negotiated agreement -> manual payment -> secure one-time onboarding -> atomic organization/subscription activation -> customer login. No payment gateway or automated messaging provider is required or configured.
 - Subscription continuation flow: active subscription -> renewal due/expired -> operator-reviewed current-package renewal -> negotiated amount -> manual exact settlement -> atomic apply -> extended/reactivated subscription. Package changes remain a separate explicit commercial administration action.
 - Hosted B5B validation used the direct/session-capable Neon migration connection and confirmed migrations 001 through 007 applied before the controlled smoke; an application deployment alone was not treated as migration evidence.
-- V2-06F does not approve real pilot/customer data. Backup/restore proof, all open hosted source reconciliations, safe audit archive/retention approval, and rollback-window acceptance remain prerequisites to physical Atlas deletion or a later pilot-readiness decision. Do not start Merchant Sales Lite or the final pilot-readiness milestone automatically.
+- V2-07A does not approve real pilot/customer data. Authenticated provider recovery evidence, operating backup schedule/retention/monitoring, a hosted restore drill, all open hosted source reconciliations, safe audit archive/retention approval, and rollback-window acceptance remain prerequisites to physical Atlas deletion or a V2-07B pilot-readiness decision. Do not start Merchant Sales Lite, Sales/POS, or V2-07B automatically.
 
-## Dependency-audit status (reviewed during V2-06B3, 2026-09-22)
+## Dependency and container status (reviewed during V2-07A, 2026-10-01)
 
-### Backend production dependency tree
+### Dependency audits
 
-`npm audit --omit=dev` reports zero vulnerabilities after narrow, lockfile-only transitive updates to fixed `brace-expansion`, `fast-uri`, `ip-address`, `js-yaml`, and `qs` releases. No direct backend dependency range or major version was changed. Backend unit, integration, deployment, and container signal regressions were rerun successfully against this lockfile before B3 closed.
+- Backend `npm audit --omit=dev`: zero vulnerabilities after Socket.IO 4.8.4 selected fixed Engine.IO 6.6.11.
+- Frontend `npm audit`: zero vulnerabilities.
+- Frontend `npm audit --omit=dev`: zero vulnerabilities.
+- Frontend compatible updates include Axios 1.20.0, React Router/DOM 7.18.4, Socket.IO client 4.8.4, PostCSS 8.5.28, Autoprefixer 10.6.1, and fixed transitive Browserslist, baseline-browser-mapping, brace-expansion, fast-uri, and nanoid releases.
+- No `npm audit fix --force`, unnecessary major upgrade, or application architecture change was used. Backend 143/143 source/unit tests, all accepted database/domain suites, frontend lint/typecheck/PWA build, normal Compose health, and the four required HTTP routes passed afterward.
 
-### Frontend dependency tree
+### Container image pinning and runtime contents
 
-`npm audit` reports 8 affected packages: 1 moderate and 7 high. `npm audit --omit=dev` reports 4 high packages because build tooling is also reachable through packages currently classified as production dependencies. The deployed Nginx image contains only compiled static assets, not frontend `node_modules`.
-
-| Package | Severity | Directness / relevance | Applicability assessment | Later remediation |
-| --- | --- | --- | --- | --- |
-| `baseline-browser-mapping` | Moderate | Transitive build dependency through Browserslist. | Build-time only; it is not shipped in the Nginx runtime image, and no untrusted Browserslist input is processed in production. | Refresh the frontend build-tool lockfile to a fixed release. |
-| `brace-expansion` | High | Transitive through ESLint and Workbox build tooling. | Development/build-time only; no untrusted glob is processed by the deployed static site. | Upgrade the owning lint/PWA build tools or apply a tested transitive override. |
-| `browserslist` | High | Transitive build dependency through Autoprefixer/Babel/Workbox. | Build-time only; production requests cannot supply Browserslist queries or stats files. | Refresh Autoprefixer/Babel/Workbox dependencies to fixed versions. |
-| `fast-uri` | High | Transitive through Workbox build tooling -> AJV. | Build-time only; it is absent from the Nginx runtime image and receives no production URI input. | Upgrade Workbox/AJV or apply a tested transitive override. |
-| `nanoid` | High | Transitive through PostCSS; reported by the production-only audit because the Tailwind/Vite build chain is classified as a production dependency. | Build-time only in this multi-stage image; the vulnerable custom/non-secure generator APIs are not used by application code or shipped as a server dependency. | Refresh PostCSS/Nanoid and consider reclassifying build-only packages as development dependencies in a later maintenance change. |
-| `postcss` | High | Direct development dependency and transitive build dependency through Vite. | Build-time only; CSS sources are repository-controlled, and `node_modules` is not copied into the Nginx runtime. The reported source-map file disclosure path is not exposed by the deployed app. | Upgrade PostCSS to a fixed version and rebuild/verify assets. |
-| `react-router` | High | Transitive browser-runtime dependency through direct `react-router-dom`. | The advisory concerns React Server Components action handling. This app uses `BrowserRouter`, `Routes`, and client-side API calls, with no RSC/router action configuration found, so the affected mode is not active. | Upgrade `react-router-dom`/`react-router` to a fixed compatible release (at least the advisory-fixed line) and rerun routing/auth regressions. |
-| `react-router-dom` | High | Direct browser-runtime dependency; inherits the `react-router` advisory. | Same RSC-specific assessment as `react-router`; the package is shipped in the browser bundle, but the vulnerable server-action mode is not used. | Upgrade together with `react-router` and verify SPA navigation and authentication flows. |
-
-### Container base-image pinning
-
-- MongoDB uses the explicit patch-level tag `mongo:8.0.30-noble`.
-- Backend build and runtime stages and the frontend build stage use `node:20-alpine`, which floats across Node 20 and Alpine patch releases.
-- The frontend runtime stage uses `nginx:alpine`, which floats across Nginx and Alpine releases.
-- No Node/Nginx pin was changed during V2-03 closeout; selecting and validating exact patch/digest pins is deferred to dependency/container maintenance to avoid an unverified runtime change.
+- Backend/frontend Node stages: `node:20.20.2-alpine3.23` plus tested multi-platform manifest digest.
+- Frontend static runtime: `nginx:1.31.6-alpine3.24` plus tested multi-platform manifest digest.
+- Compose/CI PostgreSQL and backup tooling: `postgres:17.11-alpine3.23` plus the tested manifest digest.
+- Retained offline migration/CI Mongo: `mongo:8.0.30-noble` plus manifest digest; it is not a normal runtime dependency.
+- CI setup-node is pinned to Node 20.20.2.
+- Backend production runs as UID 1000 from compiled `dist`, omits dev dependencies/source/environment files, starts `node dist/server.js`, and health-checks readiness. Frontend runs as UID 101 with static output only and no `node_modules` or environment file. Normal Compose publishes only backend 5000 and frontend 80-to-8080; PostgreSQL is internal and Mongo is stopped/offline-profile only.

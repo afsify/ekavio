@@ -1,4 +1,6 @@
-FROM node:20-alpine AS build
+ARG NODE_IMAGE=node:20.20.2-alpine3.23@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+
+FROM ${NODE_IMAGE} AS build
 
 WORKDIR /app
 
@@ -13,7 +15,7 @@ FROM build AS development
 ENV NODE_ENV=development
 CMD ["node", "dist/server.js"]
 
-FROM node:20-alpine AS production
+FROM ${NODE_IMAGE} AS production
 
 ENV NODE_ENV=production
 WORKDIR /app

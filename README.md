@@ -39,8 +39,9 @@ Hosted staging is deployed at `https://ekavio.afsify.com` with its API at
 `https://api.ekavio.afsify.com`. Public infrastructure and selected
 authenticated flows are validated for continued development/testing. Full
 pilot-readiness validation, including the remaining authenticated smoke flows,
-hosted-log review, and backup/restore proof, is still open. Staging is not
-production and must not hold real paying-customer data.
+provider backup evidence, and a hosted disposable restore drill, is still open.
+V2-07A proves logical backup/restore locally only. Staging is not production and
+must not hold real paying-customer data.
 
 ---
 
@@ -66,6 +67,8 @@ Copy-Item frontend/.env.example frontend/.env
 ```
 
 The committed examples contain development-only values. Replace all secrets for any shared or production environment. Normal backend startup validates `NODE_ENV`, `PORT`, `DATABASE_URL`, `JWT_SECRET`, `REFRESH_TOKEN_SECRET`, `HTTP_ALLOWED_ORIGINS`, `SOCKET_ALLOWED_ORIGINS`, and `TRUST_PROXY_HOPS`; it neither reads nor requires `MONGO_URI`. Production mode requires strong secrets, PostgreSQL TLS, HTTPS origins, and an explicit reviewed proxy-hop count. `MONGO_URI` is supplied separately only to explicit legacy tools. Comma-separate multiple exact allowed origins. Never log or commit a real database URL.
+
+Production also rejects the committed development secret values, identical JWT and refresh secrets, and staging-bootstrap confirmation/phone/password variables in the long-running service. Bootstrap inputs belong only to the one-off non-production job and must be removed afterward.
 
 The frontend requires `VITE_API_URL` (including `/api`) and `VITE_SOCKET_URL`. Vite embeds both values at build time.
 
@@ -357,6 +360,33 @@ npm.cmd run runtime:mongo:status
 
 Dry runs are non-mutating. Do not repeat successful activation. Apply refuses after activation unless an explicit reviewed recovery flag is supplied. Atlas is not deleted by V2-06F; hosted source reconciliation, secure archive/retention approval, backup/restore proof, and rollback-window acceptance remain separate gates. See [ADR 0020](docs/adr/0020-postgresql-corporate-audit-and-mongo-runtime-retirement.md), the [V2-06F review](docs/reviews/V2-06F_CORPORATE_AUDIT_MONGO_RETIREMENT.md), and the [V2-06F runbook](docs/runbooks/V2-06F_MONGO_RUNTIME_RETIREMENT.md).
 
+## PostgreSQL recovery and pilot hardening (V2-07A)
+
+Runtime-sensitive Node, Nginx, PostgreSQL, and retained offline Mongo images use tested tag-plus-manifest-digest references. Backend/frontend dependency audits are clean after compatible Socket.IO/Engine.IO, Axios, React Router, PostCSS/Autoprefixer, and transitive build-tool updates. Production containers remain unprivileged and contain only compiled backend or static frontend artifacts.
+
+Create a validated logical backup in an encrypted operator path outside this repository:
+
+```powershell
+# Local Compose proof/source
+node scripts/postgres-backup.mjs --output-dir C:\secure\ekavio-backups --compose
+
+# Hosted source: inject DATABASE_URL securely; never place it in the command
+node scripts/postgres-backup.mjs --output-dir E:\encrypted\ekavio-backups
+```
+
+Restore only into a new disposable local database with the required safety prefix:
+
+```powershell
+node scripts/postgres-restore-proof.mjs `
+  --archive C:\secure\ekavio-backups\ekavio-postgresql-<timestamp>.dump `
+  --database ekavio_v207a_restore_<unique_suffix> `
+  --drop-after-verification
+```
+
+The proof requires migrations 001 through 012, counts the accepted identity, commercial, operational, and audit structures without selecting row data, and rejects core orphan relationships. V2-07A completed this proof against local Compose in 12.379 seconds for a small 273,046-byte development archive; this is not a hosted recovery-time guarantee.
+
+The actual Neon plan/restore settings are not observable from source or a connection URL. A pilot still requires sanitized provider-setting evidence, scheduled/monitored encrypted logical exports, an isolated hosted restore drill, and an explicit V2-07B decision. See the [V2-07A recovery runbook](docs/runbooks/V2-07A_BACKUP_RESTORE.md) and [hardening review](docs/reviews/V2-07A_PILOT_READINESS_HARDENING.md).
+
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 
 ```powershell
@@ -478,7 +508,7 @@ Normal Compose contains PostgreSQL, backend, and frontend. PostgreSQL uses local
 
 The recommended normal hosted topology is a static/PWA frontend at `https://app.<domain>`, one long-running Node/WebSocket backend at `https://api.<domain>`, and managed PostgreSQL. The backend is stateless, binds the provider `PORT`, supports explicit proxy trust, and requires PostgreSQL for readiness. Managed MongoDB Atlas is temporarily retained outside the normal application dependency graph for explicit legacy reconciliation/archive/recovery only. Frontend API and Socket URLs are public build-time configuration; all backend credentials remain provider secrets.
 
-Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`; V2-06E requires `011_inventory_runtime_authority.sql`; V2-06F requires `012_corporate_audit_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 001 through 012 are applied. Hosted source reconciliation and authority activation for Attendance, Customer Dues, Inventory, corporate, and audit remain open because the safe V2-06F Atlas attempt was refused by its network access list before source facts loaded. Do not guess mappings or latch state and do not delete Atlas. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, reliable backups, monitoring, and restore evidence.
+Apply PostgreSQL migrations once through an explicit release command, then use the guarded staging bootstrap only for a new empty staging database. B5B requires migration `007_manual_commercial_activation.sql`; B5C requires `008_manual_subscription_renewals.sql`; V2-06C requires `009_attendance_runtime_authority.sql`; V2-06D requires `010_customer_dues_runtime_authority.sql`; V2-06E requires `011_inventory_runtime_authority.sql`; V2-06F requires `012_corporate_audit_runtime_authority.sql`. Check and apply them through the direct/session-capable Neon migration URL before claiming hosted behavior; a pushed application commit is not migration evidence. Hosted migrations 001 through 012 are applied. Hosted source reconciliation and authority activation for Attendance, Customer Dues, Inventory, corporate, and audit remain open because the current Node/Mongo SRV lookup is refused before source facts load, even though a credential-safe OS resolver diagnostic can see SRV records. Do not change runtime DNS, guess mappings or latch state, weaken Atlas network access, or delete Atlas. V2-07A proved PostgreSQL logical restore locally, not against Neon. Free/sleeping services and manual backups are acceptable only for disposable internal staging; a pilot requires always-on compute, verified provider recovery settings, scheduled encrypted backups, monitoring, and a hosted restore drill.
 
 See the [staging deployment runbook](docs/runbooks/V2-06B3_STAGING_DEPLOYMENT.md), [readiness review](docs/reviews/V2-06B3_STAGING_READINESS_REVIEW.md), [partial hosted validation](docs/reviews/V2-06B4_HOSTED_STAGING_PARTIAL_VALIDATION.md), [cost/reliability register](docs/reviews/V2-06B3_HOSTING_COST_AND_RELIABILITY.md), and [ADR 0013](docs/adr/0013-staging-deployment-architecture.md). Hosted staging now exists for development/testing, but the partial review lists the remaining work required before any pilot or production claim.
 

@@ -104,6 +104,32 @@ test('requires TLS database URLs, HTTPS origins, and explicit proxy trust in pro
   );
 });
 
+test('rejects committed, shared, or bootstrap secrets in the production service', () => {
+  const knownDefaults = productionEnvironment();
+  knownDefaults.JWT_SECRET = 'local-development-jwt-secret-change-before-production';
+  knownDefaults.REFRESH_TOKEN_SECRET = 'local-development-refresh-secret-change-before-production';
+  assert.throws(
+    () => loadConfig(knownDefaults),
+    /JWT_SECRET: must not use a committed development value.*REFRESH_TOKEN_SECRET/,
+  );
+
+  const sharedSecret = productionEnvironment();
+  sharedSecret.REFRESH_TOKEN_SECRET = sharedSecret.JWT_SECRET;
+  assert.throws(
+    () => loadConfig(sharedSecret),
+    /REFRESH_TOKEN_SECRET: must be independent from JWT_SECRET/,
+  );
+
+  const bootstrapSecret = productionEnvironment();
+  bootstrapSecret.STAGING_BOOTSTRAP_PASSWORD = 'not-echoed-bootstrap-secret';
+  assert.throws(
+    () => loadConfig(bootstrapSecret),
+    (error: unknown) => error instanceof Error &&
+      error.message.includes('STAGING_BOOTSTRAP_PASSWORD: must not be present') &&
+      !error.message.includes('not-echoed-bootstrap-secret'),
+  );
+});
+
 test('legacy tooling rejects malformed MongoDB URLs and web config rejects origin paths', () => {
   const badMongo = validEnvironment();
   badMongo.MONGO_URI = 'https://secret-user:secret-password@example.test/database';

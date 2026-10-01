@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 const requiredString = z.string({ error: 'is required' }).trim().min(1, 'is required');
 
+const knownDevelopmentSecrets = new Set([
+  'local-development-jwt-secret-change-before-production',
+  'local-development-refresh-secret-change-before-production',
+  'replace-with-a-long-development-secret',
+  'replace-with-another-long-development-secret',
+]);
+
 const mongoUrlSchema = requiredString.superRefine((value, context) => {
   if (!/^mongodb(?:\+srv)?:\/\/[^\s/]+(?:\/[^\s]*)?$/i.test(value)) {
     context.addIssue({
@@ -78,6 +85,9 @@ const environmentSchema = z
     HTTP_ALLOWED_ORIGINS: originListSchema,
     SOCKET_ALLOWED_ORIGINS: originListSchema,
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(3).optional(),
+    STAGING_BOOTSTRAP_CONFIRM: z.string().optional(),
+    STAGING_BOOTSTRAP_PHONE: z.string().optional(),
+    STAGING_BOOTSTRAP_PASSWORD: z.string().optional(),
   })
   .superRefine((environment, context) => {
     if (environment.NODE_ENV !== 'production') {
@@ -98,6 +108,44 @@ const environmentSchema = z
         path: ['REFRESH_TOKEN_SECRET'],
         message: 'must contain at least 32 characters in production',
       });
+    }
+
+    if (knownDevelopmentSecrets.has(environment.JWT_SECRET)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['JWT_SECRET'],
+        message: 'must not use a committed development value in production',
+      });
+    }
+
+    if (knownDevelopmentSecrets.has(environment.REFRESH_TOKEN_SECRET)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['REFRESH_TOKEN_SECRET'],
+        message: 'must not use a committed development value in production',
+      });
+    }
+
+    if (environment.JWT_SECRET === environment.REFRESH_TOKEN_SECRET) {
+      context.addIssue({
+        code: 'custom',
+        path: ['REFRESH_TOKEN_SECRET'],
+        message: 'must be independent from JWT_SECRET in production',
+      });
+    }
+
+    for (const field of [
+      'STAGING_BOOTSTRAP_CONFIRM',
+      'STAGING_BOOTSTRAP_PHONE',
+      'STAGING_BOOTSTRAP_PASSWORD',
+    ] as const) {
+      if (environment[field] !== undefined) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'must not be present in the long-running production service',
+        });
+      }
     }
 
     if (!hasPostgresTls(environment.DATABASE_URL)) {

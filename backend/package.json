@@ -67,6 +67,7 @@
     "runtime:mongo:preflight": "node dist/scripts/runtimeMongoPreflight.js",
     "runtime:mongo:activate": "node dist/scripts/runtimeMongoActivate.js",
     "runtime:mongo:status": "node dist/scripts/runtimeMongoStatus.js",
+    "recovery:verify": "node dist/scripts/postgresRestoreIntegrity.js",
     "sessions:mongo:revoke": "node dist/scripts/revokeMongoSessions.js",
     "authz:backfill": "tsx src/scripts/backfillAuthorization.ts",
     "entitlements:catalogue": "tsx src/scripts/bootstrapCommercialCatalogue.ts",
@@ -93,7 +94,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.2",
     "pg": "^8.23.0",
-    "socket.io": "^4.8.3",
+    "socket.io": "^4.8.4",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"

@@ -1,7 +1,7 @@
 services:
   mongo:
     profiles: ["legacy-migration"]
-    image: mongo:8.0.30-noble
+    image: mongo:8.0.30-noble@sha256:f40b97b97ce805c48ab428ce4422180ae0ef0de6dacadf1e32c6e6a1cbc9353d
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-ekavio}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-ekavio-local-development-only}
@@ -22,7 +22,7 @@ services:
       start_period: 10s
 
   postgres:
-    image: postgres:17.11-alpine3.23
+    image: postgres:17.11-alpine3.23@sha256:9ae4e8f8d0284836a505f0b2e825144e32e20499856e7dc5f7b99e19d10eedd6
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ekavio}
       POSTGRES_USER: ${POSTGRES_USER:-ekavio}
