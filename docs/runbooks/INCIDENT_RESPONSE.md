@@ -1,6 +1,6 @@
 # Incident Response for a Controlled Pilot
 
-**Status: procedure drafted; V2-07B is NO-GO FOR REAL CUSTOMER DATA.** The pilot incident primary, backup, support window, and contact route are not yet assigned. Record them privately and test alert delivery before any GO decision. This runbook is an engineering response aid, not a promise of 24/7 coverage.
+**Status: procedure drafted; V2-07C remains NO-GO FOR REAL CUSTOMER DATA.** The pilot incident primary, backup, support window, and contact route are not yet assigned. Record them privately and test alert delivery before any GO decision. This runbook is an engineering response aid, not a promise of 24/7 coverage.
 
 ## First actions for any incident
 
@@ -13,7 +13,7 @@ The alert recipient acknowledges, timestamps the event, identifies affected envi
 | Suspected credential compromise | Limit affected account/service access, revoke sessions or rotate the specific secret through the provider, and preserve audit evidence. | Rotate dependent secrets deliberately, redeploy, verify login/refresh and tenant isolation, and notify affected parties through the approved policy. Never paste secrets into tickets. |
 | Suspected cross-tenant exposure | Stop the affected route or service, freeze relevant writes, preserve safe request IDs and audit trail, and involve privacy/access owner. | Scope affected tenants and time window with restricted access; deploy reviewed fix and negative tests before reopening. Escalate notification decisions to the designated owner. |
 | Corrupted or missing data | Freeze writes; capture an incident backup and safe counts, identify first bad write/deploy, and protect available provider history. | Restore only into a new isolated target, compare counts and affected facts under restricted access, then plan an approved forward repair or cutover. Never overwrite the live database as a first drill. |
-| Failed or overdue backup | Confirm last verified off-provider copy, archive validation, destination health, key availability, and provider history. Alert primary and backup. | Repair job/transfer, run an immediate validated encrypted copy, retrieve it, and perform an isolated restore if integrity is uncertain. Suspend new customer onboarding until the recovery gate is restored. |
+| Failed or overdue backup | Check the scheduled `Encrypted PostgreSQL Backup` Actions run, age (<24 hours), encrypted artifact/manifest presence, SHA-256, GitHub artifact retention/access, offline private-key availability, and Neon history. Notify primary and backup; a green application health probe does not clear this incident. | Repair secrets/job/transfer without exposing values, run a manual encrypted copy, retrieve it, and perform an isolated restore if integrity is uncertain. Suspend new customer onboarding until recovery is verified. Never replace a missing hosted backup with the local Compose proof. |
 
 ## Restore invocation and closeout
 

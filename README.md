@@ -36,13 +36,14 @@ business capabilities, and maintainable backend architecture.
 🚧 Active development
 
 Hosted staging is deployed at `https://ekavio.afsify.com` with its API at
-`https://api.ekavio.afsify.com`. The V2-07B final acceptance decision is
+`https://api.ekavio.afsify.com`. The V2-07B final acceptance and V2-07C blocker-resolution decisions are
 **NO-GO FOR REAL CUSTOMER DATA**. The public routes, schema, local quality
 gates, and selected earlier authenticated staging flows passed, but operating
 encrypted backups, authenticated provider recovery, hosted restore, always-on
 pilot hosting, legacy-source reconciliation, and final hosted authenticated
 acceptance remain open. Staging is for disposable development data only. See
-the [decision and ordered MUST-FIX list](docs/reviews/V2-07B_FINAL_PILOT_ACCEPTANCE.md),
+the [V2-07C blocker matrix](docs/reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md),
+[V2-07B ordered MUST-FIX list](docs/reviews/V2-07B_FINAL_PILOT_ACCEPTANCE.md),
 [pilot operations](docs/runbooks/PILOT_OPERATIONS.md), and
 [incident response](docs/runbooks/INCIDENT_RESPONSE.md).
 
@@ -388,7 +389,7 @@ node scripts/postgres-restore-proof.mjs `
 
 The proof requires migrations 001 through 012, counts the accepted identity, commercial, operational, and audit structures without selecting row data, and rejects core orphan relationships. V2-07A completed this proof against local Compose in 12.379 seconds for a small 273,046-byte development archive; this is not a hosted recovery-time guarantee.
 
-The actual Neon plan/restore settings are not observable from source or a connection URL. A pilot still requires sanitized provider-setting evidence, scheduled/monitored encrypted logical exports, an isolated hosted restore drill, and an explicit V2-07B decision. See the [V2-07A recovery runbook](docs/runbooks/V2-07A_BACKUP_RESTORE.md) and [hardening review](docs/reviews/V2-07A_PILOT_READINESS_HARDENING.md).
+V2-07C adds a scheduled encrypted-backup workflow, offline-key encryption/decryption, a disposable local end-to-end restore check, a hosted header probe, and a read-only two-tenant hosted acceptance script. Run `node --test scripts/backup-envelope.test.mjs` and `node scripts/backup-compose-acceptance.mjs --confirm-local-disposable` for the local backup path. The actual Neon plan/restore settings are not observable from source or a connection URL. A pilot still requires a **successful hosted** scheduled backup/retrieval/isolated restore, authenticated provider-setting evidence, tested alerts and owners, always-on hosting, Atlas source reconciliation, configured Render headers, and hosted acceptance. See the [V2-07C blocker record](docs/reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md), [recovery runbook](docs/runbooks/V2-07A_BACKUP_RESTORE.md), and [V2-07A hardening review](docs/reviews/V2-07A_PILOT_READINESS_HARDENING.md). No real data is approved.
 
 The TypeScript commands execute compiled files. Build first when running them directly from `backend/`:
 

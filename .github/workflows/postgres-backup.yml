@@ -1,0 +1,38 @@
+name: Encrypted PostgreSQL Backup
+
+on:
+  schedule:
+    - cron: '17 2 * * *' # Daily 02:17 UTC; avoid the busiest start-of-hour window.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ekavio-postgresql-backup
+  cancel-in-progress: false
+
+jobs:
+  encrypted-backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.20.2'
+      - name: Create and validate encrypted PostgreSQL archive
+        env:
+          EKAVIO_BACKUP_DATABASE_URL: ${{ secrets.EKAVIO_BACKUP_DATABASE_URL }}
+          EKAVIO_BACKUP_PUBLIC_KEY_PEM: ${{ secrets.EKAVIO_BACKUP_PUBLIC_KEY_PEM }}
+        run: node scripts/postgres-encrypted-backup.mjs --output-dir "$RUNNER_TEMP/ekavio-backup"
+      - name: Retain encrypted artifact and safe checksum manifest only
+        uses: actions/upload-artifact@v4
+        with:
+          name: ekavio-postgresql-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/ekavio-backup/*.evb
+            ${{ runner.temp }}/ekavio-backup/*.evb.json
+          if-no-files-found: error
+          retention-days: 35
+          compression-level: 0
