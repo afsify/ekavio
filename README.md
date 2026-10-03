@@ -47,6 +47,12 @@ the [V2-07C blocker matrix](docs/reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md),
 [pilot operations](docs/runbooks/PILOT_OPERATIONS.md), and
 [incident response](docs/runbooks/INCIDENT_RESPONSE.md).
 
+On 2026-10-03, hosted manual backup run `37124573922` passed archive validation,
+encryption and artifact upload. Retrieval/decryption/isolated PostgreSQL 18-or-newer
+restore and cleanup, successful recurring schedules and alert delivery remain
+OPEN pending specific evidence. Follow the [remaining operator checklist](docs/runbooks/V2-07C_OPERATOR_ACTIONS.md);
+this progress does not authorize a pilot or V2-07D.
+
 ---
 
 ## Development Documentation

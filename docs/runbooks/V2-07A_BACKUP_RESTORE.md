@@ -51,7 +51,7 @@ Stop if the command is non-zero, the archive is empty, validation fails, the rep
 
 ### Pilot schedule and retention proposal
 
-This is a planning gate, not an implemented scheduler:
+The retention/recovery objectives below remain planning gates; a scheduler exists but recurring success and monitoring are not yet proved:
 
 - take one encrypted logical backup at least every 24 hours and before every schema release or material operator mutation;
 - retain daily backups for 14 days and four weekly backups, subject to an approved privacy/retention policy;
@@ -59,7 +59,7 @@ This is a planning gate, not an implemented scheduler:
 - rehearse a restore at least monthly and after a material migration/tooling change;
 - verify provider history/snapshot settings separately and alert when they change.
 
-V2-07C adds a daily GitHub Actions encrypted-backup workflow, but it is **not operating** until its secrets, first hosted run, retrieved artifact, retention, and failure/age notification have been demonstrated. A pilot cannot claim the proposed RPO until those controls and hosted restore are actually operating.
+The first successful hosted manual encrypted-backup run, `37124573922` on commit `22a6d28eed221e1165b7e2f09a90f70444385558`, completed on 2026-10-03 with archive validation, encryption and artifact upload. Artifact `ekavio-postgresql-37124573922-1` is retained until 2026-11-07T12:58:32Z. This proves creation/encryption/initial retention only. Retrieval, offline decryption/private-key custody, isolated PostgreSQL 18-or-newer restore, restored migration/integrity checks and cleanup remain OPEN pending specific evidence. Successful scheduled runs and failure/age delivery also remain OPEN. See the [separate gate record](../reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md) and [operator checklist](V2-07C_OPERATOR_ACTIONS.md). Do not regenerate working keys or rerun an already completed recovery step merely to document it. No pilot RPO/RTO is claimed.
 
 ### V2-07C encrypted GitHub Actions export
 
@@ -159,7 +159,7 @@ Do not put a restored database into service merely because readiness returns 200
 
 ## RPO and RTO assumptions
 
-- **Current proven state:** one local logical backup/restore rehearsal. There is no operating schedule, hosted restore drill, or authenticated provider-setting evidence; therefore no pilot RPO/RTO is claimed.
+- **Current proven state:** local logical backup/restore proof plus one hosted manual encrypted archive/artifact success. Successful recurring schedule, itemized hosted retrieval/decrypt/restore evidence and authenticated provider-setting evidence remain OPEN; therefore no pilot RPO/RTO is claimed.
 - **Logical-backup planning objective:** at most 24 hours of data loss after the proposed daily schedule is implemented and monitored. A manual pre-change backup can narrow that point for a planned change.
 - **Provider-history planning objective:** verify at least a 24-hour project history window before pilot use. Public Free-plan documentation describing six hours is insufficient for that objective.
 - **Initial recovery-time planning objective:** four hours for a small pilot, including target creation, restore, verification, deployment, and operator decision. The local measured duration is not a hosted RTO guarantee; repeat the drill with realistic hosted size and network conditions.
