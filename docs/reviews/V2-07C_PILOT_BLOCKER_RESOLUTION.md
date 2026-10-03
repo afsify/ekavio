@@ -72,6 +72,23 @@ No new Atlas source connection or apply was attempted without an allowlist updat
 
 Follow the nine-step [remaining operator action checklist](../runbooks/V2-07C_OPERATOR_ACTIONS.md). All hard blockers still need evidence before a separate V2-07D review is justified; the decision remains **NO-GO FOR REAL CUSTOMER DATA**.
 
+## Focused Render hosting/header recheck (2026-10-03)
+
+Started on clean main `5103516d0371ed0cf60ebd8e6cf8a313810bd238`, equal to origin/main and remote main. This continuation made no account/billing, environment, database, recovery, Atlas or product changes. No authenticated Render dashboard/API access was available (`RENDER_API_KEY` absent); current compute class, instance count, region, backend/frontend deployed SHAs and runtime configuration therefore remain **EXTERNAL ACTION REQUIRED**. The repository's PostgreSQL-only runtime requirement remains unchanged, not independently verified as deployed configuration.
+
+| Public evidence | Result |
+| --- | --- |
+| Frontend `/` and `/login` GET | HTTP 200, no redirect; 998/947 ms |
+| Backend live/ready GET | HTTP 200, no redirect; 23,319/23,318 ms on concurrent probes; latency is not proof of a compute plan or an idle test |
+| Frontend security headers on both routes | `X-Content-Type-Options: nosniff` PASS; HSTS, CSP, X-Frame-Options, Referrer-Policy and Permissions-Policy absent, FAIL; existing HEAD checker failed both routes |
+| Backend live/ready security headers | HSTS `max-age=31536000; includeSubDomains`, Helmet CSP, nosniff, X-Frame-Options SAMEORIGIN, Referrer-Policy no-referrer and Permissions-Policy present. Backend headers do not secure frontend responses. |
+| Public Socket transport | Engine.IO v4 polling HTTP 200 with accepted frontend Origin, WebSocket advertised; direct WSS open frame PASS. No session identifier printed; authenticated Socket.IO rooms, reconnect and Queue events NOT TESTED. |
+| Frontend assets | HTML root plus external same-origin module/registration scripts fetched; app bundle, `/registerSW.js`, `/manifest.webmanifest` and `/sw.js` HTTP 200. Manifest served as binary/octet-stream; browser parsing, installation and worker activation are not proved by fetch. |
+
+Requested CSP matches the existing Vercel policy and source usage: self-hosted scripts/assets/worker/manifest, inline styles, data/blob images, data fonts, exact HTTPS API and WSS Socket origins. Public HTML has no nonempty inline scripts. This is source/public-asset compatibility evidence, **not** a passing enforced-browser CSP test, authenticated API/Socket test or an exact deployed-SHA claim. Do not add wildcard origins or script unsafe-inline to obtain PASS.
+
+**Always-on: EXTERNAL ACTION REQUIRED. Security headers: FAIL / EXTERNAL ACTION REQUIRED.** Follow steps 2 and 4 of the [operator checklist](../runbooks/V2-07C_OPERATOR_ACTIONS.md): preserve one instance, existing region/environment and PostgreSQL-only runtime; purchase no plan automatically. After approved plan/header configuration, record sanitized dashboard plan/region/count/deployed SHAs, repeat four route and public Socket probes, require both header checks PASS, then perform short browser/PWA/authenticated API/Socket and idle/resource/log checks. No upgrade/post-upgrade/idle evidence has been supplied. All other hard blockers and **NO-GO** remain unchanged; V2-07D is not justified.
+
 ## Narrow backup client correction (2026-10-03)
 
 The operator reported the hosted backup reached Neon but failed with server PostgreSQL 18.6 versus pg_dump 17.11. Public backup run `37108471538` confirms failure in the dump/validation step; its detailed logs require authenticated access, so the exact version pair is operator-supplied evidence. External backup/archive clients now use the verified official `postgres:18.6-alpine3.23@sha256:885cf05d376c7cf27afef02073e6bdac3841252537f16e244fd1c1e6a7c99fb1` manifest. Compose/CI PostgreSQL stays at 17.11. Regression coverage requires a pinned client major of at least 18; local restore rejects a newer-client dump before creating a target. Local pg_dump 17 backup/restore evidence does not prove a hosted pg_dump 18 archive can restore into PostgreSQL 17. The subsequent hosted encrypted workflow succeeded as recorded above; retrieval and isolated PostgreSQL 18-or-newer restore still need itemized evidence before the recovery gate can pass. No URL, TLS setting, key, product behavior or milestone tag changed.

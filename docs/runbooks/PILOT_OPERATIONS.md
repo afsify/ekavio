@@ -42,6 +42,14 @@ Once each month, retrieve a stored copy and restore to a newly created isolated 
 
 ## Release and rollback
 
+### Render pilot hosting evidence gate
+
+The 2026-10-03 focused recheck found frontend `/` and `/login`, backend live/ready, and public polling/WSS transport available without redirect loops. Frontend headers still FAIL: HSTS, CSP, frame, referrer and permissions protections are missing; nosniff alone passes. No authenticated Render compute/deployed-SHA or post-upgrade evidence was available. See the [focused evidence](../reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md) and checklist steps 2/4. Always-on remains EXTERNAL ACTION REQUIRED, not resolved by warming health probes.
+
+Require one approved non-sleeping backend instance, preserved current region (Singapore if already configured), unchanged secrets/environment/PostgreSQL-only normal runtime, exact deployed commit, health/Socket/reconnect results and measured idle/resource/log evidence. Configure the six listed headers on the actual Render Static Site for `/*`, not only in Vercel source. Require both live header checks PASS and short enforced-browser app/PWA/API/Socket checks before closing either gate. Do not make a billing purchase, region migration or unrelated configuration change automatically.
+
+### Release procedure
+
 1. Record the exact reviewed commit, prior known-good commit/tag, operator, deploy window, and current migration status. Require the secure direct/session-capable PostgreSQL connection to report exactly the accepted migrations before rollout; take and verify a pre-change encrypted backup.
 2. Review forward-only migration compatibility. Apply only reviewed pending migrations explicitly, with a separate migration record; an app deploy alone is not migration evidence. Preserve logs and migration output without credentials.
 3. Deploy the exact accepted frontend/backend artifacts. Check `/health/live`, `/health/ready`, `/`, and `/login` for 200; verify login/refresh, tenant context, one safe read per enabled domain, entitlements, and Socket behavior with disposable credentials. Review logs and backup/alert heartbeat.
