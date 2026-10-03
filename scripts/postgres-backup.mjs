@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
-  POSTGRES_IMAGE,
+  POSTGRES_TOOLING_IMAGE,
   ensureDirectory,
   requireAbsoluteOutsideRepository,
   runDocker,
@@ -68,12 +68,14 @@ try {
         'exec pg_dump --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --format=custom --no-owner --no-acl',
       ]
     : [
-        'run', '--rm', '-i', '-e', input.connectionEnvironment, POSTGRES_IMAGE, 'sh', '-c',
+        'run', '--rm', '-i', '-e', input.connectionEnvironment, POSTGRES_TOOLING_IMAGE, 'sh', '-c',
         `exec pg_dump --dbname="$${input.connectionEnvironment}" --format=custom --no-owner --no-acl`,
       ];
   await runDocker(argumentsList, { outputPath: archivePath });
   const validation = await validateArchive(archivePath);
-  const version = (await runDocker(['run', '--rm', POSTGRES_IMAGE, 'pg_dump', '--version'])).trim();
+  const version = (await runDocker(input.compose
+    ? ['compose', 'exec', '-T', 'postgres', 'pg_dump', '--version']
+    : ['run', '--rm', POSTGRES_TOOLING_IMAGE, 'pg_dump', '--version'])).trim();
 
   console.log(JSON.stringify({
     status: 'backup_validated',
@@ -83,7 +85,8 @@ try {
     sizeBytes: validation.sizeBytes,
     tocEntries: validation.tocEntries,
     sha256: await checksum(archivePath),
-    toolImage: POSTGRES_IMAGE,
+    ...(input.compose ? { toolService: 'compose/postgres' } : { toolImage: POSTGRES_TOOLING_IMAGE }),
+    archiveValidationImage: POSTGRES_TOOLING_IMAGE,
     toolVersion: version,
     durationMs: Date.now() - startedAt,
   }, null, 2));

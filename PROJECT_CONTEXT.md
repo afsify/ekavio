@@ -88,7 +88,7 @@
 
 - Backend/frontend Node stages: `node:20.20.2-alpine3.23` plus tested multi-platform manifest digest.
 - Frontend static runtime: `nginx:1.31.6-alpine3.24` plus tested multi-platform manifest digest.
-- Compose/CI PostgreSQL and backup tooling: `postgres:17.11-alpine3.23` plus the tested manifest digest.
+- Compose/CI PostgreSQL server: `postgres:17.11-alpine3.23` plus the tested manifest digest. External backup/archive tooling independently uses `postgres:18.6-alpine3.23@sha256:885cf05d376c7cf27afef02073e6bdac3841252537f16e244fd1c1e6a7c99fb1` after the 2026-10-03 correction for hosted Neon 18.6; local Compose dumps still use pg_dump 17.11. Hosted pg_dump 18 restore proof requires an isolated PostgreSQL 18-or-newer target and remains open.
 - Retained offline migration/CI Mongo: `mongo:8.0.30-noble` plus manifest digest; it is not a normal runtime dependency.
 - CI setup-node is pinned to Node 20.20.2.
 - Backend production runs as UID 1000 from compiled `dist`, omits dev dependencies/source/environment files, starts `node dist/server.js`, and health-checks readiness. Frontend runs as UID 101 with static output only and no `node_modules` or environment file. Normal Compose publishes only backend 5000 and frontend 80-to-8080; PostgreSQL is internal and Mongo is stopped/offline-profile only.

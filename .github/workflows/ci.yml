@@ -48,7 +48,7 @@ jobs:
             frontend/package-lock.json
 
       - name: Test encrypted backup envelope and fail-closed recovery format
-        run: node --test scripts/backup-envelope.test.mjs
+        run: node --test scripts/backup-envelope.test.mjs scripts/postgres-tooling.test.mjs
 
       - name: Install backend dependencies
         working-directory: backend

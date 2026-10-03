@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import {
+  assertRestoreMajorCompatible,
   requireAbsoluteOutsideRepository,
   runDocker,
   sanitizeDiagnostic,
@@ -48,6 +49,12 @@ try {
       throw new Error(`Required Compose service is not running: ${requiredService}`);
     }
   }
+
+  const targetVersion = (await runPostgres(
+    'exec psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --tuples-only --no-align --command="SHOW server_version_num"',
+  )).trim();
+  // Reject newer-client archives before creating or restoring any local target.
+  assertRestoreMajorCompatible(validation.dumpMajor, targetVersion);
 
   const existenceQuery = `SELECT COUNT(*) FROM pg_database WHERE datname = '${input.database}'`;
   const existing = (await runPostgres(

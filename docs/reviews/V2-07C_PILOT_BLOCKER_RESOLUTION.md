@@ -32,3 +32,9 @@ Backend lint, typecheck and build passed; 143/143 unit tests passed. Frontend li
 5. Collect sanitized exact-commit/config/owner/monitor/provider evidence. Only then perform a separate explicit GO confirmation. Until every hard gate has evidence, the decision remains **NO-GO**.
 
 No new GO review is justified yet. External provider/account actions were not fabricated or silently waived.
+
+## Narrow backup client correction (2026-10-03)
+
+The operator reported the hosted backup reached Neon but failed with server PostgreSQL 18.6 versus pg_dump 17.11. Public backup run `37108471538` confirms failure in the dump/validation step; its detailed logs require authenticated access, so the exact version pair is operator-supplied evidence. External backup/archive clients now use the verified official `postgres:18.6-alpine3.23@sha256:885cf05d376c7cf27afef02073e6bdac3841252537f16e244fd1c1e6a7c99fb1` manifest. Compose/CI PostgreSQL stays at 17.11. Regression coverage requires a pinned client major of at least 18; local restore rejects a newer-client dump before creating a target. Local pg_dump 17 backup/restore evidence does not prove a hosted pg_dump 18 archive can restore into PostgreSQL 17. The hosted encrypted workflow must be rerun and retrieved/restored on an isolated PostgreSQL 18-or-newer target before the backup/recovery gate can pass. No URL, TLS setting, key, product behavior or milestone tag changed.
+
+The exact pinned image reported `pg_dump (PostgreSQL) 18.6` locally. All five envelope/client/restore-compatibility tests passed. The local encrypted Compose acceptance passed with a 273,046-byte pg_dump 17 archive, migrations 001–012, zero checked orphans and removal of the disposable target; archive validation used pg_restore 18.6. This narrow fix has not exported or restored hosted data.
