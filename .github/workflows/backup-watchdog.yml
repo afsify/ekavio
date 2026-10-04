@@ -1,0 +1,45 @@
+name: PostgreSQL Backup Watchdog
+
+on:
+  schedule:
+    - cron: '43 * * * *' # Independent hourly metadata check; not an uptime warmer.
+  workflow_run:
+    workflows: [Encrypted PostgreSQL Backup]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      notification_test:
+        description: 'Safe watchdog-only failure to test notification delivery (no backup changes)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ekavio-backup-watchdog
+  cancel-in-progress: false
+
+jobs:
+  metadata-watchdog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main # Never execute a triggering run's untrusted artifact or source.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20.20.2'
+      - name: Notification delivery test (watchdog only)
+        if: github.event_name == 'workflow_dispatch' && inputs.notification_test
+        run: |
+          echo 'Controlled watchdog notification test; encrypted backup workflow untouched.'
+          exit 1
+      - name: Check scheduled backup age and artifact metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/backup-watchdog.mjs

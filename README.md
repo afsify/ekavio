@@ -57,6 +57,8 @@ this progress does not authorize a pilot or V2-07D.
 
 ## Development Documentation
 
+V2-07C backup monitoring now includes a separate metadata-only [watchdog](scripts/backup-watchdog.mjs) and [operator/delivery checklist](docs/runbooks/V2-07C_OPERATOR_ACTIONS.md#monitoring-and-backup-alert-operator-actions-2026-10-04). It requires recent scheduled backup success and a retained artifact; manual success does not substitute. Tooling does not prove notifications, external monitoring or pilot readiness. NO-GO remains unchanged.
+
 EkaVio is a React/Vite PWA with an Express/TypeScript backend and PostgreSQL as its sole normal runtime data authority. V2-01 established deterministic engineering and container foundations, V2-02 added revocable server-side sessions, V2-03 added explicit organization memberships and permission enforcement, V2-04 added backend-authoritative commercial entitlements, V2-05A added the PostgreSQL shared-core migration foundation, V2-05B added the compatibility bridge, V2-05C cut identity/session/authorization authority to PostgreSQL, V2-05D cut commercial runtime authority to PostgreSQL, V2-06B1/B2 established and activated Customer/Service/Appointment/Queue relational authority, V2-06B3 prepared hosted staging, V2-06B5A/B/B5C added controlled public commercial intake, manual activation, and renewals, V2-06C/D/E cut Attendance, Customer Dues, and Inventory, and V2-06F cut corporate and security audit while removing MongoDB from normal server startup/readiness. MongoDB remains only for explicit legacy migration, reconciliation, archive, recovery, and compatibility tests; Atlas has not been deleted.
 
 ## Prerequisites

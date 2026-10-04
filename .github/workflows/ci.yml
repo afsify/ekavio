@@ -50,6 +50,9 @@ jobs:
       - name: Test encrypted backup envelope and fail-closed recovery format
         run: node --test scripts/backup-envelope.test.mjs scripts/postgres-tooling.test.mjs
 
+      - name: Test backup watchdog policy and workflow boundary
+        run: node --test scripts/backup-watchdog.test.mjs
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
