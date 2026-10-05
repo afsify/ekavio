@@ -3,11 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { Check, IndianRupee, PackageCheck, Send, ShieldCheck } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { publicClient } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { normalizePhone } from '../../utils/phone';
+import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 import {
   formatInrMinor,
   type AccessRequestReceipt,
@@ -21,7 +24,7 @@ const requestFormSchema = z.object({
   businessName: z.string().trim().min(2, 'Enter your business name').max(160),
   businessType: z.string().trim().min(2, 'Enter the business type').max(80),
   contactName: z.string().trim().min(2, 'Enter a contact name').max(120),
-  phone: z.string().trim().min(6, 'Enter a valid phone number').max(32),
+  phone: z.string().trim().refine((value) => Boolean(normalizePhone(value)), 'Enter a valid phone number'),
   email: z.union([z.literal(''), z.string().trim().email('Enter a valid email').max(254)]),
   note: z.string().trim().max(500, 'Keep the note under 500 characters'),
 });
@@ -134,12 +137,15 @@ export const PricingSection: React.FC = () => {
     handleSubmit,
     formState: { errors },
     reset,
+    control,
+    setValue,
   } = useForm<RequestForm>({
     resolver: zodResolver(requestFormSchema),
     defaultValues: {
       businessName: '', businessType: '', contactName: '', phone: '', email: '', note: '',
     },
   });
+  const contactPhone = useWatch({ control, name: 'phone', defaultValue: '' });
   const submitMutation = useMutation({
     mutationFn: async (form: RequestForm) => {
       const response = await publicClient.post<{ data: AccessRequestReceipt }>(
@@ -310,7 +316,7 @@ export const PricingSection: React.FC = () => {
               <p className="mt-5 text-sm text-slate-300">
                 Accepted {receipt.billingCycle} list estimate: <strong>{formatInrMinor(receipt.subtotalMinor)}</strong>
               </p>
-              <p className="mt-2 break-all text-xs text-slate-500">Receipt: {receipt.receiptId}</p>
+              <TechnicalDetails values={{ Receipt: receipt.receiptId }} />
               <Button className="mt-6" variant="secondary" onClick={() => setReceipt(null)}>Send another request</Button>
             </div>
           ) : (
@@ -319,7 +325,7 @@ export const PricingSection: React.FC = () => {
               <Input label="Business type" placeholder="Clinic, shop, office…" {...register('businessType')} error={errors.businessType?.message} />
               <Input label="Contact name" {...register('contactName')} error={errors.contactName?.message} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Phone" placeholder="9876543210 or +91…" {...register('phone')} error={errors.phone?.message} />
+                <PhoneInput label="Phone" required value={contactPhone} onChange={(value) => setValue('phone', value, { shouldValidate: true })} error={errors.phone?.message} />
                 <Input label="Email (optional)" type="email" {...register('email')} error={errors.email?.message} />
               </div>
               <div>

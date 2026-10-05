@@ -73,14 +73,14 @@ export interface AppState {
   bootstrapSession: () => Promise<void>;
   clearSession: () => void;
   logout: () => Promise<void>;
-  setTheme: (mode: 'light' | 'dark', primaryColor?: string) => void;
+  setTheme: (mode: ThemeConfig['mode'], primaryColor?: string) => void;
   setActiveTenant: (tenantId: string) => Promise<boolean>;
   setActiveBranch: (branchId: string) => Promise<boolean>;
   refreshEntitlements: () => Promise<EffectiveEntitlements>;
 }
 
-const DEFAULT_THEME: ThemeConfig = { mode: 'dark', primaryColor: '#4F46E5' };
-const browserStorage = typeof window === 'undefined' ? undefined : window.localStorage;
+const DEFAULT_THEME: ThemeConfig = { mode: 'light', primaryColor: '#4F46E5' };
+const browserStorage = (() => { try { return typeof window === 'undefined' ? undefined : window.localStorage; } catch { return undefined; } })();
 const initialTheme = browserStorage
   ? migrateAndClearLegacyAuthStorage(browserStorage) ?? DEFAULT_THEME
   : DEFAULT_THEME;
@@ -118,7 +118,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       user: enrichedUser,
       token: payload.accessToken,
-      ...(payload.theme ? { theme: payload.theme } : {}),
       isAuthenticated: true,
       isBootstrapping: false,
       activeTenantId: organizationId,
@@ -126,7 +125,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       entitlements: payload.entitlements,
       isPlatformOperator: payload.platformOperator === true,
     });
-    if (browserStorage && payload.theme) saveThemePreference(browserStorage, payload.theme);
     useSocketStore
       .getState()
       .connectSocket(payload.accessToken, organizationId, activeBranchId ?? undefined);
@@ -206,14 +204,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setTheme: (mode, primaryColor) => {
-    const nextTheme = { mode, primaryColor: primaryColor ?? get().theme.primaryColor };
+    const nextTheme = { mode, primaryColor: primaryColor && /^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : get().theme.primaryColor };
     set({ theme: nextTheme });
     if (browserStorage) saveThemePreference(browserStorage, nextTheme);
-    if (get().token) {
-      void import('../api/client').then(({ client }) => {
-        void client.put('/auth/theme', nextTheme).catch(() => undefined);
-      });
-    }
   },
 }));
 

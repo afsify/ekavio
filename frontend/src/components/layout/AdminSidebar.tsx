@@ -1,145 +1,38 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Home, LayoutDashboard, Settings, Users, X, LogOut, Building2, BookOpenCheck, PackageCheck, Clock, UserCog, CreditCard, CalendarClock, ClipboardList, RefreshCw } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { useAppStore } from '../../store/useAppStore';
-import { hasEntitlement, MODULES, type ModuleKey } from '../../commercial/catalogue';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export const AdminSidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const location = useLocation();
+import { visibleDestinations } from './navigation';
+import { useQueryClient } from '@tanstack/react-query';
+export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { user, entitlements, isPlatformOperator, logout } = useAppStore();
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
-  const user = useAppStore((state) => state.user);
-  const entitlements = useAppStore((state) => state.entitlements);
-  const logout = useAppStore((state) => state.logout);
-  const isPlatformOperator = useAppStore((state) => state.isPlatformOperator);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  const handleLogout = async () => {
-    if (isSigningOut) return;
-
-    setIsSigningOut(true);
-    try {
-      await logout();
-      toast.success('Signed out successfully');
-    } catch {
-      toast.error('Signed out locally, but the server session could not be revoked');
-    } finally {
-      setIsSigningOut(false);
-      onClose();
-      navigate('/login', { replace: true });
-    }
-  };
-
-  const menuItems: Array<{
-    name: string;
-    path: string;
-    icon: React.ReactNode;
-    module?: ModuleKey;
-    permission?: string;
-    platformOperatorOnly?: boolean;
-  }> = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { name: 'Inventory', path: '/inventory', icon: <PackageCheck className="w-5 h-5" />, module: MODULES.INVENTORY, permission: 'inventory.read' },
-    { name: 'Queue', path: '/queue', icon: <Clock className="w-5 h-5" />, module: MODULES.QUEUE },
-    { name: 'Appointments', path: '/appointments', icon: <CalendarClock className="w-5 h-5" />, module: MODULES.QUEUE },
-    { name: 'Customer Dues', path: '/ledger', icon: <BookOpenCheck className="w-5 h-5" />, module: MODULES.LEDGER, permission: 'ledger.read' },
-    { name: 'Attendance', path: '/attendance', icon: <Users className="w-5 h-5" />, module: MODULES.ATTENDANCE, permission: 'attendance.read' },
-    { name: 'Billing', path: '/billing', icon: <CreditCard className="w-5 h-5" />, permission: 'billing.read' },
-    { name: 'Commercial Intake', path: '/commercial/requests', icon: <ClipboardList className="w-5 h-5" />, platformOperatorOnly: true },
-    { name: 'Renewals', path: '/commercial/renewals', icon: <RefreshCw className="w-5 h-5" />, platformOperatorOnly: true },
-    { name: 'Corporate HQ', path: '/corporate', icon: <Building2 className="w-5 h-5" />, permission: 'corporate.manage' },
-    { name: 'Staff', path: '/staff', icon: <UserCog className="w-5 h-5" />, permission: 'staff.read' },
-    { name: 'Settings', path: '/settings', icon: <Settings className="w-5 h-5" />, permission: 'organization.manage' },
-  ];
-
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.permission && !user?.permissions?.includes(item.permission)) return false;
-    if (item.module && !hasEntitlement(entitlements, item.module)) return false;
-    if (item.platformOperatorOnly && !isPlatformOperator) return false;
-    return true;
-  });
-
-  return (
-    <>
-      {/* Mobile Backdrop */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 md:hidden animate-in fade-in"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-slate-800 flex flex-col transition-transform duration-300 md:relative md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="flex items-center justify-between p-6 shrink-0">
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Home className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight">Ekavio</span>
-          </Link>
-          <button onClick={onClose} className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
-          {filteredMenuItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 group font-medium",
-                  isActive 
-                    ? "bg-indigo-500/10 text-indigo-400" 
-                    : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                )}
-                onClick={() => onClose()}
-              >
-                <div className={cn(
-                  "transition-transform duration-200",
-                  isActive ? "scale-110 text-indigo-400" : "text-slate-500 group-hover:text-slate-300"
-                )}>
-                  {item.icon}
-                </div>
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-slate-800/80 shrink-0">
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            disabled={isSigningOut}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-colors font-medium"
-          >
-            <LogOut className="w-5 h-5" />
-            {isSigningOut ? 'Signing Out...' : 'Sign Out'}
-          </button>
-        </div>
-      </aside>
-    </>
-  );
-};
-
-export default AdminSidebar;
+  const cache = useQueryClient();
+  const sidebarRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!isOpen || !window.matchMedia('(max-width: 1023px)').matches) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    const sidebar = sidebarRef.current;
+    const focusable = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)') ?? []).filter((element) => element.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    document.body.style.overflow = 'hidden';
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab') return;
+      const items = focusable(), first = items[0], last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    sidebar?.addEventListener('keydown', handleKey);
+    return () => { sidebar?.removeEventListener('keydown', handleKey); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+  }, [isOpen, onClose]);
+  const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
+  return <>{isOpen && <button className="nav-backdrop" aria-label="Close navigation overlay" onClick={onClose} />}
+    <aside ref={sidebarRef} className={`workspace-nav ${isOpen ? 'is-open' : ''}`} aria-label="Workspace sidebar">
+      <div className="flex items-center justify-between"><Link className="brand" to="/dashboard">EkaVio</Link><button className="nav-close quiet-button" onClick={onClose} aria-label="Close navigation">×</button></div>
+      <nav aria-label="Main navigation">{(['Workspace','Operations','Administration','Platform operations'] as const).map((group) => items.some((item) => item.group === group) && <section className="nav-group" key={group}><h2>{group}</h2>{items.filter((item) => item.group === group).map((item) => <NavLink key={item.path} className="nav-link" to={item.path} onClick={onClose}>{item.name}</NavLink>)}</section>)}</nav>
+      <button className="quiet-button w-full" disabled={busy} onClick={() => { setBusy(true); void logout().catch(() => toast.error('Signed out locally; server revocation unavailable')).finally(() => { cache.clear(); setBusy(false); onClose(); navigate('/login', { replace: true }); }); }}>{busy ? 'Signing out…' : 'Sign out'}</button>
+    </aside></>;
+}

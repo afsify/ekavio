@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useForm, useWatch, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -14,10 +14,12 @@ import { Input } from '../../components/ui/Input';
 import { client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
 import { useAppStore } from '../../store/useAppStore';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { normalizePhone } from '../../utils/phone';
 
 const staffSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  phone: z.string().min(10, 'Phone must be at least 10 characters'),
+  phone: z.string().refine((value) => Boolean(normalizePhone(value)), 'Enter a valid phone number'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.enum(['admin', 'staff']),
 });
@@ -25,7 +27,7 @@ const staffSchema = z.object({
 type StaffFormInputs = z.infer<typeof staffSchema>;
 
 interface StaffMember {
-  _id: string;
+  id: string;
   name: string;
   phone: string;
   role: string;
@@ -38,7 +40,7 @@ export const StaffManagementPage: React.FC = () => {
   const currentUser = useAppStore((state) => state.user);
 
   const { data: staffData, isLoading } = useQuery({
-    queryKey: ['staff'],
+    queryKey: ['staff', currentUser?.tenantId],
     queryFn: async () => {
       const response = await client.get('/staff');
       return response.data.data as StaffMember[];
@@ -49,12 +51,15 @@ export const StaffManagementPage: React.FC = () => {
     register,
     handleSubmit,
     reset,
+    control,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<StaffFormInputs>({
     resolver: zodResolver(staffSchema),
     defaultValues: { role: 'staff' },
   });
 
+  const staffPhone = useWatch({ control, name: 'phone', defaultValue: '' });
   const createMutation = useMutation({
     mutationFn: async (data: StaffFormInputs) => {
       const response = await client.post('/staff', data);
@@ -113,7 +118,8 @@ export const StaffManagementPage: React.FC = () => {
       header: 'Actions',
       accessor: 'actions',
       cell: ({ row }: { row: StaffMember }) => {
-        if (row._id === currentUser?.id) return <span className="text-xs text-slate-500">You</span>;
+        if (row.id === currentUser?.id) return <span className="text-xs text-slate-500">You</span>;
+        if (!currentUser?.permissions?.includes('staff.manage')) return null;
         
         return (
           <Button 
@@ -122,7 +128,7 @@ export const StaffManagementPage: React.FC = () => {
             onClick={(e) => {
               e.stopPropagation();
               if (window.confirm('Are you sure you want to delete this staff member?')) {
-                deleteMutation.mutate(row._id);
+                deleteMutation.mutate(row.id);
               }
             }}
             title="Delete Staff"
@@ -168,7 +174,7 @@ export const StaffManagementPage: React.FC = () => {
             <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} isLoading={isSubmitting}>
+            <Button onClick={handleSubmit(onSubmit)} isLoading={isSubmitting || createMutation.isPending}>
               Create Account
             </Button>
           </>
@@ -181,13 +187,7 @@ export const StaffManagementPage: React.FC = () => {
             {...register('name')}
             error={errors.name?.message}
           />
-          <Input
-            id="phone"
-            label="Phone Number"
-            type="tel"
-            {...register('phone')}
-            error={errors.phone?.message}
-          />
+          <PhoneInput label="Phone Number" required value={staffPhone} onChange={(phone) => setValue('phone', phone, { shouldValidate: true })} error={errors.phone?.message} />
           <Input
             id="password"
             label="Temporary Password"

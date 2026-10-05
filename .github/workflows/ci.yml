@@ -204,5 +204,25 @@ jobs:
           VITE_SOCKET_URL: http://localhost:5000
         run: npm run build
 
+      - name: Test frontend foundation
+        working-directory: frontend
+        run: npm test
+
+      - name: Install QA Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Test product experience in browser
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload frontend QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-product-experience
+          path: frontend/test-results
+          retention-days: 7
+
       - name: Validate Docker Compose
         run: docker compose config

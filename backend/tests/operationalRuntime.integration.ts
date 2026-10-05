@@ -142,6 +142,11 @@ test('V2-06B2 Express runtime is PostgreSQL-only, isolated, concurrent, and idem
   const mongoQueueBefore = await Queue.countDocuments({});
   const customerA = await request('/customers', { method: 'POST', body: { name: 'Alice', phone: '+919876543210' } });
   assert.equal(customerA.status, 201, JSON.stringify(customerA.body));
+  assert.equal((await request(`/customers/${customerA.body.data.id}`)).status, 200);
+  assert.equal((await request(`/customers/${customerA.body.data.id}`, { method: 'PATCH', body: { notes: 'STAGING V208A updated through canonical API' } })).status, 200);
+  assert.equal((await request(`/customers/${customerA.body.data.id}`)).body.data.notes, 'STAGING V208A updated through canonical API');
+  assert.equal((await request(`/customers/${customerA.body.data.id}`, { token: tokenB, organizationId: organizationB.organizationId, branchId: organizationB.branchId })).status, 404);
+  assert.equal((await request(`/customers/${customerA.body.data.id}`, { method: 'PATCH', body: { notes: 'foreign update forbidden' }, token: tokenB, organizationId: organizationB.organizationId, branchId: organizationB.branchId })).status, 404);
   const duplicatePhone = await request('/customers', { method: 'POST', body: { name: 'Alice Family', phone: '+919876543210' } });
   assert.equal(duplicatePhone.status, 201);
   assert.notEqual(customerA.body.data.id, duplicatePhone.body.data.id);
@@ -152,6 +157,12 @@ test('V2-06B2 Express runtime is PostgreSQL-only, isolated, concurrent, and idem
     name: 'Consultation', durationMinutes: 30, priceMinor: '2500', currency: 'INR',
   } });
   assert.equal(serviceA.status, 201, JSON.stringify(serviceA.body));
+  assert.equal((await request(`/services/${serviceA.body.data.id}`, { method: 'PATCH', body: { description: 'STAGING V208A canonical service' } })).status, 200);
+  assert.equal((await request(`/services/${serviceA.body.data.id}`, { method: 'PATCH', body: { active: false }, token: tokenB, organizationId: organizationB.organizationId, branchId: organizationB.branchId })).status, 404);
+  assert.equal((await request('/services?scope=organization&search=CONSULT')).body.pagination.total, 1);
+  assert.equal((await request('/services?scope=organization&search=not-present')).body.pagination.total, 0);
+  assert.equal((await request('/services?scope=organization&search=Consult', { token: tokenB, organizationId: organizationB.organizationId, branchId: organizationB.branchId })).body.pagination.total, 0);
+  assert.equal((await request('/services?search=Consult', { branchId: branchA2 })).body.pagination.total, 0);
   assert.equal((await request('/services', { branchId: branchA2 })).body.data.length, 0);
   assert.equal((await request(`/services/${serviceA.body.data.id}/providers`, { method: 'PUT', body: {
     membershipId: membershipA, active: true,

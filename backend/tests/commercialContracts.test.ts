@@ -231,7 +231,7 @@ test('frontend commercial intake uses server quotes and platform-operator UI gua
     source('frontend/src/pages/Commercial/CommercialRequestsPage.tsx'),
     source('frontend/src/pages/Commercial/CommercialActivationPanel.tsx'),
     source('frontend/src/App.tsx'),
-    source('frontend/src/components/layout/AdminSidebar.tsx'),
+    source('frontend/src/components/layout/navigation.ts'),
     source('frontend/src/store/useAppStore.ts'),
   ]);
   assert.match(pricing, /\/public\/commercial\/quote/);
@@ -242,7 +242,8 @@ test('frontend commercial intake uses server quotes and platform-operator UI gua
   assert.match(activationPanel, /Finalize commercial agreement/);
   assert.match(activationPanel, /\/billing\/operator\/agreements/);
   assert.match(app, /PlatformOperatorGuard/);
-  assert.match(sidebar, /platformOperatorOnly/);
+  assert.match(sidebar, /name: 'Commercial Intake'[^\n]*operator: true/);
+  assert.match(sidebar, /!item\.operator \|\| operator/);
   assert.match(store, /isPlatformOperator: payload\.platformOperator === true/);
   assert.doesNotMatch(`${pricing}\n${operatorPage}\n${activationPanel}`, /setEntitlements|upsertEntitlement|updateSubscription/);
 });
@@ -252,7 +253,7 @@ test('frontend consumes canonical backend entitlement state without local activa
     source('frontend/src/store/useAppStore.ts'),
     source('frontend/src/App.tsx'),
     source('frontend/src/pages/Dashboard.tsx'),
-    source('frontend/src/components/layout/AdminSidebar.tsx'),
+    source('frontend/src/components/layout/navigation.ts'),
   ]);
   assert.match(store, /entitlements: payload\.entitlements/);
   assert.match(store, /client\.get<\{ data: EffectiveEntitlements \}>\('\/billing\/subscription'\)/);
@@ -281,7 +282,7 @@ test('manual renewal lifecycle keeps mutation operator-only and billing read-onl
     source('frontend/src/pages/Commercial/CommercialRenewalsPage.tsx'),
     source('frontend/src/pages/Billing/BillingPage.tsx'),
     source('frontend/src/App.tsx'),
-    source('frontend/src/components/layout/AdminSidebar.tsx'),
+    source('frontend/src/components/layout/navigation.ts'),
   ]);
 
   for (const path of [
@@ -314,7 +315,8 @@ test('manual renewal lifecycle keeps mutation operator-only and billing read-onl
   assert.match(billingPage, /\/billing\/renewals/);
   assert.match(billingPage, /does not charge automatically or provide a Pay Now flow/);
   assert.match(app, /path="\/commercial\/renewals"[\s\S]*PlatformOperatorGuard/);
-  assert.match(sidebar, /name: 'Renewals'[\s\S]*platformOperatorOnly: true/);
+  assert.match(sidebar, /name: 'Renewals'[^\n]*operator: true/);
+  assert.match(sidebar, /!item\.operator \|\| operator/);
 
   const renewalRuntime = `${controller}\n${repository}`;
   assert.doesNotMatch(renewalRuntime, /stripe|razorpay|paypal|webhook|setInterval|node-cron/i);

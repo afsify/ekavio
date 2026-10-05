@@ -1,3 +1,5 @@
+import { rupeesToPaise, paiseToRupees } from '../../utils/money';
+import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -33,7 +35,7 @@ export const CommercialActivationPanel: React.FC<{
   const [billingCycle, setBillingCycle] = useState(request.billingCycle);
   const [planKey, setPlanKey] = useState(request.selectedPlanKey ?? '');
   const [addOnKeys, setAddOnKeys] = useState<string[]>(request.selectedAddOnKeys);
-  const [agreedTotalMinor, setAgreedTotalMinor] = useState(request.subtotalMinor);
+  const [agreedTotalMinor, setAgreedTotalMinor] = useState(paiseToRupees(request.subtotalMinor));
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
@@ -84,7 +86,7 @@ export const CommercialActivationPanel: React.FC<{
           billingCycle,
           planKey: planKey || null,
           addOnKeys,
-          agreedTotalMinor,
+          agreedTotalMinor: rupeesToPaise(agreedTotalMinor),
           adjustmentReason: emptyToNull(adjustmentReason),
           startsAt: toIso(startsAt),
           currentPeriodEndsAt: toIso(endsAt),
@@ -113,7 +115,7 @@ export const CommercialActivationPanel: React.FC<{
       const response = await client.post<{ data: AgreementBundle }>(
         `/billing/operator/agreements/${agreementId}/payments`,
         {
-          amountMinor: paymentAmount,
+          amountMinor: rupeesToPaise(paymentAmount),
           method: paymentMethod,
           reference: emptyToNull(paymentReference),
           paidAt: toIso(paidAt),
@@ -192,7 +194,7 @@ export const CommercialActivationPanel: React.FC<{
   const activeInvitation = bundle?.invitations.find((invitation) =>
     !invitation.revokedAt && !invitation.consumedAt && new Date(invitation.expiresAt) > new Date());
   const formInvalid = !startsAt || !endsAt || new Date(endsAt) <= new Date(startsAt)
-    || !/^(0|[1-9][0-9]{0,12})$/.test(agreedTotalMinor)
+    || rupeesToPaise(agreedTotalMinor) === null
     || (!planKey && addOnKeys.length === 0)
     || !legalName.trim() || !billingContact.trim() || !billingPhone.trim();
   const actionError = finalize.error ?? recordPayment.error ?? voidPayment.error
@@ -206,7 +208,7 @@ export const CommercialActivationPanel: React.FC<{
       <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
         <div>
           <h4 className="font-bold text-white">Finalize commercial agreement</h4>
-          <p className="mt-1 text-xs text-slate-400">Current list pricing is recalculated by the backend. Enter the negotiated total in whole paise.</p>
+          <p className="mt-1 text-xs text-slate-400">Current list pricing is recalculated by the backend. Enter the negotiated total in INR rupees.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm text-slate-300">Billing cycle
@@ -215,7 +217,7 @@ export const CommercialActivationPanel: React.FC<{
           <label className="text-sm text-slate-300">Plan
             <select value={planKey} onChange={(event) => setPlanKey(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="">No plan</option>{plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}</select>
           </label>
-          <Input label="Agreed total (paise)" inputMode="numeric" value={agreedTotalMinor} onChange={(event) => setAgreedTotalMinor(event.target.value)} />
+          <Input label="Agreed total ₹" inputMode="decimal" value={agreedTotalMinor} onChange={(event) => setAgreedTotalMinor(event.target.value)} />
           <Input label="Adjustment / complimentary reason" maxLength={500} value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} />
           <Input label="Subscription starts" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
           <Input label="Subscription ends" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
@@ -251,13 +253,13 @@ export const CommercialActivationPanel: React.FC<{
         <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-200">{bundle.agreement.status.replace('_', ' ')}</span>
       </div>
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div><dt className="text-slate-500">Final plan</dt><dd className="font-semibold text-white">{bundle.agreement.selectedPlanKey ?? 'No base plan'}</dd></div>
-        <div><dt className="text-slate-500">Final add-ons</dt><dd className="font-semibold text-white">{bundle.agreement.selectedAddOnKeys.join(', ') || 'None'}</dd></div>
+        <div><dt className="text-slate-500">Final plan</dt><dd className="font-semibold text-white">{bundle.agreement.listPricingSnapshot.items.find((item) => item.offerType === 'plan')?.name ?? 'No base plan'}</dd></div>
+        <div><dt className="text-slate-500">Final add-ons</dt><dd className="font-semibold text-white">{bundle.agreement.listPricingSnapshot.items.filter((item) => item.offerType === 'add_on').map((item) => item.name).join(', ') || 'None'}</dd></div>
         <div><dt className="text-slate-500">Current list subtotal</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.agreement.listSubtotalMinor)}</dd></div>
         <div><dt className="text-slate-500">Agreed total</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.agreement.agreedTotalMinor)}</dd></div>
         <div><dt className="text-slate-500">Confirmed payments</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.confirmedTotalMinor)}</dd></div>
         <div><dt className="text-slate-500">Billing cycle</dt><dd className="capitalize text-white">{bundle.agreement.billingCycle}</dd></div>
-        <div><dt className="text-slate-500">Finalized by operator</dt><dd className="break-all text-xs text-slate-300">{bundle.agreement.finalizedByUserId}</dd></div>
+        <div><dt className="text-slate-500">Finalized by operator</dt><dd className="break-all text-xs text-slate-300">Platform operator<TechnicalDetails values={{ 'Finalizing operator': bundle.agreement.finalizedByUserId }} /></dd></div>
         <div><dt className="text-slate-500">Period</dt><dd className="text-white">{new Date(bundle.agreement.startsAt).toLocaleDateString()} – {new Date(bundle.agreement.currentPeriodEndsAt).toLocaleDateString()}</dd></div>
       </dl>
       {bundle.agreement.adjustmentReason && <p className="rounded-xl bg-slate-900 p-3 text-sm text-slate-300">Reason: {bundle.agreement.adjustmentReason}</p>}
@@ -267,16 +269,16 @@ export const CommercialActivationPanel: React.FC<{
           <h5 className="flex items-center gap-2 font-semibold text-white"><ReceiptIndianRupee className="h-4 w-4" /> Record manual payment</h5>
           <p className="text-xs text-slate-400">Remaining: {formatInrMinor(remainingMinor)}. This records the operator's assertion that funds were received.</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label="Amount (paise)" inputMode="numeric" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} />
+            <Input label="Amount ₹" inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} />
             <label className="text-sm text-slate-300">Method<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as ManualPaymentMethod)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label>
             <Input label="Safe reference (optional)" maxLength={160} value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} />
             <Input label="Paid at" type="datetime-local" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} />
           </div>
-          <Button size="sm" disabled={!/^[1-9][0-9]{0,12}$/.test(paymentAmount) || !paidAt} isLoading={recordPayment.isPending} onClick={() => recordPayment.mutate()}>Record payment</Button>
+          <Button size="sm" disabled={(rupeesToPaise(paymentAmount) === null || rupeesToPaise(paymentAmount) === '0') || !paidAt} isLoading={recordPayment.isPending} onClick={() => recordPayment.mutate()}>Record payment</Button>
         </div>
       )}
 
-      {bundle.payments.length > 0 && <div className="space-y-2 border-t border-slate-800 pt-4"><h5 className="font-semibold text-white">Payment history</h5>{bundle.payments.map((payment) => <div key={payment.id} className="rounded-xl bg-slate-900 p-3 text-sm"><div className="flex justify-between gap-3"><span className="text-white">{formatInrMinor(payment.amountMinor)} · {payment.method.replace('_', ' ')}</span><span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-rose-300'}>{payment.status}</span></div><p className="text-xs text-slate-500">{new Date(payment.paidAt).toLocaleString()} {payment.reference ? `· ${payment.reference}` : ''}</p><p className="mt-1 break-all text-[11px] text-slate-600">Recorded by operator {payment.recordedByUserId}{payment.voidedByUserId ? ` · Voided by ${payment.voidedByUserId}` : ''}</p>{payment.status === 'confirmed' && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Button size="sm" variant="danger" className="mt-2" disabled={voidReason.trim().length < 3} isLoading={voidPayment.isPending} onClick={() => voidPayment.mutate(payment.id)}><XCircle className="h-4 w-4" /> Void</Button>}</div>)}{bundle.payments.some((payment) => payment.status === 'confirmed') && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Input label="Void reason (required before voiding)" maxLength={500} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />}</div>}
+      {bundle.payments.length > 0 && <div className="space-y-2 border-t border-slate-800 pt-4"><h5 className="font-semibold text-white">Payment history</h5>{bundle.payments.map((payment) => <div key={payment.id} className="rounded-xl bg-slate-900 p-3 text-sm"><div className="flex justify-between gap-3"><span className="text-white">{formatInrMinor(payment.amountMinor)} · {payment.method.replace('_', ' ')}</span><span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-rose-300'}>{payment.status}</span></div><p className="text-xs text-slate-500">{new Date(payment.paidAt).toLocaleString()} {payment.reference ? `· ${payment.reference}` : ''}</p><p className="mt-1 break-all text-[11px] text-slate-600">Recorded by platform operator</p>{payment.status === 'confirmed' && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Button size="sm" variant="danger" className="mt-2" disabled={voidReason.trim().length < 3} isLoading={voidPayment.isPending} onClick={() => voidPayment.mutate(payment.id)}><XCircle className="h-4 w-4" /> Void</Button>}</div>)}{bundle.payments.some((payment) => payment.status === 'confirmed') && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Input label="Void reason (required before voiding)" maxLength={500} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />}</div>}
 
       {['paid', 'onboarding_pending'].includes(bundle.agreement.status) && (
         <div className="space-y-3 border-t border-slate-800 pt-4">

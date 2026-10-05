@@ -12,6 +12,8 @@ import {
   type OperatorPricing,
 } from '../../commercial/publicCommercial';
 import { CommercialActivationPanel } from './CommercialActivationPanel';
+import { rupeesToPaise, paiseToRupees } from '../../utils/money';
+import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 
 const errorMessage = (error: unknown): string => {
   if (axios.isAxiosError<{ message?: string }>(error)) {
@@ -22,8 +24,8 @@ const errorMessage = (error: unknown): string => {
 
 const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
   const queryClient = useQueryClient();
-  const [monthly, setMonthly] = useState(offer.pricing?.monthlyPriceMinor ?? '');
-  const [yearly, setYearly] = useState(offer.pricing?.yearlyPriceMinor ?? '');
+  const [monthly, setMonthly] = useState(paiseToRupees(offer.pricing?.monthlyPriceMinor));
+  const [yearly, setYearly] = useState(paiseToRupees(offer.pricing?.yearlyPriceMinor));
   const [published, setPublished] = useState(offer.pricing?.published ?? false);
   const [displayOrder, setDisplayOrder] = useState(String(offer.pricing?.displayOrder ?? 0));
   const [marketingLabel, setMarketingLabel] = useState(offer.pricing?.marketingLabel ?? '');
@@ -31,8 +33,8 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
     mutationFn: async () => {
       await client.put(`/billing/operator/public-pricing/${offer.offerType}/${offer.key}`, {
         currency: 'INR',
-        monthlyPriceMinor: monthly || null,
-        yearlyPriceMinor: yearly || null,
+        monthlyPriceMinor: monthly ? rupeesToPaise(monthly) : null,
+        yearlyPriceMinor: yearly ? rupeesToPaise(yearly) : null,
         published,
         displayOrder: Number(displayOrder),
         marketingLabel: marketingLabel.trim() || null,
@@ -40,7 +42,7 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['operator-public-pricing'] }),
   });
-  const invalidAmount = (value: string) => value !== '' && !/^(0|[1-9][0-9]{0,12})$/.test(value);
+  const invalidAmount = (value: string) => value !== '' && rupeesToPaise(value) === null;
   const invalid = invalidAmount(monthly) || invalidAmount(yearly)
     || !/^\d{1,5}$/.test(displayOrder)
     || Number(displayOrder) > 10000
@@ -52,7 +54,7 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{offer.offerType.replace('_', ' ')}</p>
           <h3 className="font-bold text-white">{offer.name}</h3>
-          <p className="text-xs text-slate-500">{offer.key}</p>
+          <TechnicalDetails values={{ 'Offer key': offer.key }} />
         </div>
         <label className="flex items-center gap-2 text-sm text-slate-300">
           <input type="checkbox" checked={published} onChange={(event) => setPublished(event.target.checked)} />
@@ -60,12 +62,12 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
         </label>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Input label="Monthly paise" inputMode="numeric" value={monthly} onChange={(event) => setMonthly(event.target.value)} />
-        <Input label="Yearly paise" inputMode="numeric" value={yearly} onChange={(event) => setYearly(event.target.value)} />
+        <Input label="Monthly price ₹" inputMode="decimal" value={monthly} onChange={(event) => setMonthly(event.target.value)} />
+        <Input label="Yearly price ₹" inputMode="decimal" value={yearly} onChange={(event) => setYearly(event.target.value)} />
         <Input label="Display order" inputMode="numeric" value={displayOrder} onChange={(event) => setDisplayOrder(event.target.value)} />
         <Input label="Marketing label" maxLength={80} value={marketingLabel} onChange={(event) => setMarketingLabel(event.target.value)} />
       </div>
-      {invalid && <p className="mt-3 text-xs text-rose-300">Use non-negative whole paise amounts; published pricing needs at least one amount.</p>}
+      {invalid && <p className="mt-3 text-xs text-rose-300">Enter rupees with up to two decimal places; published pricing needs at least one amount.</p>}
       {update.isError && <p className="mt-3 text-xs text-rose-300">{errorMessage(update.error)}</p>}
       <Button
         size="sm"
@@ -159,7 +161,7 @@ const CommercialRequestsPage: React.FC = () => {
           <BadgeIndianRupee className="h-5 w-5 text-indigo-400" />
           <div>
             <h2 className="text-lg font-bold text-white">Public list pricing</h2>
-            <p className="text-sm text-slate-400">Amounts are whole paise. Unpublished values never appear publicly.</p>
+            <p className="text-sm text-slate-400">Enter prices in INR rupees. Unpublished values never appear publicly.</p>
           </div>
         </div>
         {pricingQuery.isError && <p className="text-rose-300">{errorMessage(pricingQuery.error)}</p>}
@@ -256,7 +258,7 @@ const CommercialRequestsPage: React.FC = () => {
                     offers={pricingQuery.data ?? []}
                   />
                 )}
-                {updateRequest.isError && <p className="text-sm text-rose-300">{errorMessage(updateRequest.error)}</p>}
+                {updateRequest.isError && <p role="status" className={errorMessage(updateRequest.error) === 'Access request update made no changes' ? 'text-sm text-slate-400' : 'text-sm text-rose-300'}>{errorMessage(updateRequest.error) === 'Access request update made no changes' ? 'No changes to save.' : errorMessage(updateRequest.error)}</p>}
               </div>
             )}
           </div>

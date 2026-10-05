@@ -94,10 +94,11 @@ export const operationalRuntimeService = Object.freeze({
     organizationId: context.organizationId, customerId, ...input,
   }),
 
-  listServices: (context: AuthorizationContext, scope: 'branch' | 'organization', page: number, limit: number) =>
+  listServices: (context: AuthorizationContext, scope: 'branch' | 'organization', page: number, limit: number, search?: string) =>
     runtimePersistence.services.list({
       organizationId: context.organizationId,
       ...(scope === 'branch' ? { branchId: branchIdFor(context), activeOnly: true } : {}),
+      ...(search !== undefined ? { search: search.slice(0, 200) } : {}),
       page,
       limit,
     }),

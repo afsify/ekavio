@@ -116,14 +116,16 @@ export class PostgresServiceRepository {
     organizationId: string;
     branchId?: string;
     activeOnly?: boolean;
+    search?: string;
     page: number;
     limit: number;
   }): Promise<{ data: ServiceRecord[]; total: number }> {
     return this.database.transaction(async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-      const values = [input.organizationId, input.branchId ?? null, input.activeOnly ?? false];
+      const values = [input.organizationId, input.branchId ?? null, input.activeOnly ?? false, input.search?.trim() || null];
       const predicate = `
         s.organization_id = $1
+        AND ($4::text IS NULL OR STRPOS(LOWER(s.name), LOWER($4)) > 0)
         AND (NOT $3::boolean OR s.active)
         AND ($2::uuid IS NULL OR EXISTS (
           SELECT 1 FROM service_branch_availability a
@@ -139,7 +141,7 @@ export class PostgresServiceRepository {
         FROM services s
         WHERE ${predicate}
         ORDER BY s.name, s.id
-        LIMIT $4 OFFSET $5
+        LIMIT $5 OFFSET $6
       `, [...values, input.limit, (input.page - 1) * input.limit]);
       return { data: result.rows, total: Number(count.rows[0]?.total ?? 0) };
     });

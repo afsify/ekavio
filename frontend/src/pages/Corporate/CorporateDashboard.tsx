@@ -139,7 +139,7 @@ export const CorporateDashboard: React.FC = () => {
         data={organizations}
         loading={summaryQuery.isLoading}
         title="Organization subscriptions"
-        description="Server-reported PostgreSQL commercial state for linked organizations. This is not a consolidated invoice."
+        description="Commercial information for linked organizations. This is not a consolidated invoice."
         searchPlaceholder="Search organizations..."
       />
     );

@@ -1,64 +1,22 @@
-import React, { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { useCallback, useState, type ReactNode } from 'react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { useAppStore } from '../../store/useAppStore';
 import { AdminSidebar } from './AdminSidebar';
 import { TenantSwitcher } from './TenantSwitcher';
-import { ProfileSettingsModal } from '../ui/ProfileSettingsModal';
-
-export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row overflow-hidden">
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 shrink-0">
-        <div className="font-bold text-xl text-white tracking-tight">Ekavio</div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setIsSidebarOpen(true)} 
-            className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
-      </div>
-
-      {/* Sidebar */}
-      <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Desktop Header */}
-        <header className="hidden md:flex items-center justify-between px-8 py-5 bg-slate-900/50 backdrop-blur-xl border-b border-slate-800/80 shrink-0">
-          <div>
-             <h1 className="text-xl font-bold text-white tracking-tight">Dashboard</h1>
-          </div>
-          <div className="flex items-center gap-6">
-             <TenantSwitcher />
-             <div 
-                onClick={() => setIsProfileModalOpen(true)}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-slate-800 cursor-pointer hover:scale-105 transition-transform"
-                title="Profile Settings"
-              >
-               U
-             </div>
-          </div>
-        </header>
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
-        </main>
-      </div>
-
-      <ProfileSettingsModal 
-        isOpen={isProfileModalOpen} 
-        onClose={() => setIsProfileModalOpen(false)} 
-      />
-    </div>
-  );
-};
-
-export default AdminLayout;
+import { visibleDestinations } from './navigation';
+export function AdminLayout({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const closeNavigation = useCallback(() => setOpen(false), []);
+  const { user, entitlements, activeTenantId, activeBranchId, isPlatformOperator } = useAppStore();
+  const location = useLocation();
+  const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
+  const current = items.find((item) => item.path === location.pathname);
+  const membership = user?.memberships?.find((item) => item.organizationId === activeTenantId);
+  const branch = membership?.branches.find((item) => item.id === activeBranchId);
+  return <div className="app-shell"><AdminSidebar isOpen={open} onClose={closeNavigation} /><div className="workspace">
+    <header className="workspace-header"><div className="flex items-center gap-3"><button className="menu-toggle quiet-button" aria-label="Open navigation" onClick={() => setOpen(true)}>☰</button><div><h1 className="font-semibold">{current?.group === 'Platform operations' ? 'Platform operations' : 'Workspace'} / {current?.name ?? 'Home'}</h1><p className="context-label">{membership?.orgName ?? 'Your workspace'} · {branch?.name ?? 'Selected branch'}</p></div></div>
+      <div className="flex items-center gap-3"><TenantSwitcher /><Link to="/settings?section=profile" className="quiet-button" aria-label="Open my profile">{user?.name ?? 'My profile'}</Link></div></header>
+    <main className="workspace-content" key={`${activeTenantId}:${activeBranchId}`}>{children}</main>
+    <nav className="mobile-nav" aria-label="Mobile navigation">{['/dashboard','/queue','/customers'].map((path) => { const item = items.find((entry) => entry.path === path); return item ? <NavLink key={path} to={path}>{item.name}</NavLink> : null; })}<button aria-expanded={open} onClick={() => setOpen(true)}>More</button></nav>
+  </div></div>;
+}

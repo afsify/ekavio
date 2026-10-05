@@ -1,0 +1,4 @@
+import { Link } from 'react-router-dom';
+export default function FoundationPage({ name }: { name: 'Reports' | 'Help & Support' }) {
+  return <div className="page-stack"><div className="page-heading"><h1>{name}</h1></div><section className="panel"><h2 className="font-semibold">{name === 'Reports' ? 'Your operational records' : 'Getting started'}</h2><p className="muted mt-2">{name === 'Reports' ? 'Advanced reports are planned. Current records and permitted exports remain available in each operational area.' : 'Set up customers and services, then use the enabled workflows for your branch. For account or access assistance, contact your organization administrator. A pilot support contact is not yet assigned.'}</p><Link className="quiet-button mt-4" to="/dashboard">Return Home</Link></section></div>;
+}

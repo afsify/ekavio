@@ -1,3 +1,5 @@
+import { EmptyState } from '../../components/ui/EmptyState';
+import { hasEntitlement } from '../../commercial/catalogue';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -86,6 +88,8 @@ export const LedgerPage: React.FC = () => {
   const activeTenantId = useAppStore((state) => state.activeTenantId);
   const activeBranchId = useAppStore((state) => state.activeBranchId);
   const user = useAppStore((state) => state.user);
+  const entitlements = useAppStore((state) => state.entitlements);
+  const customerCreate = (user?.permissions ?? []).includes('queue.manage') && hasEntitlement(entitlements, 'queue');
   const canManage = (user?.permissions ?? []).includes('ledger.manage');
   const branchName = user?.memberships
     ?.find((membership) => membership.organizationId === activeTenantId)
@@ -261,6 +265,7 @@ export const LedgerPage: React.FC = () => {
         </div>
       </section>
 
+      {!customerSearch && customersQuery.data?.data.length === 0 && <EmptyState title="No customers yet" description="Create a customer before recording dues." action={customerCreate ? 'Create Customer' : undefined} to="/customers" />}
       {customerId && (
         <section className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5">

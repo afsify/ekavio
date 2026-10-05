@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -32,7 +32,28 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
   closeOnEscape = true,
   className,
 }) => {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]') ?? []).filter((element) => element.getClientRects().length > 0);
+    focusable()[0]?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      const first = items[0], last = items.at(-1);
+      if (!first) { event.preventDefault(); dialog?.focus(); return; }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    dialog?.addEventListener('keydown', trap);
+    return () => { dialog?.removeEventListener('keydown', trap); previous?.focus(); };
+  }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
     const handleEscape = (e: KeyboardEvent) => {
       if (closeOnEscape && e.key === 'Escape' && isOpen) {
         onClose();
@@ -46,7 +67,7 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, closeOnEscape, onClose]);
 
@@ -71,8 +92,11 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
 
       {/* Modal Container */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         className={cn(
           "relative w-full max-h-[90vh] flex flex-col bg-slate-900 shadow-2xl border-t sm:border border-slate-800",
           "rounded-t-3xl sm:rounded-2xl transition-all duration-300",
@@ -83,7 +107,7 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 shrink-0">
-          <div className="text-lg font-semibold text-white truncate pr-4">
+          <div id={titleId} className="text-lg font-semibold text-white truncate pr-4">
             {title}
           </div>
           {showCloseButton && (

@@ -1,3 +1,4 @@
+import { EmptyState } from '../../components/ui/EmptyState';
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -32,6 +33,7 @@ const localToday = () => {
 const selectClass = 'mt-1.5 block min-h-[44px] w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white';
 
 export const AppointmentsPage: React.FC = () => {
+  const canManage = useAppStore((state) => state.user?.permissions?.includes('queue.manage'));
   const [date, setDate] = useState(localToday());
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
@@ -92,15 +94,17 @@ export const AppointmentsPage: React.FC = () => {
     { header: 'Provider', accessor: 'provider', cell: ({ row }) => row.provider?.name ?? 'Unassigned' },
     { header: 'Status', accessor: 'status', cell: ({ row }) => <span className="rounded-full bg-indigo-500/15 px-2 py-1 text-xs font-semibold uppercase text-indigo-300">{row.status.replace('_', ' ')}</span> },
     { header: 'Actions', accessor: 'actions', cell: ({ row }) => (
-      ['scheduled', 'confirmed'].includes(row.status)
+      canManage && ['scheduled', 'confirmed'].includes(row.status)
         ? <Button size="sm" onClick={() => void checkInNow(row)}><LogIn className="h-4 w-4" />Check in</Button>
         : null
     ) },
   ];
 
   return <div className="space-y-6">
+    {services.data?.data.length === 0 && <EmptyState title="Create a service first" description="Appointments use your branch service catalogue." action={canManage ? "Create Service" : undefined} to="/services" />}
+    {customers.data?.data.length === 0 && <EmptyState title="No customers yet" description="Add a customer before booking an appointment." action={canManage ? "Create Customer" : undefined} to="/customers" />}
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-400"><CalendarClock className="h-7 w-7" /></div><div><h1 className="text-2xl font-bold text-white">Appointments</h1><p className="text-sm text-slate-400">Branch-local scheduling and Queue check-in</p></div></div><Input aria-label="Appointment date" type="date" value={date} onChange={(event) => { setDate(event.target.value); setPage(1); }} className="sm:w-48" /></div>
-    <AdvancedTable columns={columns} data={appointments.data?.data ?? []} loading={appointments.isLoading} error={appointments.isError ? getErrorMessage(appointments.error, 'Appointments could not be loaded') : null} title="Daily appointments" description={`Selected business date: ${date}`} onAdd={() => setOpen(true)} emptyState={<div className="text-sm text-slate-400">No appointments for this branch and date.</div>} />
+    <AdvancedTable columns={columns} data={appointments.data?.data ?? []} loading={appointments.isLoading} error={appointments.isError ? getErrorMessage(appointments.error, 'Appointments could not be loaded') : null} title="Daily appointments" description={`Selected business date: ${date}`} onAdd={canManage ? () => setOpen(true) : undefined} emptyState={<div className="text-sm text-slate-400">No appointments for this branch and date.</div>} />
     <div className="flex items-center justify-end gap-3 text-sm text-slate-400"><Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><span>Page {page} of {Math.max(1, appointments.data?.pagination.totalPages ?? 1)}</span><Button variant="secondary" size="sm" disabled={page >= (appointments.data?.pagination.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)}>Next</Button><Button variant="secondary" size="sm" onClick={() => void appointments.refetch()}>Retry</Button></div>
     <AdvancedModal isOpen={open} onClose={() => setOpen(false)} title="Create appointment" actions={<><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button isLoading={create.isPending} onClick={() => void submit()}>Create appointment</Button></>}><div className="space-y-4"><label className="block text-xs font-semibold uppercase text-slate-300">Customer<select className={selectClass} value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Select customer</option>{customers.data?.data.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label><label className="block text-xs font-semibold uppercase text-slate-300">Branch-available service<select className={selectClass} value={serviceId} onChange={(event) => setServiceId(event.target.value)}><option value="">Select service</option>{services.data?.data.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label><Input label="Local start time" type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></div></AdvancedModal>
   </div>;

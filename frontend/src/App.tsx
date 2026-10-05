@@ -30,6 +30,9 @@ const StaffManagementPage = React.lazy(
   () => import("./pages/Staff/StaffManagementPage"),
 );
 const SettingsPage = React.lazy(() => import("./pages/Settings/SettingsPage"));
+const CustomersPage = React.lazy(() => import('./pages/Customers/CustomersPage'));
+const ServicesPage = React.lazy(() => import('./pages/Services/ServicesPage'));
+const FoundationPage = React.lazy(() => import('./pages/Settings/FoundationPage'));
 const BillingPage = React.lazy(() => import("./pages/Billing/BillingPage"));
 const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
 const CommercialRequestsPage = React.lazy(
@@ -73,7 +76,7 @@ const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Upgrade Required</h2>
           <p className="text-slate-400 mb-6">
-            Your organization does not currently have access to the <span className="text-indigo-400 font-semibold capitalize">{module}</span> module.
+            Your organization does not currently have access to <span className="text-indigo-400 font-semibold capitalize">{module === 'ledger' ? 'Customer Dues' : module === 'queue' ? 'Queue & Appointments' : module}</span>.
           </p>
           <a
             href="/billing"
@@ -138,20 +141,24 @@ export const App: React.FC = () => {
           position="top-right"
           toastOptions={{
             style: {
-              background: "#0f172a",
-              color: "#f8fafc",
-              border: "1px solid #334155",
+              background: "var(--surface)",
+              color: "var(--text)",
+              border: "1px solid var(--border)",
             },
             success: {
               iconTheme: {
-                primary: "#10b981",
-                secondary: "#f8fafc",
+                primary: "var(--success)",
+                secondary: "var(--surface)",
               },
             },
           }}
         />
         <React.Suspense fallback={<PageLoader />}>
           <Routes>
+            <Route path="/customers" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><CustomersPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/services" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><ServicesPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><FoundationPage name="Reports" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/help" element={<ProtectedRoute><AdminLayout><FoundationPage name="Help & Support" /></AdminLayout></ProtectedRoute>} />
             <Route
               path="/login"
               element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
@@ -196,7 +203,7 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <ModuleGuard module={MODULES.QUEUE}>
-                      <QueuePage />
+                      <PermissionGuard permission="queue.read"><QueuePage /></PermissionGuard>
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>
@@ -208,7 +215,7 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <AdminLayout>
                     <ModuleGuard module={MODULES.QUEUE}>
-                      <AppointmentsPage />
+                      <PermissionGuard permission="queue.read"><AppointmentsPage /></PermissionGuard>
                     </ModuleGuard>
                   </AdminLayout>
                 </ProtectedRoute>
@@ -241,7 +248,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <PermissionGuard permission="corporate.manage"><CorporateDashboard /></PermissionGuard>
+                    <PlatformOperatorGuard><PermissionGuard permission="corporate.manage"><CorporateDashboard /></PermissionGuard></PlatformOperatorGuard>
                   </AdminLayout>
                 </ProtectedRoute>
               }
@@ -291,7 +298,7 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <AdminLayout>
-                    <PermissionGuard permission="organization.manage"><SettingsPage /></PermissionGuard>
+                    <SettingsPage />
                   </AdminLayout>
                 </ProtectedRoute>
               }

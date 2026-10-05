@@ -35,6 +35,31 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08A adds a Light-default, Light/Dark/System product foundation, responsive
+workspace navigation, dedicated canonical Customers and Services pages, structured
+Settings, international phone input and exact rupee-based commercial editors.
+See the [product experience review](docs/reviews/V2-08A_PRODUCT_EXPERIENCE_FOUNDATION.md)
+and [completion roadmap](docs/roadmap/V2_PRODUCT_COMPLETION_ROADMAP.md).
+V2-07 hosted pilot acceptance is intentionally deferred until product completion;
+**NO-GO FOR REAL CUSTOMER DATA** remains unchanged. Render Free remains staging-only
+by operator choice, and Atlas is retained.
+
+Automated frontend acceptance uses disposable, per-test local HTTP contract
+fixtures, not hosted customer accounts. It is complemented by actual PostgreSQL
+API integration tests; browser fixture success is not hosted tenancy or recovery proof.
+
+```powershell
+Set-Location frontend
+npm.cmd ci
+npm.cmd test
+npx.cmd playwright install chromium
+npm.cmd run test:e2e
+```
+
+Browser QA starts its own loopback Vite server with explicit fixture URLs.
+For a normal build, supply `VITE_API_URL` and `VITE_SOCKET_URL` as documented below.
+Screenshots/traces stay in ignored test artifacts and CI, not source control.
+
 Hosted staging is deployed at `https://ekavio.afsify.com` with its API at
 `https://api.ekavio.afsify.com`. The V2-07B final acceptance and V2-07C blocker-resolution decisions are
 **NO-GO FOR REAL CUSTOMER DATA**. The public routes, schema, local quality

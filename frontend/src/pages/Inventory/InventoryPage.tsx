@@ -356,6 +356,7 @@ export const InventoryPage: React.FC = () => {
         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 p-10 text-center">
           <PackageSearch className="mx-auto h-10 w-10 text-slate-600" />
           <h2 className="mt-3 font-semibold text-white">No inventory items found</h2>
+          {canManage && <Button className="mt-4" onClick={() => openModal('create')}>Add Inventory Item</Button>}
           <p className="mt-1 text-sm text-slate-400">
             Create a catalogue item or change the current filters.
           </p>

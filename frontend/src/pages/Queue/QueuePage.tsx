@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom';
+import { useAppStore } from '../../store/useAppStore';
+import { EmptyState } from '../../components/ui/EmptyState';
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { CheckCircle2, Clock, Play, Users } from 'lucide-react';
@@ -23,6 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 const selectClass = 'block min-h-[44px] w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white';
 
 export const QueuePage: React.FC = () => {
+  const canManage = useAppStore((state) => state.user?.permissions?.includes('queue.manage'));
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
@@ -94,17 +98,19 @@ export const QueuePage: React.FC = () => {
     ) },
     { header: 'Actions', accessor: 'actions', cell: ({ row }) => (
       <div className="flex gap-2">
-        {row.status === 'waiting' && <Button size="sm" title="Serve customer" onClick={() => void transition(row, 'serving')}><Play className="h-4 w-4" /></Button>}
-        {row.status === 'serving' && <Button size="sm" title="Complete service" onClick={() => void transition(row, 'completed')}><CheckCircle2 className="h-4 w-4" /></Button>}
+        {canManage && row.status === 'waiting' && <Button size="sm" title="Serve customer" onClick={() => void transition(row, 'serving')}><Play className="h-4 w-4" /></Button>}
+        {canManage && row.status === 'serving' && <Button size="sm" title="Complete service" onClick={() => void transition(row, 'completed')}><CheckCircle2 className="h-4 w-4" /></Button>}
       </div>
     ) },
   ];
 
-  const header = <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"><div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-400"><Clock className="h-8 w-8" /></div><div><h1 className="text-2xl font-bold text-white">Queue Management</h1><p className="text-sm text-slate-400">Branch-local PostgreSQL queue</p></div></div>;
+  const header = <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl"><div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-400"><Clock className="h-8 w-8" /></div><div><h1 className="text-2xl font-bold text-white">Queue Management</h1><p className="text-sm text-slate-400">Manage today's customer queue for this branch.</p></div></div>;
   const sidebarCards = <><div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6"><Users className="h-6 w-6 text-blue-400" /><div><p className="text-sm text-slate-400">Active Queue</p><p className="text-xl font-bold text-white">{queue.data?.summary.active ?? 0}</p></div></div><div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6"><Clock className="h-6 w-6 text-amber-400" /><div><p className="text-sm text-slate-400">Waiting</p><p className="text-xl font-bold text-white">{queue.data?.summary.waiting ?? 0}</p></div></div></>;
 
   const mainContent = <>
-    <AdvancedTable columns={columns} data={queue.data?.data ?? []} loading={queue.isLoading} error={queue.isError ? getErrorMessage(queue.error, 'Queue could not be loaded') : null} title="Active Tokens" description="Authoritative state for the selected branch." onAdd={() => setOpen(true)} emptyState={<div className="text-sm text-slate-400">No active tokens. Create the first walk-in token.</div>} />
+    {services.data?.data.length === 0 && <EmptyState title="No services configured" description="Create your first service before issuing queue tokens." action={canManage ? 'Create Service' : undefined} to="/services" />}
+    {customers.data?.data.length === 0 && <Link className="quiet-button mb-4" to="/customers">Manage Customers</Link>}
+    <AdvancedTable columns={columns} data={queue.data?.data ?? []} loading={queue.isLoading} error={queue.isError ? getErrorMessage(queue.error, 'Queue could not be loaded') : null} title="Active Tokens" description="Authoritative state for the selected branch." onAdd={canManage ? () => setOpen(true) : undefined} emptyState={<div className="text-sm text-slate-400">No active tokens. Create the first walk-in token.</div>} />
     <div className="mt-4 flex items-center justify-end gap-3 text-sm text-slate-400"><Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</Button><span>Page {page} of {Math.max(1, queue.data?.pagination.totalPages ?? 1)}</span><Button variant="secondary" size="sm" disabled={page >= (queue.data?.pagination.totalPages ?? 1)} onClick={() => setPage((value) => value + 1)}>Next</Button><Button variant="secondary" size="sm" onClick={() => void queue.refetch()}>Retry</Button></div>
     <AdvancedModal isOpen={open} onClose={() => setOpen(false)} title="Create queue token" actions={<><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button isLoading={createToken.isPending} onClick={() => void submitToken()}>Generate token</Button></>}>
       <div className="space-y-4"><Input label="Search customers" value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} /><label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">Customer<select className={`${selectClass} mt-1.5`} value={customerId} onChange={(event) => setCustomerId(event.target.value)}><option value="">Select customer</option>{customers.data?.data.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.phone ? ` · ${customer.phone}` : ''}</option>)}</select></label><Button variant="secondary" onClick={() => setCustomerOpen(true)}>Create minimal customer</Button><label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">Branch-available service<select className={`${selectClass} mt-1.5`} value={serviceId} onChange={(event) => setServiceId(event.target.value)}><option value="">Select service</option>{services.data?.data.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label></div>

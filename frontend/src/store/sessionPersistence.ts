@@ -1,5 +1,5 @@
 export interface ThemePreference {
-  mode: 'light' | 'dark';
+  mode: 'light' | 'dark' | 'system';
   primaryColor: string;
 }
 
@@ -25,8 +25,8 @@ const isThemePreference = (value: unknown): value is ThemePreference => {
 
   const candidate = value as Partial<ThemePreference>;
   return (
-    (candidate.mode === 'light' || candidate.mode === 'dark') &&
-    typeof candidate.primaryColor === 'string'
+    (candidate.mode === 'light' || candidate.mode === 'dark' || candidate.mode === 'system') &&
+    typeof candidate.primaryColor === 'string' && /^#[0-9a-f]{6}$/i.test(candidate.primaryColor)
   );
 };
 
@@ -38,12 +38,14 @@ const parseTheme = (serialized: string | null): ThemePreference | undefined => {
   try {
     const parsed = JSON.parse(serialized) as unknown;
     if (isThemePreference(parsed)) {
-      return parsed;
+      return { mode: parsed.mode, primaryColor: parsed.primaryColor };
     }
 
     if (parsed && typeof parsed === 'object' && 'state' in parsed) {
       const state = (parsed as { state?: { theme?: unknown } }).state;
-      return isThemePreference(state?.theme) ? state.theme : undefined;
+      return isThemePreference(state?.theme)
+        ? { mode: state.theme.mode, primaryColor: state.theme.primaryColor }
+        : undefined;
     }
   } catch {
     return undefined;
@@ -55,24 +57,28 @@ const parseTheme = (serialized: string | null): ThemePreference | undefined => {
 export const migrateAndClearLegacyAuthStorage = (
   storage: StorageLike,
 ): ThemePreference | undefined => {
-  const theme =
-    parseTheme(storage.getItem(UI_PREFERENCES_KEY)) ??
-    parseTheme(storage.getItem('ekavio-app-store'));
+  try {
+    const theme =
+      parseTheme(storage.getItem(UI_PREFERENCES_KEY)) ??
+      parseTheme(storage.getItem('ekavio-app-store'));
 
-  for (const key of LEGACY_AUTH_KEYS) {
-    storage.removeItem(key);
+    for (const key of LEGACY_AUTH_KEYS) {
+      storage.removeItem(key);
+    }
+
+    if (theme) {
+      storage.setItem(UI_PREFERENCES_KEY, JSON.stringify(theme));
+    }
+
+    return theme;
+  } catch {
+    return undefined;
   }
-
-  if (theme) {
-    storage.setItem(UI_PREFERENCES_KEY, JSON.stringify(theme));
-  }
-
-  return theme;
 };
 
 export const saveThemePreference = (
   storage: StorageLike,
   theme: ThemePreference,
 ): void => {
-  storage.setItem(UI_PREFERENCES_KEY, JSON.stringify(theme));
+  try { storage.setItem(UI_PREFERENCES_KEY, JSON.stringify({ mode: theme.mode, primaryColor: theme.primaryColor })); } catch { /* Private browsing may deny storage. */ }
 };

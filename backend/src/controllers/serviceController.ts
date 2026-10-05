@@ -16,7 +16,8 @@ export const listServices = async (req: AuthenticatedRequest, res: Response, nex
     const context = requireAuthorizationContext(req);
     const pagination = pageInput(req.query.page, req.query.limit);
     const scope = req.query.scope === 'organization' ? 'organization' : 'branch';
-    const result = await operationalRuntimeService.listServices(context, scope, pagination.page, pagination.limit);
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const result = await operationalRuntimeService.listServices(context, scope, pagination.page, pagination.limit, search);
     res.json({ data: result.data.map(serviceDto), pagination: { ...pagination, total: result.total, totalPages: Math.ceil(result.total / pagination.limit) } });
   } catch (error) { next(mapOperationalError(error)); }
 };
