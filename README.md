@@ -35,6 +35,25 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08B adds phone-or-verified-email login, secure email verification/recovery,
+staff invitations with recipient-chosen passwords, and durable per-user appearance.
+See [identity/recovery review](docs/reviews/V2-08B_IDENTITY_ACCOUNT_RECOVERY.md),
+[ADR 0021](docs/adr/0021-identity-email-recovery.md) and
+[email/recovery operations](docs/runbooks/IDENTITY_EMAIL_RECOVERY.md).
+Apply migration 013 explicitly before deploying this backend. Email delivery may
+remain disabled for disposable staging; configure compatible SMTP securely to enable
+verification/recovery. No paid email service or SMS is required. Existing phone-only
+users and the legacy phone login body remain supported. Email is login/recovery
+authority only after verification. New passwords use one 12-character/72-UTF-8-byte
+policy; successful reset/change revokes sessions. Staff administrators no longer
+choose passwords; no-email invitations have a one-time private handoff link.
+
+`npm run test:identity-account` runs disposable PostgreSQL API/security acceptance.
+`npm run test:e2e:identity` in frontend runs real local PostgreSQL/Express/capture-email
+browser acceptance (requires local POSTGRES_TEST_URL); no hosted account/manual email
+loop or SMTP credentials. See the runbook for isolation and secret-free QA outputs.
+This does not change **NO-GO FOR REAL CUSTOMER DATA** or validate hosted SMTP.
+
 V2-08A adds a Light-default, Light/Dark/System product foundation, responsive
 workspace navigation, dedicated canonical Customers and Services pages, structured
 Settings, international phone input and exact rupee-based commercial editors.

@@ -11,6 +11,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { Login } from "./pages/Login";
+import AccountActionPage from './pages/Identity/AccountActionPage';
 import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue';
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
@@ -155,6 +156,10 @@ export const App: React.FC = () => {
         />
         <React.Suspense fallback={<PageLoader />}>
           <Routes>
+            <Route path="/forgot-password" element={<AccountActionPage key="forgot" action="forgot" />} />
+            <Route path="/reset-password" element={<AccountActionPage key="reset" action="reset" />} />
+            <Route path="/verify-email" element={<AccountActionPage key="verify" action="verify" />} />
+            <Route path="/accept-invitation" element={<AccountActionPage key="invite" action="invite" />} />
             <Route path="/customers" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><CustomersPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/services" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><ServicesPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><FoundationPage name="Reports" /></PermissionGuard></AdminLayout></ProtectedRoute>} />

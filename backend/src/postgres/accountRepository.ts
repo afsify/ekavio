@@ -1,4 +1,5 @@
 import type { PostgresDatabase } from './database.js';
+import { lockNewPhone } from '../services/identityPolicy.js';
 import type {
   AccountRepository,
   RegistrationPersistenceInput,
@@ -20,6 +21,7 @@ export class PostgresAccountRepository implements AccountRepository {
 
   public registerAdmin(input: RegistrationPersistenceInput): Promise<RegistrationResult> {
     return this.database.transaction(async (client) => {
+      await lockNewPhone(client, input.phone);
       const now = new Date();
       const organization = await client.query<{ id: string }>(
         `INSERT INTO organizations
@@ -120,12 +122,13 @@ export class PostgresAccountRepository implements AccountRepository {
   public replacePasswordHashAndRevokeSessions(
     userId: string,
     passwordHash: string,
+    expectedCurrentHash?: string,
   ): Promise<boolean> {
     return this.database.transaction(async (client) => {
       const now = new Date();
       const updated = await client.query(
-        'UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1',
-        [asPostgresUserId(userId), passwordHash, now],
+        'UPDATE users SET password_hash = $2, updated_at = $3 WHERE id = $1 AND ($4::text IS NULL OR password_hash=$4)',
+        [asPostgresUserId(userId), passwordHash, now, expectedCurrentHash ?? null],
       );
       if (updated.rowCount !== 1) return false;
       await client.query(
@@ -134,6 +137,7 @@ export class PostgresAccountRepository implements AccountRepository {
          WHERE user_id = $1 AND revoked_at IS NULL`,
         [asPostgresUserId(userId), now],
       );
+      await client.query("INSERT INTO account_security_events(action,actor_user_id) VALUES ('sessions.revoked',$1)", [userId]);
       return true;
     });
   }

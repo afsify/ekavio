@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { requireNewPassword, normalizeEmail } from './identityPolicy.js';
 import { createHash, randomBytes } from 'node:crypto';
 import {
   generateLegacyMongoBranchId,
@@ -103,6 +104,7 @@ export interface OnboardingInspection {
 }
 
 export interface OnboardingProvisioningInput {
+  ownerEmail?: string;
   tokenHash: string;
   passwordHash: string;
   timezone: string;
@@ -301,10 +303,11 @@ export const createManualCommercialService = (
       };
     },
 
-    async completeOnboarding(rawToken: string, password: string, timezone: string) {
+    async completeOnboarding(rawToken: string, password: string, timezone: string, email?: string) {
       const completed = await repository.completeOnboarding({
         tokenHash: tokenHash(rawToken),
-        passwordHash: await hashPassword(password),
+        ...(email ? { ownerEmail: normalizeEmail(email) } : {}),
+        passwordHash: await hashPassword(requireNewPassword(password)),
         timezone: requireTimezone(timezone),
         now: now(),
         legacyIds: {

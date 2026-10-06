@@ -47,6 +47,7 @@ export interface UserProfile {
 export type ThemeConfig = ThemePreference;
 
 export interface SessionPayload {
+  preferences?: ThemeConfig;
   accessToken: string;
   organizationId?: string;
   branchId?: string;
@@ -85,6 +86,8 @@ const initialTheme = browserStorage
   ? migrateAndClearLegacyAuthStorage(browserStorage) ?? DEFAULT_THEME
   : DEFAULT_THEME;
 let bootstrapPromise: Promise<void> | undefined;
+let preferenceSave: Promise<unknown> = Promise.resolve();
+let preferenceRevision = 0;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
@@ -116,6 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
 
     set({
+      ...(payload.preferences ? { theme: payload.preferences } : {}),
       user: enrichedUser,
       token: payload.accessToken,
       isAuthenticated: true,
@@ -125,6 +129,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       entitlements: payload.entitlements,
       isPlatformOperator: payload.platformOperator === true,
     });
+    if (payload.preferences && browserStorage) saveThemePreference(browserStorage, payload.preferences);
     useSocketStore
       .getState()
       .connectSocket(payload.accessToken, organizationId, activeBranchId ?? undefined);
@@ -204,9 +209,26 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setTheme: (mode, primaryColor) => {
+    const revision = ++preferenceRevision;
     const nextTheme = { mode, primaryColor: primaryColor && /^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : get().theme.primaryColor };
     set({ theme: nextTheme });
     if (browserStorage) saveThemePreference(browserStorage, nextTheme);
+    const userId = get().user?.id;
+    if (userId) {
+      // Serialize rapid toggles; an older save cannot overwrite a newer choice.
+      preferenceSave = preferenceSave.catch(() => undefined).then(async () => {
+        if (get().user?.id !== userId) return;
+        const { client } = await import('../api/client');
+        await client.put('/auth/preferences', nextTheme);
+        if (get().user?.id === userId && preferenceRevision === revision) {
+          set({ theme: nextTheme });
+          if (browserStorage) saveThemePreference(browserStorage, nextTheme);
+        }
+      }).catch(async () => {
+        const { default: toast } = await import('react-hot-toast');
+        toast.error('Appearance is saved on this device only. Select it again to retry syncing.');
+      });
+    }
   },
 }));
 

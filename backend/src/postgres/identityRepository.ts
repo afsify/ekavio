@@ -14,6 +14,7 @@ import type { EffectiveEntitlements } from '../services/entitlementService.js';
 import type { MembershipRole } from '../models/Membership.js';
 import { permissionsForRole } from '../services/authorizationPolicy.js';
 import { AppError } from '../utils/AppError.js';
+import { phoneUserIds } from '../services/identityPolicy.js';
 
 interface UserRow extends QueryResultRow {
   id: string;
@@ -88,11 +89,19 @@ export class PostgresIdentityRepository implements IdentityRepository {
   }
 
   public async findByPhone(phone: string): Promise<IdentityUser[]> {
+    const ids = await phoneUserIds(this.database, phone);
     const result = await this.database.query<UserRow>(
       `SELECT id, name, phone, password_hash, platform_role
-       FROM users WHERE phone = $1 ORDER BY id LIMIT 2`,
-      [phone],
+       FROM users WHERE id = ANY($1::uuid[]) ORDER BY id LIMIT 2`,
+      [ids],
     );
+    return Promise.all(result.rows.map((row) => this.toIdentityUser(row)));
+  }
+
+  public async findByEmail(email: string): Promise<IdentityUser[]> {
+    const result = await this.database.query<UserRow>(`SELECT u.id,u.name,u.phone,u.password_hash,u.platform_role
+      FROM users u JOIN user_email_identities e ON e.user_id=u.id
+      WHERE e.normalized_email=$1 AND e.state='verified' LIMIT 2`, [email.trim().toLowerCase()]);
     return Promise.all(result.rows.map((row) => this.toIdentityUser(row)));
   }
 
@@ -191,7 +200,11 @@ export class PostgresIdentityRepository implements IdentityRepository {
       memberships,
     };
 
+    const preferences = await this.database.query<{ theme_mode: 'light' | 'dark' | 'system'; accent: string }>(
+      'SELECT theme_mode,accent FROM user_preferences WHERE user_id=$1', [user.id]);
+
     return {
+      preferences: { mode: preferences.rows[0]?.theme_mode ?? 'light', primaryColor: preferences.rows[0]?.accent ?? '#4F46E5' },
       userId: user.id,
       tenantId: activeMembership.organizationId,
       organizationId: activeMembership.organizationId,

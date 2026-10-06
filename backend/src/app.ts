@@ -9,11 +9,13 @@ import mongoSanitize from 'express-mongo-sanitize';
 import swaggerUi from 'swagger-ui-express';
 import type { RuntimeConfig } from './config/env.js';
 import { swaggerDocs } from './config/swagger.js';
-import routes from './routes/index.js';
+import { createRoutes } from './routes/index.js';
+import type { IdentityAccountService } from './services/identityAccountService.js';
 import { createHealthRouter, type ReadinessProbe } from './routes/healthRoutes.js';
 import { AppError } from './utils/AppError.js';
 
 interface CreateAppOptions {
+  identityAccountService?: IdentityAccountService;
   config: RuntimeConfig;
   isReady?: ReadinessProbe;
 }
@@ -24,7 +26,7 @@ interface OperationalError extends Error {
   isOperational?: boolean;
 }
 
-const sensitiveAuthPaths = new Set(['/login', '/refresh', '/register']);
+const sensitiveAuthPaths = new Set(['/login', '/refresh', '/register', '/forgot-password', '/reset-password', '/inspect-action', '/verify-email', '/email', '/email/resend', '/accept-invitation']);
 
 export const createAuthRateLimiter = () => rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -78,6 +80,7 @@ export const createApp = ({
   isReady = async () => ({
     postgresql: false,
   }),
+  identityAccountService,
 }: CreateAppOptions) => {
   const app = express();
   app.set('trust proxy', config.trustProxyHops);
@@ -114,7 +117,7 @@ export const createApp = ({
   app.use('/health', createHealthRouter(isReady));
   app.use(sanitizeMongoInputs);
   app.use('/api/auth', authLimiter);
-  app.use('/api', apiLimiter, routes);
+  app.use('/api', apiLimiter, createRoutes(identityAccountService ? () => identityAccountService : undefined));
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
   app.get('/', (_request: Request, response: Response) => {
@@ -150,7 +153,7 @@ export const createApp = ({
 
       response.status(statusCode).json({
         status: error.status ?? status,
-        message: error.message || 'Internal Server Error',
+        message: 'Internal Server Error',
       });
     },
   );

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStaff, addStaff, deleteStaff } from '../controllers/staffController.js';
+import { getStaff, deleteStaff } from '../controllers/staffController.js';
 import { authenticate, requirePermission } from '../middlewares/authMiddleware.js';
 import { permissions } from '../services/authorizationPolicy.js';
 
@@ -30,46 +30,20 @@ router.get('/', requirePermission(permissions.STAFF_READ), getStaff);
  * @openapi
  * /staff:
  *   post:
- *     summary: Add a new staff member (Admin only)
- *     tags:
- *       - Staff
+ *     summary: Retired administrator-selected password endpoint
+ *     deprecated: true
+ *     tags: [Staff]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - phone
- *               - password
- *             properties:
- *               name:
- *                 type: string
- *                 example: Jane Doe
- *               phone:
- *                 type: string
- *                 example: "+1234567890"
- *               password:
- *                 type: string
- *                 example: "securepassword"
- *               role:
- *                 type: string
- *                 enum: [admin, staff]
- *                 example: staff
  *     responses:
- *       201:
- *         description: Staff member created successfully
- *       400:
- *         description: Bad request
- *       403:
- *         description: Forbidden (Admin role required)
- *       500:
- *         description: Internal server error
+ *       410:
+ *         description: Use POST /staff/invitations; the recipient chooses a password
  */
-router.post('/', requirePermission(permissions.STAFF_MANAGE), addStaff);
+// Administrator-selected staff passwords are no longer a runtime API. Internal
+// legacy repository contracts remain solely for migration/regression fixtures.
+router.post('/', requirePermission(permissions.STAFF_MANAGE), (_request, response) => {
+  response.status(410).json({ message: 'Use secure staff invitations; staff choose their own password' });
+});
 
 /**
  * @openapi

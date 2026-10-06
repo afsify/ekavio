@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { requirePhone, requireNewPassword } from './identityPolicy.js';
 import { AppError } from '../utils/AppError.js';
 
 export interface RegisterAdminInput {
@@ -38,7 +39,7 @@ export interface AccountRepository {
   ): Promise<{ mode: 'light' | 'dark'; primaryColor: string } | null>;
   updateProfileName(userId: string | undefined, name: string): Promise<unknown | null>;
   findPasswordHash(userId: string): Promise<string | null>;
-  replacePasswordHashAndRevokeSessions(userId: string, passwordHash: string): Promise<boolean>;
+  replacePasswordHashAndRevokeSessions(userId: string, passwordHash: string, expectedCurrentHash?: string): Promise<boolean>;
 }
 
 export const registerAdmin = async (
@@ -48,8 +49,8 @@ export const registerAdmin = async (
   orgName: data.orgName,
   orgType: data.orgType,
   userName: data.userName,
-  phone: data.phone.trim(),
-  passwordHash: await bcrypt.hash(data.password, 10),
+  phone: requirePhone(data.phone),
+  passwordHash: await bcrypt.hash(requireNewPassword(data.password), 12),
 });
 
 export const updateOrganizationTheme = async (
@@ -77,6 +78,7 @@ export const createPasswordChange = ({
   oldPassword: string,
   newPassword: string,
 ): Promise<void> => {
+  requireNewPassword(newPassword);
   const currentHash = await repository.findPasswordHash(userId);
   if (!currentHash) throw new AppError('User not found or password not set', 404);
   if (!(await verifyPassword(oldPassword, currentHash))) {
@@ -85,6 +87,7 @@ export const createPasswordChange = ({
   const updated = await repository.replacePasswordHashAndRevokeSessions(
     userId,
     await hashPassword(newPassword),
+    currentHash,
   );
-  if (!updated) throw new AppError('User not found or password not set', 404);
+  if (!updated) throw new AppError('Password changed concurrently. Sign in again.', 409);
 };

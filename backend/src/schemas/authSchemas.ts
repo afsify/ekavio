@@ -1,17 +1,19 @@
 import { z } from 'zod';
+import { passwordSchema } from '../services/identityPolicy.js';
 
 export const registerSchema = z.object({
   orgName: z.string({ message: 'Organization name is required' }).min(1, 'Organization name cannot be empty'),
   orgType: z.string({ message: 'Organization type is required' }).min(1, 'Organization type cannot be empty'),
   userName: z.string({ message: 'User name is required' }).min(1, 'User name cannot be empty'),
   phone: z.string({ message: 'Phone is required' }).min(1, 'Phone cannot be empty'),
-  password: z.string({ message: 'Password is required' }).min(6, 'Password must be at least 6 characters'),
+  password: passwordSchema,
 });
 
 export const loginSchema = z.object({
-  phone: z.string({ message: 'Phone is required' }).min(1, 'Phone cannot be empty'),
-  password: z.string({ message: 'Password is required' }).min(1, 'Password cannot be empty'),
-});
+  identifier: z.string().trim().min(1).max(254).optional(),
+  phone: z.string().trim().min(1).max(254).optional(),
+  password: z.string().min(1).max(1024),
+}).strict().refine((value) => Boolean(value.identifier) !== Boolean(value.phone), 'Supply exactly one identifier or legacy phone field');
 
 export const updateThemeSchema = z.object({
   mode: z.enum(['light', 'dark']).optional(),

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createIdentityAccountRouter, createStaffInvitationRouter, getIdentityAccountService } from './identityAccountRoutes.js';
 import authRoutes from './authRoutes.js';
 import queueRoutes from './queueRoutes.js';
 import inventoryRoutes from './inventoryRoutes.js';
@@ -15,9 +16,12 @@ import appointmentRoutes from './appointmentRoutes.js';
 import publicRoutes from './publicRoutes.js';
 import customerDuesRoutes from './customerDuesRoutes.js';
 
+export const createRoutes = (identityService = getIdentityAccountService) => {
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/auth', createIdentityAccountRouter(identityService));
+router.use('/staff/invitations', createStaffInvitationRouter(identityService));
 router.use('/queue', queueRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/ledger', ledgerRoutes);
@@ -33,4 +37,6 @@ router.use('/services', serviceRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/public', publicRoutes);
 
-export default router;
+return router;
+};
+export default createRoutes();

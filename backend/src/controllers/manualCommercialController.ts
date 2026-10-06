@@ -164,6 +164,7 @@ export const manualCommercialHandlers = {
           request.body.token as string,
           request.body.password as string,
           request.body.timezone as string,
+          request.body.email as string | undefined,
         ),
       });
     } catch (error) {

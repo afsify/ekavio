@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { passwordSchema } from '../services/identityPolicy.js';
 import { billingCycles } from './publicCommercialSchemas.js';
 
 export const agreementStatuses = [
@@ -96,8 +97,9 @@ export const inspectOnboardingSchema = z.object({
 
 export const completeOnboardingSchema = z.object({
   token: onboardingToken,
-  password: z.string().min(12, 'Password must be at least 12 characters').max(128),
+  password: passwordSchema,
   timezone: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(254).optional(),
 }).strict();
 
 export type AgreementStatus = (typeof agreementStatuses)[number];

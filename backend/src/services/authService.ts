@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { classifyIdentifier } from './identityPolicy.js';
 import jwt from 'jsonwebtoken';
 import { getRuntimeConfig } from '../config/env.js';
 import type { MembershipRole } from '../models/Membership.js';
@@ -16,7 +17,8 @@ import {
 } from './accountPersistence.js';
 
 export interface LoginInput {
-  phone: string;
+  phone?: string;
+  identifier?: string;
   password: string;
 }
 
@@ -68,6 +70,7 @@ export interface PublicUser {
 }
 
 export interface AuthContext {
+  preferences?: { mode: 'light' | 'dark' | 'system'; primaryColor: string };
   userId: string;
   tenantId: string;
   organizationId: string;
@@ -98,6 +101,7 @@ export interface AuthContextSelection {
 }
 
 export interface IdentityRepository {
+  findByEmail?(email: string): Promise<IdentityUser[]>;
   findByPhone(phone: string): Promise<IdentityUser[]>;
   findById(userId: string): Promise<IdentityUser | null>;
   buildContext(user: IdentityUser, selection?: AuthContextSelection): Promise<AuthContext>;
@@ -148,8 +152,10 @@ export const createAuthService = ({
   prepareAuthorization = async () => undefined,
 }: AuthServiceDependencies): AuthService => ({
   async login(data, metadata) {
-    const phone = normalizeLoginPhone(data.phone);
-    const matches = await identities.findByPhone(phone);
+    const identifier = classifyIdentifier(data.identifier ?? data.phone ?? '');
+    const matches = identifier.kind === 'email'
+      ? await identities.findByEmail?.(identifier.value) ?? []
+      : await identities.findByPhone(identifier.value);
     if (matches.length === 0) throw new AppError('Invalid credentials', 401);
     if (matches.length > 1) {
       throw new AppError(
@@ -165,7 +171,7 @@ export const createAuthService = ({
 
     await prepareAuthorization(user.id);
     const context = await identities.buildContext(user);
-    const session = await sessions.create(user.id, metadata);
+    const session = await sessions.create(user.id, metadata, user.passwordHash);
     return {
       refreshCredential: session.refreshCredential,
       response: {

@@ -51,6 +51,8 @@ services:
       HTTP_ALLOWED_ORIGINS: ${HTTP_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
       SOCKET_ALLOWED_ORIGINS: ${SOCKET_ALLOWED_ORIGINS:-http://localhost,http://localhost:5173}
       TRUST_PROXY_HOPS: 0
+      EMAIL_TRANSPORT: disabled
+      APP_PUBLIC_URL: http://localhost
     depends_on:
       postgres:
         condition: service_healthy

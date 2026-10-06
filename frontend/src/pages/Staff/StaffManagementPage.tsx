@@ -1,224 +1,53 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, useWatch, type SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import toast from 'react-hot-toast';
-import { Users, Trash2 } from 'lucide-react';
-
-import { DetailViewLayout } from '../../components/layout/DetailViewLayout';
-import { AdvancedTable } from '../../components/ui/AdvancedTable';
-import { AdvancedModal } from '../../components/ui/AdvancedModal';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
 import { useAppStore } from '../../store/useAppStore';
+import { Input } from '../../components/ui/Input';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { normalizePhone } from '../../utils/phone';
+import { AdvancedModal } from '../../components/ui/AdvancedModal';
 
-const staffSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  phone: z.string().refine((value) => Boolean(normalizePhone(value)), 'Enter a valid phone number'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['admin', 'staff']),
-});
-
-type StaffFormInputs = z.infer<typeof staffSchema>;
-
-interface StaffMember {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  createdAt: string;
+interface Member { id: string; name: string; phone: string; role: string }
+interface Invitation { id: string; name: string; role: string; expires_at: string; revoked_at: string | null; consumed_at: string | null }
+export default function StaffManagementPage() {
+  const { user, activeTenantId, activeBranchId } = useAppStore();
+  const canManage = user?.permissions?.includes('staff.manage') ?? false;
+  const branches = user?.memberships?.find((item) => item.organizationId === activeTenantId)?.branches ?? [];
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('staff');
+  const [branchIds, setBranchIds] = useState<string[]>(activeBranchId ? [activeBranchId] : []);
+  const [handoff, setHandoff] = useState<string | null>(null);
+  const queries = useQueryClient();
+  const staff = useQuery({ queryKey: ['staff', activeTenantId], queryFn: async () => (await client.get<{ data: Member[] }>('/staff')).data.data });
+  const invites = useQuery({ queryKey: ['staff-invitations', activeTenantId], enabled: canManage, queryFn: async () => (await client.get<{ data: Invitation[] }>('/staff/invitations')).data.data });
+  const create = useMutation({ mutationFn: async () => {
+    const response = await client.post<{ data: { handoffUrl?: string } }>('/staff/invitations', { name, phone, ...(email.trim() ? { email: email.trim() } : {}), role, branchIds });
+    // Never return the raw handoff to React Query's mutation cache. Only this
+    // modal state holds it, and closing/unmounting removes that state.
+    setHandoff(response.data.data.handoffUrl ?? null);
+  }, onSuccess: () => { setOpen(false); setName(''); setPhone(''); setEmail(''); void queries.invalidateQueries({ queryKey: ['staff-invitations'] }); } });
+  const revoke = useMutation({ mutationFn: (id: string) => client.delete('/staff/invitations/' + id), onSuccess: () => void queries.invalidateQueries({ queryKey: ['staff-invitations'] }) });
+  const remove = useMutation({ mutationFn: (id: string) => client.delete('/staff/' + id), onSuccess: () => void queries.invalidateQueries({ queryKey: ['staff'] }) });
+  return <div className="page-stack"><header className="page-heading"><div><h1>Staff</h1><p>Invite people securely. Every person chooses their own password.</p></div>{canManage && <button className="action-link" onClick={() => { create.reset(); setOpen(true); }}>Invite staff</button>}</header>
+    {staff.isPending && <p>Loading staff…</p>}{staff.isError && <p role="alert">Staff could not be loaded. <button onClick={() => void staff.refetch()}>Retry</button></p>}
+    <section className="panel page-stack"><h2 className="font-semibold">Active organization members</h2>{staff.data?.length === 0 && <p className="muted">No staff members yet.</p>}{staff.data?.map((member) => <div className="record-actions justify-between" key={member.id}><div><strong>{member.name}</strong><p className="muted capitalize">{member.role} · {member.phone}</p></div>{canManage && member.id !== user?.id && <button className="quiet-button" disabled={remove.isPending} onClick={() => { if (window.confirm('Revoke this membership and its sessions?')) remove.mutate(member.id); }}>Revoke access</button>}</div>)}</section>
+    {canManage && <section className="panel page-stack"><h2 className="font-semibold">Invitations</h2><p className="muted">Invitations expire in 48 hours. Re-invite the same phone after one minute to replace a lost link. Access begins only after acceptance.</p>{invites.isError && <p role="alert">Invitations unavailable. <button onClick={() => void invites.refetch()}>Retry</button></p>}{invites.data?.map((invite) => {
+      const status = invite.consumed_at ? 'Accepted' : invite.revoked_at ? 'Revoked' : new Date(invite.expires_at) <= new Date() ? 'Expired' : 'Pending';
+      return <div className="record-actions justify-between" key={invite.id}><div><strong>{invite.name}</strong><p className="muted">{invite.role} · {status}</p></div>{status === 'Pending' && <button className="quiet-button" disabled={revoke.isPending} onClick={() => revoke.mutate(invite.id)}>Revoke invitation</button>}</div>;
+    })}{invites.data?.length === 0 && <p className="muted">No invitations yet.</p>}</section>}
+    {(remove.isError || revoke.isError) && <p role="alert">{getErrorMessage(remove.error ?? revoke.error, 'Action could not be completed.')}</p>}
+    <AdvancedModal isOpen={open && canManage} onClose={() => setOpen(false)} title="Invite staff" actions={<button className="action-link" disabled={create.isPending || !name.trim() || !normalizePhone(phone) || !branchIds.length} onClick={() => create.mutate()}>Send invitation</button>}>
+      <div className="page-stack"><Input label="Full name" required maxLength={200} value={name} onChange={(event) => setName(event.target.value)} /><PhoneInput label="Phone number" required value={phone} onChange={setPhone} /><Input label="Email (optional)" type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} />
+        <p className="muted">Email invitations verify mailbox control on acceptance. Without email, share the single-use handoff link privately. Existing accounts require a separate authenticated linking workflow.</p>
+        <label>Role<select aria-label="Role" value={role} onChange={(event) => setRole(event.target.value)} className="w-full rounded-lg border p-3">{['staff','hr','manager','admin'].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+        <fieldset className="page-stack"><legend>Assigned branches</legend>{branches.map((branch) => <label key={branch.id} className="flex gap-2"><input type="checkbox" checked={branchIds.includes(branch.id)} onChange={(event) => setBranchIds((current) => event.target.checked ? [...current, branch.id] : current.filter((id) => id !== branch.id))} />{branch.name}</label>)}</fieldset>
+        {create.isError && <p role="alert">{getErrorMessage(create.error, 'Invitation could not be created.')}</p>}
+      </div>
+    </AdvancedModal>
+    <AdvancedModal isOpen={Boolean(handoff)} onClose={() => setHandoff(null)} title="One-time invitation handoff" actions={<button className="quiet-button" onClick={() => setHandoff(null)}>I have handed off the link</button>}><p className="muted">Share privately with the intended person. This link cannot be retrieved after closing; replace it if lost. Never put it in logs or screenshots.</p><input aria-label="One-time handoff link" readOnly value={handoff ?? ''} className="w-full rounded-lg border p-3 mt-4" onFocus={(event) => event.target.select()} /></AdvancedModal>
+  </div>;
 }
-
-export const StaffManagementPage: React.FC = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const currentUser = useAppStore((state) => state.user);
-
-  const { data: staffData, isLoading } = useQuery({
-    queryKey: ['staff', currentUser?.tenantId],
-    queryFn: async () => {
-      const response = await client.get('/staff');
-      return response.data.data as StaffMember[];
-    },
-  });
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    control,
-    setValue,
-    formState: { errors, isSubmitting },
-  } = useForm<StaffFormInputs>({
-    resolver: zodResolver(staffSchema),
-    defaultValues: { role: 'staff' },
-  });
-
-  const staffPhone = useWatch({ control, name: 'phone', defaultValue: '' });
-  const createMutation = useMutation({
-    mutationFn: async (data: StaffFormInputs) => {
-      const response = await client.post('/staff', data);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Staff member added successfully!');
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-      setIsModalOpen(false);
-      reset();
-    },
-    onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Failed to add staff'));
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await client.delete(`/staff/${id}`);
-      return response.data;
-    },
-    onSuccess: () => {
-      toast.success('Staff member deleted successfully!');
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-    },
-    onError: (error: unknown) => {
-      toast.error(getErrorMessage(error, 'Failed to delete staff'));
-    },
-  });
-
-  const onSubmit: SubmitHandler<StaffFormInputs> = (data) => {
-    createMutation.mutate(data);
-  };
-
-  const columns = [
-    { header: 'Name', accessor: 'name', sortable: true },
-    { header: 'Phone', accessor: 'phone' },
-    { 
-      header: 'Role', 
-      accessor: 'role', 
-      sortable: true,
-      cell: ({ value }: { value: unknown }) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-          String(value) === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
-        }`}>
-          {String(value)}
-        </span>
-      )
-    },
-    { 
-      header: 'Joined', 
-      accessor: 'createdAt',
-      cell: ({ value }: { value: unknown }) => new Date(String(value)).toLocaleDateString()
-    },
-    {
-      header: 'Actions',
-      accessor: 'actions',
-      cell: ({ row }: { row: StaffMember }) => {
-        if (row.id === currentUser?.id) return <span className="text-xs text-slate-500">You</span>;
-        if (!currentUser?.permissions?.includes('staff.manage')) return null;
-        
-        return (
-          <Button 
-            size="sm" 
-            variant="secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm('Are you sure you want to delete this staff member?')) {
-                deleteMutation.mutate(row.id);
-              }
-            }}
-            title="Delete Staff"
-            className="hover:bg-rose-500/20 text-rose-400 border-transparent"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        );
-      }
-    }
-  ];
-
-  const header = (
-    <div className="flex items-center gap-3 bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
-      <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
-        <Users className="w-8 h-8" />
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold text-white">Staff Management</h1>
-        <p className="text-slate-400 text-sm">Manage organization access and roles</p>
-      </div>
-    </div>
-  );
-
-  const mainContent = (
-    <>
-      <AdvancedTable
-        columns={columns}
-        data={staffData || []}
-        loading={isLoading}
-        title="Organization Staff"
-        description="List of all users with access to your tenant workspace."
-        onAdd={currentUser?.permissions?.includes('staff.manage') ? () => setIsModalOpen(true) : undefined}
-        searchPlaceholder="Search staff..."
-      />
-
-      <AdvancedModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Add New Staff"
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit(onSubmit)} isLoading={isSubmitting || createMutation.isPending}>
-              Create Account
-            </Button>
-          </>
-        }
-      >
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <Input
-            id="name"
-            label="Full Name"
-            {...register('name')}
-            error={errors.name?.message}
-          />
-          <PhoneInput label="Phone Number" required value={staffPhone} onChange={(phone) => setValue('phone', phone, { shouldValidate: true })} error={errors.phone?.message} />
-          <Input
-            id="password"
-            label="Temporary Password"
-            type="password"
-            {...register('password')}
-            error={errors.password?.message}
-          />
-          <div className="space-y-1">
-            <label htmlFor="role" className="block text-sm font-medium text-slate-300">
-              Role
-            </label>
-            <select
-              id="role"
-              {...register('role')}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-            >
-              <option value="staff">Staff (Limited Access)</option>
-              <option value="admin">Admin (Full Access)</option>
-            </select>
-            {errors.role && (
-              <p className="text-xs text-rose-500">{errors.role.message}</p>
-            )}
-          </div>
-        </form>
-      </AdvancedModal>
-    </>
-  );
-
-  return (
-    <DetailViewLayout header={header} mainContent={mainContent} />
-  );
-};
-
-export default StaffManagementPage;

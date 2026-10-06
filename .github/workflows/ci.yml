@@ -97,6 +97,10 @@ jobs:
         working-directory: backend
         run: npm run test:cutover
 
+      - name: Test email identity, recovery, invitations and durable preferences
+        working-directory: backend
+        run: npm run test:identity-account
+
       - name: Test PostgreSQL commercial runtime cutover
         working-directory: backend
         run: npm run test:commercial
@@ -216,12 +220,18 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e
 
+      - name: Test PostgreSQL-backed identity and recovery in browser
+        working-directory: frontend
+        run: npm run test:e2e:identity
+
       - name: Upload frontend QA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: frontend-product-experience
-          path: frontend/test-results
+          path: |
+            frontend/test-results
+            !frontend/test-results/identity/**
           retention-days: 7
 
       - name: Validate Docker Compose

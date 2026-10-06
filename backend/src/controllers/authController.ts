@@ -12,7 +12,7 @@ import {
   readRefreshCookie,
   setRefreshCookie,
 } from '../utils/authCookies.js';
-import { AppError, getErrorMessage } from '../utils/AppError.js';
+import { AppError } from '../utils/AppError.js';
 import { disconnectSessionSockets } from '../config/socket.js';
 
 export interface AuthHandlers {
@@ -32,7 +32,7 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
       setRefreshCookie(response, result.refreshCredential, getRuntimeConfig());
       response.status(200).json(result.response);
     } catch (error: unknown) {
-      next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+      next(error instanceof AppError ? error : new AppError('Authentication unavailable', 503));
     }
   },
 
@@ -53,7 +53,7 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
       response.status(200).json(result.response);
     } catch (error: unknown) {
       clearRefreshCookie(response, getRuntimeConfig());
-      next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+      next(error instanceof AppError ? error : new AppError('Authentication unavailable', 503));
     }
   },
 
@@ -65,7 +65,7 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
       response.status(200).json({ message: 'Signed out successfully' });
     } catch (error: unknown) {
       clearRefreshCookie(response, getRuntimeConfig());
-      next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+      next(error instanceof AppError ? error : new AppError('Authentication unavailable', 503));
     }
   },
 });
@@ -84,7 +84,7 @@ export const registerAdmin = async (
       ...result,
     });
   } catch (error: unknown) {
-    next(new AppError(getErrorMessage(error), 500));
+    next(error instanceof AppError ? error : new AppError('Registration unavailable', 503));
   }
 };
 
@@ -107,6 +107,6 @@ export const updateTheme = async (
     const theme = await updateThemeService(organizationId, request.body);
     response.status(200).json({ message: 'Theme updated successfully', theme });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    next(error instanceof AppError ? error : new AppError('Theme update unavailable', 503));
   }
 };

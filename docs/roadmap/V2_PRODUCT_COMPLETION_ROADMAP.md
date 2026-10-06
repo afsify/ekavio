@@ -5,7 +5,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | Milestone | Scope |
 | --- | --- |
 | V2-08A | Product experience foundation: themes, responsive shell, canonical Customers/Services, Settings, phone input, human labels, commercial presentation and automated local QA |
-| V2-08B | Identity/account recovery: reviewed phone-or-email identity, verified email, password recovery, durable per-user preferences, staff invitation design |
+| V2-08B | Implemented identity/account recovery: explicit phone-or-verified-email lookup, optional provider-neutral SMTP, single-use verification/reset, recipient-chosen staff invitations and durable per-user preferences; local automated acceptance, no pilot GO |
 | V2-08C | Organization administration/RBAC: organization profile fields, branch CRUD, custom roles, permission/audit visibility, staff lifecycle |
 | V2-08D | Dynamic fields and form layouts with safe schemas and authorization |
 | V2-08E | Dashboards, reports and notifications; no invented metrics or mandatory messaging provider |
@@ -20,5 +20,12 @@ Core experience: Dashboard, Customers, Services, Branches, Staff, roles/permissi
 Commercial modules retain keys `queue`, `attendance`, `ledger`, `inventory`, presented as Queue & Appointments, Attendance, Customer Dues and Inventory. Entitlement (commercial availability), permission (membership authority), and navigation visibility remain separate decisions.
 
 ## Deferred work
+
+V2-08B does not implement support bypass, existing-identity organization linking,
+custom roles or advanced staff lifecycle; these need an authenticated V2-08C design.
+Real SMTP/provider smoke and hosted migration/deployment acceptance remain separately
+required later. Migration 013 must precede V2-08B deployment. Recovery and retained
+schema proof must eventually include its new invariants. No new milestone begins
+automatically; V2-07 NO-GO is unchanged.
 
 Do not build email login/OTP/recovery, custom-role tables, custom fields/forms, Leads/Deals/follow-ups, suppliers/purchasing, leave/payroll, gateways, WhatsApp/SMS or paid AI in V2-08A. Service reference price exists canonically but is not invoicing/accounting; price administration and broader branch availability administration require their own reviewed enhancement. No fake organization fields, reports, audit feeds or support contact details.

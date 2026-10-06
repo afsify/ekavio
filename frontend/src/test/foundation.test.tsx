@@ -11,6 +11,7 @@ import { PhoneInput } from '../components/ui/PhoneInput';
 import { ThemeProvider } from '../components/ThemeProvider';
 import SettingsPage from '../pages/Settings/SettingsPage';
 import { useAppStore } from '../store/useAppStore';
+import { client } from '../api/client';
 
 describe('exact presentation money', () => {
   it.each([['0','0'],['1','100'],['12.05','1205'],['99999999999.99','9999999999999']])('converts %s exactly', (rupees, paise) => { expect(rupeesToPaise(rupees)).toBe(paise); expect(paiseToRupees(paise)).toBe(`${rupees.split('.')[0]}.${(rupees.split('.')[1] ?? '').padEnd(2,'0')}`); });
@@ -42,4 +43,4 @@ it('preference migration strips unknown fields instead of retaining credentials'
   expect(Object.keys(JSON.parse(localStorage.getItem('ekavio-ui-preferences')!))).toEqual(['mode', 'primaryColor']);
 });
 it('empty state provides a navigable next action', () => { render(<MemoryRouter><EmptyState title="No customers yet" description="Create a customer." action="Create Customer" to="/customers" /></MemoryRouter>); expect(screen.getByRole('link', { name: 'Create Customer' }).getAttribute('href')).toBe('/customers'); });
-it('Settings exposes personal sections without organization-admin permission', () => { useAppStore.setState({ user: { id: 'test-user', tenantId: 'test-workspace', role: 'staff', name: 'Test Member', permissions: [] } }); render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><SettingsPage /></MemoryRouter></QueryClientProvider>); expect(screen.getByRole('button', { name: 'My Profile' })).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Appearance' })); expect(screen.getByRole('radio', { name: 'System' })).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Organization' })); expect(screen.queryByRole('link', { name: 'Manage Staff' })).toBeNull(); });
+it('Settings exposes personal sections without organization-admin permission', () => { vi.spyOn(client, 'get').mockResolvedValue({ data: { data: { verified: null, pending: null, available: false } } }); useAppStore.setState({ user: { id: 'test-user', tenantId: 'test-workspace', role: 'staff', name: 'Test Member', permissions: [] } }); render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><SettingsPage /></MemoryRouter></QueryClientProvider>); expect(screen.getByRole('button', { name: 'My Profile' })).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Appearance' })); expect(screen.getByRole('radio', { name: 'System' })).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Organization' })); expect(screen.queryByRole('link', { name: 'Manage Staff' })).toBeNull(); });

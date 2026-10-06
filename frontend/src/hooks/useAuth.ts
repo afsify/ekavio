@@ -3,7 +3,7 @@ import { client } from '../api/client';
 import { useAppStore, type SessionPayload } from '../store/useAppStore';
 
 interface LoginCredentials {
-  phone: string;
+  identifier: string;
   password: string;
 }
 

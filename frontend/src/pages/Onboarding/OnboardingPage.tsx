@@ -31,6 +31,7 @@ const OnboardingPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
+  const [email, setEmail] = useState('');
   useEffect(() => {
     initialFragmentToken = undefined;
   }, []);
@@ -49,7 +50,7 @@ const OnboardingPage: React.FC = () => {
   const complete = useMutation({
     mutationFn: async () => {
       if (!token) throw new Error('Onboarding token is missing');
-      await publicClient.post('/public/onboarding/complete', { token, password, timezone });
+      await publicClient.post('/public/onboarding/complete', { token, password, timezone, ...(email.trim() ? { email: email.trim() } : {}) });
     },
     onSuccess: () => {
       setPassword('');
@@ -58,7 +59,7 @@ const OnboardingPage: React.FC = () => {
       navigate('/login', { replace: true, state: { accountReady: true } });
     },
   });
-  const passwordInvalid = password.length < 12 || password.length > 128 || password !== confirmPassword;
+  const passwordInvalid = password.length < 12 || new TextEncoder().encode(password).length > 72 || password !== confirmPassword;
 
   return (
     <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
@@ -82,6 +83,8 @@ const OnboardingPage: React.FC = () => {
               <p className="mt-3 text-xs text-slate-500">Period: {new Date(inspection.data.subscription.startsAt).toLocaleDateString()} – {new Date(inspection.data.subscription.currentPeriodEndsAt).toLocaleDateString()}</p>
             </div>
             <div className="grid gap-4">
+              <Input label="Recovery email (recommended)" type="email" autoComplete="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} />
+              <p className="text-sm text-slate-400">Add a personal email for account recovery. If omitted, the access-request email is retained when available. After phone sign-in, verify it in Settings; it is not login or recovery authority until verified. Legacy phone-only onboarding remains supported.</p>
               <Input label="Password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} error={password.length > 0 && password.length < 12 ? 'Use at least 12 characters' : undefined} />
               <Input label="Confirm password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} error={confirmPassword.length > 0 && password !== confirmPassword ? 'Passwords do not match' : undefined} />
               <Input label="Main branch timezone" value={timezone} maxLength={100} onChange={(event) => setTimezone(event.target.value)} />

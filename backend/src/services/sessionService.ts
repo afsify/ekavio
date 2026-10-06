@@ -26,7 +26,7 @@ export interface SessionRecord {
 export interface CreateSessionRecord extends SessionRecord, SessionMetadata {}
 
 export interface SessionRepository {
-  create(record: CreateSessionRecord): Promise<void>;
+  create(record: CreateSessionRecord, expectedPasswordHash?: string): Promise<void>;
   findBySessionId(sessionId: string): Promise<SessionRecord | null>;
   rotate(
     sessionId: string,
@@ -47,7 +47,7 @@ export interface RefreshSession {
 }
 
 export interface RefreshSessionManager {
-  create(userId: string, metadata?: SessionMetadata): Promise<RefreshSession>;
+  create(userId: string, metadata?: SessionMetadata, expectedPasswordHash?: string): Promise<RefreshSession>;
   rotate(refreshCredential: string): Promise<RefreshSession>;
   revoke(refreshCredential: string | undefined): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
@@ -101,7 +101,7 @@ export const createRefreshSessionManager = ({
     `${sessionId}.${random(32).toString('base64url')}`;
 
   return {
-    async create(userId, metadata = {}) {
+    async create(userId, metadata = {}, expectedPasswordHash) {
       const createdAt = now();
       const expiresAt = new Date(createdAt.getTime() + REFRESH_SESSION_MAX_AGE_MS);
       const refreshCredential = createCredential();
@@ -120,7 +120,7 @@ export const createRefreshSessionManager = ({
         revokedAt: null,
         ...(metadata.userAgent ? { userAgent: metadata.userAgent.slice(0, 512) } : {}),
         ...(metadata.ipAddress ? { ipAddress: metadata.ipAddress.slice(0, 128) } : {}),
-      });
+      }, expectedPasswordHash);
 
       return { sessionId: parsed.sessionId, userId, refreshCredential, expiresAt };
     },

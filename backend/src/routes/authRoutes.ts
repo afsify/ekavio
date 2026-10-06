@@ -52,7 +52,7 @@ const router = Router();
  *                 example: "+1234567890"
  *               password:
  *                 type: string
- *                 description: Password (minimum 6 characters)
+ *                 description: Password (12 characters minimum, 72 UTF-8 bytes maximum)
  *                 example: secret123
  *     responses:
  *       201:
@@ -95,12 +95,12 @@ router.post(
  *           schema:
  *             type: object
  *             required:
- *               - phone
+ *               - identifier
  *               - password
  *             properties:
- *               phone:
+ *               identifier:
  *                 type: string
- *                 description: User's registered phone number
+ *                 description: Phone or verified email (legacy phone field remains an exclusive compatibility alias)
  *                 example: "+1234567890"
  *               password:
  *                 type: string

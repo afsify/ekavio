@@ -1,4 +1,5 @@
 import type { PostgresDatabase } from './database.js';
+import { AppError } from '../utils/AppError.js';
 import { asPostgresUserId } from '../persistence/identifiers.js';
 import type {
   CreateSessionRecord,
@@ -27,8 +28,15 @@ const toSessionRecord = (row: SessionRow): SessionRecord => ({
 export class PostgresSessionRepository implements SessionRepository {
   public constructor(private readonly database: PostgresDatabase) {}
 
-  public async create(record: CreateSessionRecord): Promise<void> {
-    await this.database.query(
+  public async create(record: CreateSessionRecord, expectedPasswordHash?: string): Promise<void> {
+    await this.database.transaction(async (client) => {
+    // This transient guard is never a session column. The user share lock
+    // serializes issuance with password replacement/recovery's exclusive lock.
+    if (expectedPasswordHash !== undefined) {
+      const user = await client.query<{ password_hash: string | null }>('SELECT password_hash FROM users WHERE id=$1 FOR SHARE', [asPostgresUserId(record.userId)]);
+      if (user.rows[0]?.password_hash !== expectedPasswordHash) throw new AppError('Invalid credentials', 401);
+    }
+    await client.query(
       `INSERT INTO auth_sessions
         (session_id, user_id, credential_hash, expires_at, last_used_at, revoked_at,
          user_agent, ip_address, created_at, updated_at)
@@ -44,6 +52,7 @@ export class PostgresSessionRepository implements SessionRepository {
         record.ipAddress ?? null,
       ],
     );
+    });
   }
 
   public async findBySessionId(sessionId: string): Promise<SessionRecord | null> {

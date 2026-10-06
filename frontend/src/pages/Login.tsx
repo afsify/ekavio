@@ -4,7 +4,7 @@
  * and database-driven theme injection upon login.
  */
 import React, { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,7 +23,7 @@ import { useLogin } from '../hooks/useAuth';
 import { getErrorMessage } from '../api/errors';
 
 const loginSchema = z.object({
-  phone: z.string().min(1, 'Phone number is required'),
+  identifier: z.string().trim().min(1, 'Phone or email is required').max(254),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -52,7 +52,7 @@ export const Login: React.FC = () => {
   const onSubmit: SubmitHandler<LoginFormInputs> = (formData) => {
     loginMutation.mutate(
       {
-        phone: formData.phone.trim(),
+        identifier: formData.identifier.trim(),
         password: formData.password,
       },
       {
@@ -104,13 +104,14 @@ export const Login: React.FC = () => {
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 shadow-2xl">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <Input
-              id="phone"
-              label="Phone Number"
-              type="tel"
-              {...register('phone')}
-              placeholder="+1 (555) 000-0000"
+              id="identifier"
+              label="Phone or email"
+              type="text"
+              autoComplete="username"
+              {...register('identifier')}
+              placeholder="Phone number or verified email"
               icon={<Phone className="h-4 w-4" />}
-              error={errors.phone?.message}
+              error={errors.identifier?.message}
               disabled={isLoading}
             />
 
@@ -136,10 +137,11 @@ export const Login: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
+          <Link className="mt-4 block text-sm text-indigo-500" to="/forgot-password">Forgot password?</Link>
 
           <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-2 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>256-Bit Encrypted Mobile Session</span>
+            <span>Secure, revocable session</span>
           </div>
         </div>
 

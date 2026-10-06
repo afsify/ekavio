@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { loadEmailConfig, type EmailConfig } from '../services/emailService.js';
 
 const requiredString = z.string({ error: 'is required' }).trim().min(1, 'is required');
 
@@ -178,6 +179,7 @@ const environmentSchema = z
   });
 
 export interface RuntimeConfig {
+  email?: EmailConfig;
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
   databaseUrl: string;
@@ -254,6 +256,7 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): RuntimeConfig => {
   }
 
   return {
+    email: loadEmailConfig(environment),
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,

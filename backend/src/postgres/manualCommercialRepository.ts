@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { lockNewPhone, requirePhone } from '../services/identityPolicy.js';
 import type {
   FinalizeAgreementInput,
   RecordManualPaymentInput,
@@ -726,11 +727,12 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
         business_type: string;
         contact_name: string;
         normalized_phone: string;
+        contact_email: string | null;
       }>(`
         SELECT a.*, a.list_subtotal_minor::text, a.agreed_total_minor::text,
           i.id AS invitation_id, i.expires_at, i.revoked_at, i.consumed_at,
           r.status AS request_status, r.business_name, r.business_type,
-          r.contact_name, r.normalized_phone
+          r.contact_name, r.normalized_phone, r.email AS contact_email
         FROM commercial_onboarding_invitations i
         JOIN commercial_agreements a ON a.id = i.agreement_id
         JOIN commercial_access_requests r ON r.id = a.access_request_id
@@ -756,13 +758,8 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
         throw new AppError('Agreement is not exactly settled', 409);
       }
 
-      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [row.normalized_phone]);
-      const existingUser = await client.query<{ exists: boolean }>(`
-        SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1) AS exists
-      `, [row.normalized_phone]);
-      if (existingUser.rows[0]?.exists) {
-        throw new AppError('This phone already belongs to an EkaVio user; operator resolution is required', 409);
-      }
+      row.normalized_phone = requirePhone(row.normalized_phone);
+      await lockNewPhone(client, row.normalized_phone, 'This phone already belongs to an EkaVio user; operator resolution is required');
       const timezone = await client.query<{ valid: boolean }>(`
         SELECT ekavio_is_valid_iana_timezone($1) AS valid
       `, [input.timezone]);
@@ -788,6 +785,16 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
         RETURNING id
       `, [input.legacyIds.user, row.contact_name, row.normalized_phone, input.passwordHash, input.now]);
       const userId = user.rows[0]!.id;
+      // Operator-entered/contact email is not proof of mailbox control. Preserve
+      // it only as pending; the owner must explicitly verify through Settings.
+      const ownerEmail = input.ownerEmail ?? row.contact_email;
+      if (ownerEmail) {
+        const email = ownerEmail.trim().toLowerCase();
+        if ((await client.query("SELECT 1 FROM user_email_identities WHERE normalized_email=$1 AND state <> 'replaced'", [email])).rowCount) {
+          throw new AppError('Email identity already exists; operator resolution is required', 409);
+        }
+        await client.query("INSERT INTO user_email_identities(user_id,display_email,normalized_email,state) VALUES ($1,$2,$3,'pending')", [userId, ownerEmail.trim(), email]);
+      }
       const branch = await client.query<{ id: string }>(`
         INSERT INTO branches
           (legacy_mongo_id, organization_id, name, code, status, timezone, created_at, updated_at)

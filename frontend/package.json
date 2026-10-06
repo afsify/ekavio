@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:identity": "playwright test --config playwright.identity.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
