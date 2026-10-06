@@ -13,7 +13,7 @@ const handle=(fn:(r:AuthenticatedRequest)=>Promise<unknown>):RequestHandler=>asy
 const text=(size:number)=>z.string().trim().max(size);
 const version=z.number().int().positive();
 const branches=z.array(z.uuid()).min(1).max(50).refine(v=>new Set(v).size===v.length);
-const profile=z.object({name:text(200).min(1),type:text(100).min(1),businessCategory:text(100),description:text(1000),contactEmail:z.union([z.email(),z.literal('')]),contactPhone:text(32),address:text(500),website:z.union([z.url().refine(v=>/^https?:\/\//.test(v)),z.literal('')])}).strict();
+const profile=z.object({name:text(200).min(1),type:text(100).min(1),businessCategory:text(100),description:text(1000),contactEmail:z.union([z.email().max(254),z.literal('')]),contactPhone:text(32),address:text(500),website:z.union([z.url().max(254).refine(v=>/^https?:\/\//.test(v)),z.literal('')])}).strict();
 const branch=z.object({name:text(200).min(1),code:text(64).min(1).regex(/^[a-z0-9_-]+$/),timezone:text(100).min(1),status:z.enum(['active','inactive']),version:version.optional()}).strict();
 const custom=z.object({name:text(100).min(1),description:text(500),permissions:z.array(z.enum(Object.values(permissions) as [Permission,...Permission[]])).max(100).refine(v=>new Set(v).size===v.length),version:version.optional(),status:z.enum(['active','archived']).optional()}).strict();
 const search=(r:AuthenticatedRequest)=>z.string().max(200).parse(r.query.search??'');

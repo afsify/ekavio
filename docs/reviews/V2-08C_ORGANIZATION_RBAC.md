@@ -8,6 +8,9 @@ Authority and policy: [ADR 0022](../adr/0022-organization-administration-and-cus
 
 - `/admin`: factual staff/branch/custom-role/pending-invitation counts, editable
   operating profile, canonical read-only billing legal name and module/access summary.
+  Supplied contact phones are validated/canonical E.164 and emails normalized.
+  Authorized role readers see each system/active-custom role's view/manage access
+  separately from subscription availability; no entitlement toggle is exposed.
 - `/branches`: scoped search, details, create/edit and active/inactive lifecycle,
   unique codes, validated timezone, version conflicts and no hard delete.
 - `/roles`: immutable system-role display, custom least-privilege create/edit/archive,
@@ -52,7 +55,7 @@ TLS, proxy trust, cookie security and production registration behavior are uncha
 
 - Backend: clean `npm ci`, lint, typecheck, **156/156** unit/source-contract tests
   and build passed. Final runtime audit: **0 vulnerabilities**.
-- Frontend: clean `npm ci`, lint, typecheck, **25/25** unit tests and production
+- Frontend: clean `npm ci`, lint, typecheck, **26/26** unit tests and production
   build passed. Runtime and full audits: **0 vulnerabilities**. Existing bundle-size
   and ineffective-dynamic-import warnings remain non-blocking, not hidden.
 - Local Chromium: admin **18/18**, identity **11/11**, foundation **19/19** passed
@@ -87,6 +90,10 @@ process tree. A duplicate foundation launch caused artifact-directory collisions
 the isolated final run passed 19/19. No test assertions were weakened for these
 harness problems. Local build URL prerequisites and audit network access were
 supplied explicitly for the successful final gates.
+The final requirement cross-check added contact normalization and per-role module
+access summaries. Backend 156/156, frontend 26/26, RBAC 25/25 and the affected admin
+browser suite were rerun; prior unrelated accepted suites were not needlessly
+repeated. No schema change or hosted migration rerun was needed for these fixes.
 
 ## Hosted and operational limits
 

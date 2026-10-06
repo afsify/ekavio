@@ -16,6 +16,7 @@ rewritten. Organization name/type remain canonical on `organizations`; agreement
 legal-name/contact/GST fields remain canonical in the existing billing profile.
 Business category, description and operating contact/address/website are separate
 operational profile fields, not a second commercial agreement.
+Operating email is normalized and validated; a supplied phone is canonical E.164.
 
 The server permission catalogue is the sole editor authority and contains only
 tenant capabilities. It supplies stable keys, labels, descriptions and categories.
@@ -50,6 +51,8 @@ remain mandatory. Queue and Appointments retain independent Queue entitlement
 and permission checks; Attendance, Customer Dues and Inventory remain entitled.
 Roles do not grant modules. Organization/admin module summaries display commercial
 access and member permissions separately.
+Readers with `roles.read` also see server-derived system/active-custom role
+view/manage access per module; no role-access display changes subscription state.
 
 Membership suspension, reactivation and revocation preserve the global user and
 other organization memberships/sessions. The next protected request to a revoked

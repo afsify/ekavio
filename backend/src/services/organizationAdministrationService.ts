@@ -7,6 +7,7 @@ import { disconnectOrganizationSockets } from '../config/socket.js';
 import type { MembershipRole } from '../models/Membership.js';
 import { PostgresCommercialRepository } from '../postgres/commercialRepository.js';
 import { createEntitlementService } from './entitlementService.js';
+import { normalizeEmail, requirePhone } from './identityPolicy.js';
 
 export interface RoleInput { name: string; description: string; permissions: Permission[]; version?: number; status?: 'active'|'archived' }
 export interface BranchInput { name: string; code: string; timezone: string; status: 'active'|'inactive'; version?: number }
@@ -26,13 +27,15 @@ export class OrganizationAdministrationService {
     return profile;
   }
   async saveProfile(c: AuthorizationContext,input: ProfileInput) {
+    const contactEmail=input.contactEmail.trim()?normalizeEmail(input.contactEmail):'';
+    const contactPhone=input.contactPhone.trim()?requirePhone(input.contactPhone):'';
     await this.database.transaction(async(client)=>{
       await lockAdministration(client,c.userId,c.organizationId,'organization.manage');
       await client.query('UPDATE organizations SET name=$2,type=$3,updated_at=now() WHERE id=$1',[c.organizationId,input.name,input.type]);
       await client.query(`INSERT INTO organization_profiles(organization_id,business_category,description,contact_email,contact_phone,address,website)
         VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(organization_id) DO UPDATE SET business_category=excluded.business_category,description=excluded.description,
         contact_email=excluded.contact_email,contact_phone=excluded.contact_phone,address=excluded.address,website=excluded.website,updated_at=now()`,
-        [c.organizationId,input.businessCategory,input.description,input.contactEmail,input.contactPhone,input.address,input.website]);
+        [c.organizationId,input.businessCategory,input.description,contactEmail,contactPhone,input.address,input.website]);
       await adminEvent(client,c.organizationId,c.userId,'organization.updated',c.organizationId);
     });
     return this.overview(c);

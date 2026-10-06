@@ -50,8 +50,11 @@ test('organization administration and RBAC against disposable PostgreSQL',async 
   const roleInput={name:'Customer reader',description:'Read customers only',permissions:['customers.read'] as ['customers.read']};
   const branchInput={name:'Second',code:'second',timezone:'Asia/Kolkata',status:'active' as const};
   await t.test('profile updates reuse organization canonical fields, never change billing agreement',async()=>{
-    await service.saveProfile(c,{name:'QA A updated',type:'shop',businessCategory:'Retail',description:'Fixture',contactEmail:'fixture@example.invalid',contactPhone:'',address:'Fixture address',website:'https://example.invalid'});
+    const input={name:'QA A updated',type:'shop',businessCategory:'Retail',description:'Fixture',contactEmail:'FIXTURE@example.invalid',contactPhone:'9876540001',address:'Fixture address',website:'https://example.invalid'};
+    await assert.rejects(service.saveProfile(c,{...input,contactPhone:'not-a-phone'}),/valid international/);
+    await service.saveProfile(c,input);
     assert.equal((await service.overview(c))!.name,'QA A updated');assert.equal((await service.overview(c))!.business_category,'Retail');
+    assert.equal((await service.overview(c))!.contact_email,'fixture@example.invalid');assert.equal((await service.overview(c))!.contact_phone,'+919876540001');
   });
   await t.test('branch create and org-scoped search/details',async()=>{const r=await service.saveBranch(c,branchInput);second=String(r.id);assert.equal((await service.branches(c,'Second')).length,1);});
   await t.test('branch foreign ID, duplicate code, bad timezone fail',async()=>{
