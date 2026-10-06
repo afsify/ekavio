@@ -15,7 +15,7 @@ interface Customer { id: string; name: string; phone: string | null; notes: stri
 const blank = { name: '', phone: '', notes: '', status: 'active' as Customer['status'] };
 export default function CustomersPage() {
   const { activeTenantId, activeBranchId, user } = useAppStore();
-  const canManage = user?.permissions?.includes('queue.manage');
+  const canManage = user?.permissions?.includes('customers.manage');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Customer | null | undefined>(undefined);

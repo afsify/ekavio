@@ -2,6 +2,7 @@ import type { MembershipRole } from '../models/Membership.js';
 import { assertCorporateLinkAuthority } from '../services/corporateAuthorizationService.js';
 import { AppError } from '../utils/AppError.js';
 import type { PostgresDatabase } from './database.js';
+import { membershipAuthority } from './organizationAuthorization.js';
 
 export interface ParentOrganizationRecord {
   id: string;
@@ -94,6 +95,7 @@ export class PostgresCorporateRepository {
         actorUserId: input.actorUserId,
         parentOwnerId: parent.rows[0].owner_user_id,
         ...(membership.rows[0] ? { childMembershipRole: membership.rows[0].role } : {}),
+        ...(membership.rows[0] ? {childPermissions:(await membershipAuthority(client,input.actorUserId,input.childOrganizationId)).effective} : {}),
       });
 
       if (

@@ -31,6 +31,8 @@ export interface MembershipContext {
 }
 
 export interface UserProfile {
+  roleName?: string;
+  customRoleId?: string;
   id: string;
   tenantId: string;
   organizationId?: string;

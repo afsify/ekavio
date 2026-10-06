@@ -101,6 +101,10 @@ jobs:
         working-directory: backend
         run: npm run test:identity-account
 
+      - name: Test organization administration and tenant RBAC
+        working-directory: backend
+        run: npm run test:organization-admin
+
       - name: Test PostgreSQL commercial runtime cutover
         working-directory: backend
         run: npm run test:commercial
@@ -224,6 +228,10 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:identity
 
+      - name: Test PostgreSQL-backed organization administration in browser
+        working-directory: frontend
+        run: npm run test:e2e:admin
+
       - name: Upload frontend QA evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -232,6 +240,7 @@ jobs:
           path: |
             frontend/test-results
             !frontend/test-results/identity/**
+            !frontend/test-results/organization-admin/**
           retention-days: 7
 
       - name: Validate Docker Compose

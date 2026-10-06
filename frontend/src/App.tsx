@@ -31,6 +31,7 @@ const StaffManagementPage = React.lazy(
   () => import("./pages/Staff/StaffManagementPage"),
 );
 const SettingsPage = React.lazy(() => import("./pages/Settings/SettingsPage"));
+const OrganizationPage = React.lazy(() => import('./pages/Settings/OrganizationPage'));
 const CustomersPage = React.lazy(() => import('./pages/Customers/CustomersPage'));
 const ServicesPage = React.lazy(() => import('./pages/Services/ServicesPage'));
 const FoundationPage = React.lazy(() => import('./pages/Settings/FoundationPage'));
@@ -160,8 +161,13 @@ export const App: React.FC = () => {
             <Route path="/reset-password" element={<AccountActionPage key="reset" action="reset" />} />
             <Route path="/verify-email" element={<AccountActionPage key="verify" action="verify" />} />
             <Route path="/accept-invitation" element={<AccountActionPage key="invite" action="invite" />} />
-            <Route path="/customers" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><CustomersPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
-            <Route path="/services" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.QUEUE}><PermissionGuard permission="queue.read"><ServicesPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="customers.read"><CustomersPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/services" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="services.read"><ServicesPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="organization.read"><OrganizationPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/branches" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="branches.read"><OrganizationPage section="branches" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/roles" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="roles.read"><OrganizationPage section="roles" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/audit" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="audit.read"><OrganizationPage section="audit" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/platform" element={<ProtectedRoute><AdminLayout><PlatformOperatorGuard><OrganizationPage section="platform" /></PlatformOperatorGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><FoundationPage name="Reports" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><AdminLayout><FoundationPage name="Help & Support" /></AdminLayout></ProtectedRoute>} />
             <Route

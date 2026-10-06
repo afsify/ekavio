@@ -2,11 +2,12 @@ import axios from 'axios';
 
 interface ApiErrorBody {
   message?: unknown;
+  error?: {message?:unknown};
 }
 
 export const getErrorMessage = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
-    const message = error.response?.data?.message;
+    const message = error.response?.data?.message ?? error.response?.data?.error?.message;
     if (typeof message === 'string' && message.length > 0) {
       return message;
     }

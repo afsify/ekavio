@@ -1,6 +1,16 @@
 import type { MembershipRole } from '../models/Membership.js';
 
 export const permissions = {
+  ORGANIZATION_READ: 'organization.read',
+  BRANCHES_READ: 'branches.read',
+  BRANCHES_MANAGE: 'branches.manage',
+  ROLES_READ: 'roles.read',
+  ROLES_MANAGE: 'roles.manage',
+  AUDIT_READ: 'audit.read',
+  CUSTOMERS_READ: 'customers.read',
+  CUSTOMERS_MANAGE: 'customers.manage',
+  SERVICES_READ: 'services.read',
+  SERVICES_MANAGE: 'services.manage',
   ORGANIZATION_MANAGE: 'organization.manage',
   STAFF_READ: 'staff.read',
   STAFF_MANAGE: 'staff.manage',
@@ -21,6 +31,10 @@ export const permissions = {
 export type Permission = (typeof permissions)[keyof typeof permissions];
 
 const operationalPermissions: readonly Permission[] = [
+  permissions.ORGANIZATION_READ,
+  permissions.BRANCHES_READ,
+  permissions.CUSTOMERS_READ, permissions.CUSTOMERS_MANAGE,
+  permissions.SERVICES_READ, permissions.SERVICES_MANAGE,
   permissions.STAFF_READ,
   permissions.QUEUE_READ,
   permissions.QUEUE_MANAGE,
@@ -34,6 +48,7 @@ const operationalPermissions: readonly Permission[] = [
 ];
 
 const administratorPermissions: readonly Permission[] = [
+  permissions.BRANCHES_MANAGE, permissions.ROLES_READ, permissions.ROLES_MANAGE, permissions.AUDIT_READ,
   ...operationalPermissions,
   permissions.ORGANIZATION_MANAGE,
   permissions.STAFF_MANAGE,
@@ -47,6 +62,7 @@ const rolePermissions: Record<MembershipRole, readonly Permission[]> = {
   admin: administratorPermissions,
   manager: operationalPermissions,
   hr: [
+    permissions.ORGANIZATION_READ, permissions.BRANCHES_READ,
     permissions.STAFF_READ,
     permissions.ATTENDANCE_READ,
     permissions.ATTENDANCE_MANAGE,
@@ -63,3 +79,10 @@ export const hasPermission = (
   effectivePermissions: readonly Permission[],
   permission: Permission,
 ): boolean => effectivePermissions.includes(permission);
+
+// The sole tenant catalogue. Platform/provider authority is deliberately absent.
+export const permissionCatalogue = Object.values(permissions).map((key) => {
+  const [category, operation] = key.split('.');
+  const subject = category === 'ledger' ? 'Customer dues' : category![0]!.toUpperCase() + category!.slice(1);
+  return { key, category: subject, label: `${operation === 'read' ? 'View' : 'Manage'} ${subject.toLowerCase()}`, description: `${operation === 'read' ? 'Read' : 'Change'} organization-scoped ${subject.toLowerCase()} records. ${category==='customers'||category==='services'?'Core capability; no Queue subscription required.':'Commercial capabilities, where applicable, remain independent.'}` };
+});

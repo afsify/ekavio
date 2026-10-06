@@ -35,6 +35,20 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08C adds organization administration (`/admin`), safe branch lifecycle,
+organization-local custom roles, staff suspension/reactivation/revocation,
+authenticated existing-account invitation acceptance, safe tenant audit and an
+operator-only Platform Operations directory. Apply migration **014** explicitly
+before deploying this backend; 001–013 are retained unchanged. Custom role
+permissions replace built-in grants, never augment them. Customers and Services
+are now CORE with dedicated read/manage permissions, independent of Queue
+subscription; Queue/Appointments retain both Queue permission and entitlement.
+See [ADR 0022](docs/adr/0022-organization-administration-and-custom-rbac.md) and
+[organization/RBAC acceptance](docs/reviews/V2-08C_ORGANIZATION_RBAC.md).
+`npm run test:organization-admin` and frontend `npm run test:e2e:admin` exercise
+disposable local PostgreSQL authority and automatic browser acceptance.
+**NO-GO FOR REAL CUSTOMER DATA** remains unchanged.
+
 V2-08B adds phone-or-verified-email login, secure email verification/recovery,
 staff invitations with recipient-chosen passwords, and durable per-user appearance.
 See [identity/recovery review](docs/reviews/V2-08B_IDENTITY_ACCOUNT_RECOVERY.md),
@@ -303,7 +317,7 @@ Effective-entitlement snapshots and public catalogue reads span multiple related
 
 Migration 004 adds branch IANA timezones, organization-owned Customers and Services, branch availability, membership-based provider assignments, Appointments with overlap protection and append-only history, and Queue sessions/tokens with append-only history. Live Queue token creation locks the session counter in one transaction; it never counts existing rows. Appointment check-in and Queue token creation are one idempotent transaction.
 
-The Customer, Service, Appointment, and Queue APIs use canonical UUID relationships and the selected PostgreSQL authorization context. Queue and Appointment requests are branch-scoped, Customer is organization-owned, Service availability is enforced per branch, and every helper route requires the Queue entitlement plus `queue.read` or `queue.manage`. Dashboard Queue counts are PostgreSQL branch counts. The frontend supports customer selection/minimal creation, branch-available service selection, versioned Queue transitions, Appointment creation/list/check-in, pagination, retry, and context-aware refetch.
+The Customer, Service, Appointment, and Queue APIs use canonical UUID relationships and the selected PostgreSQL authorization context. Queue and Appointment requests are branch-scoped and require Queue entitlement plus `queue.read` or `queue.manage`. Since V2-08C, organization-owned Customers and Services are CORE, protected by `customers.read/manage` and `services.read/manage` without a Queue subscription. Service availability remains branch-constrained. Dashboard Queue counts are PostgreSQL branch counts. The frontend supports canonical customer/service selection, versioned Queue transitions, Appointment creation/list/check-in, pagination, retry and context-aware refetch.
 
 Only `queue.token.created` and `queue.token.status_changed` are emitted after commit to authorized branch rooms with PII-minimized payloads. Mongo Queue receives no runtime reads or writes and is not a fallback or mirror.
 

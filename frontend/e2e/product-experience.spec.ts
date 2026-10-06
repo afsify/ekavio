@@ -58,7 +58,7 @@ test('Services empty, create/edit, Queue and Appointment consume same catalogue'
   expect(state.services).toHaveLength(1); expect(state.services[0].durationMinutes).toBe(45);
 });
 test('read-only membership has no customer/service mutations', async ({ page }) => {
-  await workspace(page, { permissions: ['queue.read'] }); await page.goto('/customers'); await expect(page.getByRole('button', { name: 'Create customer', exact: true })).toHaveCount(0); await page.goto('/services'); await expect(page.getByRole('button', { name: 'Create service', exact: true })).toHaveCount(0);
+  await workspace(page, { permissions: ['customers.read','services.read'] }); await page.goto('/customers'); await expect(page.getByRole('button', { name: 'Create customer', exact: true })).toHaveCount(0); await page.goto('/services'); await expect(page.getByRole('button', { name: 'Create service', exact: true })).toHaveCount(0);
 });
 test('Customer load failure has a working retry', async ({ page }) => {
   const state = await workspace(page, { failCustomers: true }); await page.goto('/customers'); await expect(page.getByRole('button', { name: 'Retry customers' })).toBeVisible(); state.enableCustomers(); await page.getByRole('button', { name: 'Retry customers' }).click(); await expect(page.getByRole('heading', { name: 'No customers yet' })).toBeVisible();
@@ -85,7 +85,7 @@ test('mobile drawer and customer dialog support keyboard focus and Escape', asyn
 test('Settings uses human context, hides UUID, and saves profile', async ({ page }) => {
   const state = await workspace(page); await page.goto('/settings'); await expect(page.getByLabel('Your name')).toHaveValue('STAGING V208A Member'); await expect(page.getByText(state.org, { exact: true })).not.toBeVisible();
   await page.getByLabel('Your name').fill('STAGING V208A Profile'); await page.getByRole('button', { name: 'Save profile' }).click(); await expect(page.getByRole('link', { name: 'Open my profile' })).toHaveText('STAGING V208A Profile');
-  await page.getByRole('button', { name: 'Organization', exact: true }).click(); await expect(page.getByRole('main').getByText('STAGING V208A Workspace', { exact: true })).toBeVisible(); await expect(page.getByRole('main').getByText('Main', { exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Organization', exact: true }).click(); await expect(page.getByRole('main').getByText('STAGING V208A Workspace', { exact: true })).toBeVisible(); await expect(page.getByRole('main').getByText('Main', { exact: true })).toHaveCount(1); await expect(page.getByRole('link',{name:'Open organization administration'})).toHaveAttribute('href','/admin');
 });
 test('commercial operator navigation stays separate and pricing uses exact rupees', async ({ page }) => {
   const state = await workspace(page, { operator: true }); await page.goto('/commercial/requests'); await expect(page.getByRole('heading', { name: 'Platform operations', exact: true })).toBeVisible();

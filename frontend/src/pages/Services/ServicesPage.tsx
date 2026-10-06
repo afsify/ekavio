@@ -15,7 +15,7 @@ interface Provider { membershipId: string; name: string }
 const blank = { name: '', description: '', durationMinutes: '30', active: true };
 export default function ServicesPage() {
   const { activeTenantId, activeBranchId, user } = useAppStore();
-  const manage = Boolean(user?.permissions?.includes('queue.manage'));
+  const manage = Boolean(user?.permissions?.includes('services.manage'));
   const staffRead = Boolean(user?.permissions?.includes('staff.read'));
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);

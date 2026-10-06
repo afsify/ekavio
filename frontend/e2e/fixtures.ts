@@ -5,7 +5,7 @@ import { type Page, type Route } from '@playwright/test';
 // These prove frontend behavior, not PostgreSQL/session/server-side tenancy.
 export async function workspace(page: Page, options: { permissions?: string[]; modules?: string[]; operator?: boolean; authenticated?: boolean; failCustomers?: boolean } = {}) {
   const org = randomUUID(), branch = randomUUID(), user = randomUUID(), membership = randomUUID();
-  const permissions = options.permissions ?? ['queue.read','queue.manage','staff.read','staff.manage','organization.manage','billing.read','reports.read','ledger.read','inventory.read','attendance.read'];
+  const permissions = options.permissions ?? ['customers.read','customers.manage','services.read','services.manage','queue.read','queue.manage','staff.read','staff.manage','organization.manage','billing.read','reports.read','ledger.read','inventory.read','attendance.read'];
   const modules = options.modules ?? ['queue','attendance','ledger','inventory'];
   const memberships = [{ id: membership, organizationId: org, tenantId: org, orgName: 'STAGING V208A Workspace', role: 'admin', branchIds: [branch], branches: [{ id: branch, name: 'Main', code: 'main' }] }];
   const session = { accessToken: randomUUID(), organizationId: org, branchId: branch, role: 'admin', permissions, memberships, platformOperator: options.operator ?? false, user: { id: user, tenantId: org, name: 'STAGING V208A Member', role: 'admin' }, entitlements: { organizationId: org, subscription: null, modules: modules.map((key) => ({ key, enabled: true, displayName: key === 'ledger' ? 'Customer Dues' : key, sources: [] })), limits: { staff: null, branches: null, storageMb: null, documents: null, automationRuns: null } } };
@@ -17,6 +17,7 @@ export async function workspace(page: Page, options: { permissions?: string[]; m
   await page.route('http://127.0.0.1:5009/**', async (route) => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname.replace('/api','');
     if (path.startsWith('/socket.io')) return reply(route, {}, 400);
+    if (path==='/organization/context') return reply(route,{data:{permissions,role:'admin'}});
     if (path === '/auth/refresh') return reply(route, authenticated ? session : { message: 'Sign in required' }, authenticated ? 200 : 401);
     if (path === '/auth/logout') { authenticated = false; return reply(route, {}); }
     if (path === '/auth/login') { authenticated = true; return reply(route, session); }

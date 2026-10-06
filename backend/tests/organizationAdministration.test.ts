@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {readFileSync} from 'node:fs';
+import {assertGrant} from '../src/postgres/organizationAuthorization.js';
+import {permissionCatalogue,permissionsForRole} from '../src/services/authorizationPolicy.js';
+test('owner holds the complete tenant catalogue; built-in admin remains tenant-local',()=>{assert.deepEqual(new Set(permissionsForRole('owner')),new Set(permissionCatalogue.map(p=>p.key)));assert.ok(!permissionCatalogue.some(p=>/platform|secret|provider/.test(p.key)));});
+test('grant boundary rejects unsupported actor authority and permits subsets',()=>{assertGrant({effective:['customers.read']},['customers.read']);assert.throws(()=>assertGrant({effective:['customers.read']},['customers.manage']));});
+test('CORE reads/manages remain distinct and HR retains attendance-specific policy',()=>{assert.ok(permissionsForRole('staff').includes('customers.read'));assert.ok(permissionsForRole('staff').includes('services.manage'));assert.ok(!permissionsForRole('hr').includes('roles.manage'));});
+test('custom membership never falls back when archived and is not unioned with builtin',()=>{const source=readFileSync('src/postgres/organizationAuthorization.ts','utf8');assert.match(source,/row\.role_status==='active' \? row\.permissions : \[\]/);assert.doesNotMatch(source,/\.\.\.permissionsForRole/);});
+test('normal staff revocation does not revoke every global identity session',()=>{const source=readFileSync('src/controllers/staffController.ts','utf8');assert.doesNotMatch(source,/revokeAllForUser|disconnectUserSockets/);assert.match(source,/saveMember/);});
+test('Queue realtime emission checks live permission and commercial access, not branch-room possession',()=>{const source=readFileSync('src/config/socket.ts','utf8').split('export const emitToBranch')[1]!;assert.match(source,/resolveAuthorizationContext/);assert.match(source,/permissions\.includes\('queue.read'\)/);assert.match(source,/module.key==='queue'&&module.enabled/);assert.doesNotMatch(source,/\.to\(branchRoom/);});

@@ -7,11 +7,12 @@ import { normalizeEmail, requireNewPassword, requirePhone, phoneUserIds, lockNew
 import type { AuthorizationContext } from './requestContextService.js';
 import { AppError } from '../utils/AppError.js';
 import { generateLegacyMongoUserId, generateLegacyMongoMembershipId } from '../persistence/identifiers.js';
+import { adminEvent, assertGrant, assignmentPermissions, lockAdministration } from '../postgres/organizationAuthorization.js';
 
 type Purpose = ActionEmail['purpose'];
 interface Challenge { id: string; purpose: Purpose; user_id: string | null; email_identity_id: string | null; invitation_id: string | null; expires_at: Date; consumed_at: Date | null; revoked_at: Date | null }
-interface Invitation { id: string; organization_id: string; actor_user_id: string; name: string; phone: string; email: string | null; role: 'admin' | 'manager' | 'hr' | 'staff'; expires_at: Date; consumed_at: Date | null; revoked_at: Date | null; created_at: Date }
-export interface InvitationInput { name: string; phone: string; email?: string; role: Invitation['role']; branchIds: string[] }
+interface Invitation { id: string; organization_id: string; actor_user_id: string; name: string; phone: string; email: string | null; role: 'admin' | 'manager' | 'hr' | 'staff'; custom_role_id: string|null; target_user_id: string|null; expires_at: Date; consumed_at: Date | null; revoked_at: Date | null; created_at: Date }
+export interface InvitationInput { name: string; phone: string; email?: string; role: Invitation['role']; customRoleId?: string|null; branchIds: string[] }
 export interface Appearance { mode: 'light' | 'dark' | 'system'; primaryColor: string }
 const durations: Record<Purpose, number> = { email_verification: 24 * 3600000, password_reset: 30 * 60000, staff_invitation: 48 * 3600000 };
 const routes: Record<Purpose, string> = { email_verification: '/verify-email', password_reset: '/reset-password', staff_invitation: '/accept-invitation' };
@@ -165,7 +166,7 @@ export class IdentityAccountService {
       const invitation = await client.query<Invitation & { organization_name: string }>(`SELECT i.*,o.name AS organization_name FROM staff_invitations i JOIN organizations o ON o.id=i.organization_id WHERE i.id=$1`, [row.invitation_id]);
       const value = invitation.rows[0];
       if (!value || value.revoked_at || value.consumed_at || value.expires_at <= new Date()) throw invalidLink();
-      return { valid: true, organizationName: value.organization_name, name: value.name, role: value.role };
+      return { valid: true, organizationName: value.organization_name, name: value.name, role: value.role, existingAccount: Boolean(value.target_user_id) };
     });
   }
   public async preferences(userId: string): Promise<Appearance> {
@@ -178,7 +179,8 @@ export class IdentityAccountService {
     return value;
   }
   public async listInvitations(context: AuthorizationContext) {
-    const result = await this.database.query(`SELECT id,name,phone,email,role,expires_at,revoked_at,consumed_at,created_at FROM staff_invitations WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 100`, [context.organizationId]);
+    const result = await this.database.query(`SELECT id,name,phone,email,role,custom_role_id,expires_at,revoked_at,consumed_at,created_at,
+      ARRAY(SELECT branch_id FROM staff_invitation_branches WHERE invitation_id=i.id) AS branch_ids FROM staff_invitations i WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 100`, [context.organizationId]);
     return result.rows;
   }
   public async createInvitation(context: AuthorizationContext, input: InvitationInput) {
@@ -189,11 +191,18 @@ export class IdentityAccountService {
     const publicUrl = this.email.publicUrl;
     if (!publicUrl) throw new AppError('APP_PUBLIC_URL is required for invitations', 503);
     const result = await this.database.transaction(async (client) => {
+      const actor=await lockAdministration(client,context.userId,context.organizationId,'staff.manage');
+      assertGrant(actor,await assignmentPermissions(client,context.organizationId,input.role,input.customRoleId));
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`invitation-sender:${context.organizationId}`]);
       const volume = await client.query("SELECT count(*)::int AS count FROM staff_invitations WHERE organization_id=$1 AND created_at>now()-interval '15 minutes'", [context.organizationId]);
       if (Number(volume.rows[0]?.count) >= 20) throw new AppError('Too many invitations for this organization; try again later', 429);
-      await lockNewPhone(client, phone);
-      if (email && (await client.query("SELECT 1 FROM user_email_identities WHERE normalized_email=$1 AND state <> 'replaced'", [email])).rowCount) throw new AppError('Identity already exists; authenticated account linking is not supported', 409);
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`identity-phone:${phone}`]);
+      const existing=await phoneUserIds(client,phone);
+      if(existing.length>1) throw new AppError('Ambiguous identity requires resolution',409);
+      const target=existing[0]??null;
+      const mail=email ? (await client.query<{user_id:string}>("SELECT user_id FROM user_email_identities WHERE normalized_email=$1 AND state <> 'replaced'",[email])).rows[0] : undefined;
+      if(mail && mail.user_id!==target) throw new AppError('Phone and email do not identify the same account',409);
+      if(target && (await client.query('SELECT 1 FROM memberships WHERE user_id=$1 AND organization_id=$2',[target,context.organizationId])).rowCount) throw new AppError('Membership already exists; use staff lifecycle controls',409);
       const branches = await client.query<{ id: string }>("SELECT id FROM branches WHERE organization_id=$1 AND status='active' AND id=ANY($2::uuid[]) FOR SHARE", [context.organizationId, input.branchIds]);
       if (!input.branchIds.length || branches.rowCount !== input.branchIds.length) throw new AppError('Select active branches from this organization', 400);
       const previous = await client.query<Invitation>('SELECT * FROM staff_invitations WHERE organization_id=$1 AND phone=$2 AND revoked_at IS NULL AND consumed_at IS NULL FOR UPDATE', [context.organizationId, phone]);
@@ -203,11 +212,12 @@ export class IdentityAccountService {
         await client.query('UPDATE identity_challenges SET revoked_at=now() WHERE invitation_id=$1 AND consumed_at IS NULL', [row.id]);
         await this.audit(client, 'invitation.replaced', context.userId, row.id);
       }
-      const invitation = await client.query<{ id: string }>(`INSERT INTO staff_invitations(organization_id,actor_user_id,name,phone,email,role,expires_at) VALUES ($1,$2,$3,$4,$5,$6,now()+interval '48 hours') RETURNING id`, [context.organizationId, context.userId, input.name, phone, email, input.role]);
+      const invitation = await client.query<{ id: string }>(`INSERT INTO staff_invitations(organization_id,actor_user_id,name,phone,email,role,target_user_id,custom_role_id,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '48 hours') RETURNING id`, [context.organizationId, context.userId, input.name, phone, email, input.role,target,input.customRoleId??null]);
       const id = invitation.rows[0]!.id;
       for (const branchId of input.branchIds) await client.query('INSERT INTO staff_invitation_branches(invitation_id,organization_id,branch_id) VALUES ($1,$2,$3)', [id, context.organizationId, branchId]);
       const issued = await this.issue(client, 'staff_invitation', null, null, id);
       await this.audit(client, 'invitation.created', context.userId, id);
+      await adminEvent(client,context.organizationId,context.userId,'invitation.created',id);
       return { ...issued, invitationId: id, url: `${publicUrl}/accept-invitation#token=${issued.raw}` };
     });
     if (email) {
@@ -218,41 +228,48 @@ export class IdentityAccountService {
   }
   public async revokeInvitation(context: AuthorizationContext, id: string): Promise<void> {
     await this.database.transaction(async (client) => {
+      await lockAdministration(client,context.userId,context.organizationId,'staff.manage');
       const result = await client.query('UPDATE staff_invitations SET revoked_at=now() WHERE id=$1 AND organization_id=$2 AND consumed_at IS NULL AND revoked_at IS NULL RETURNING id', [id, context.organizationId]);
       if (!result.rowCount) throw new AppError('Active invitation not found', 404);
       await client.query('UPDATE identity_challenges SET revoked_at=now() WHERE invitation_id=$1 AND consumed_at IS NULL', [id]);
       await this.audit(client, 'invitation.revoked', context.userId, id);
+      await adminEvent(client,context.organizationId,context.userId,'invitation.revoked',id);
     });
   }
-  public async acceptInvitation(raw: string, newPassword: string): Promise<void> {
-    const password = requireNewPassword(newPassword);
-    await this.inspectAction(raw, 'staff_invitation');
-    const hash = await bcrypt.hash(password, 12);
+  public async acceptInvitation(raw: string, newPassword?: string, authenticatedUserId?: string): Promise<void> {
+    const inspection=await this.inspectAction(raw, 'staff_invitation');
+    const existing='existingAccount' in inspection && inspection.existingAccount;
+    if(existing && !authenticatedUserId) throw new AppError('Sign in to the invited existing account before accepting',401);
+    const hash = existing ? null : await bcrypt.hash(requireNewPassword(newPassword??''), 12);
     await this.database.transaction(async (client) => {
       // Phone advisory lock precedes invitation lock, matching replacement order.
       const preliminary = await client.query<Invitation>(`SELECT i.* FROM staff_invitations i JOIN identity_challenges c ON c.invitation_id=i.id WHERE c.secret_hash=$1 AND c.purpose='staff_invitation'`, [hashActionSecret(raw)]);
       if (!preliminary.rows[0]) throw invalidLink();
-      await lockNewPhone(client, preliminary.rows[0].phone);
+      const pre=preliminary.rows[0];
+      const actor=await lockAdministration(client,pre.actor_user_id,pre.organization_id,'staff.manage');
+      assertGrant(actor,await assignmentPermissions(client,pre.organization_id,pre.role,pre.custom_role_id));
+      if(pre.target_user_id) {
+        if(pre.target_user_id!==authenticatedUserId) throw new AppError('Invitation belongs to a different account',403);
+      } else await lockNewPhone(client,pre.phone);
       const challenge = await this.challenge(client, raw, 'staff_invitation');
       const selected = await client.query<Invitation>('SELECT * FROM staff_invitations WHERE id=$1 FOR UPDATE', [challenge.invitation_id]);
       const invite = selected.rows[0];
       if (!invite || invite.revoked_at || invite.consumed_at || invite.expires_at <= new Date()) throw invalidLink();
       // Re-check issuer authority and assigned branches at acceptance, not only issuance.
-      const actor = await client.query("SELECT 1 FROM memberships WHERE user_id=$1 AND organization_id=$2 AND status='active' AND role IN ('owner','admin') FOR SHARE", [invite.actor_user_id, invite.organization_id]);
-      if (!actor.rowCount) throw invalidLink();
       const branches = await client.query<{ branch_id: string; status: string }>('SELECT a.branch_id,b.status FROM staff_invitation_branches a JOIN branches b ON b.id=a.branch_id WHERE a.invitation_id=$1 FOR SHARE OF b', [invite.id]);
       if (!branches.rowCount || branches.rows.some((row) => row.status !== 'active')) throw invalidLink();
-      if (invite.email && (await client.query("SELECT 1 FROM user_email_identities WHERE normalized_email=$1 AND state <> 'replaced'", [invite.email])).rowCount) throw new AppError('Identity already exists; authenticated account linking is not supported', 409);
-      const user = await client.query<{ id: string }>('INSERT INTO users(legacy_mongo_id,name,phone,password_hash,platform_role,created_at,updated_at) VALUES ($1,$2,$3,$4,NULL,now(),now()) RETURNING id', [generateLegacyMongoUserId(), invite.name, invite.phone, hash]);
-      const userId = user.rows[0]!.id;
+      if (!invite.target_user_id && invite.email && (await client.query("SELECT 1 FROM user_email_identities WHERE normalized_email=$1 AND state <> 'replaced'", [invite.email])).rowCount) throw new AppError('Identity already exists; request a replacement invitation', 409);
+      const userId=invite.target_user_id ?? (await client.query<{ id: string }>('INSERT INTO users(legacy_mongo_id,name,phone,password_hash,platform_role,created_at,updated_at) VALUES ($1,$2,$3,$4,NULL,now(),now()) RETURNING id', [generateLegacyMongoUserId(), invite.name, invite.phone, hash])).rows[0]!.id;
       // Possession of the email-delivered invitation proves mailbox control. Manual
       // invitations have no email and therefore cannot grant verified email identity.
-      if (invite.email) await client.query("INSERT INTO user_email_identities(user_id,display_email,normalized_email,state,verified_at) VALUES ($1,$2,$2,'verified',now())", [userId, invite.email]);
-      const membership = await client.query<{ id: string }>("INSERT INTO memberships(legacy_mongo_id,user_id,organization_id,role,status,created_at,updated_at) VALUES ($1,$2,$3,$4,'active',now(),now()) RETURNING id", [generateLegacyMongoMembershipId(), userId, invite.organization_id, invite.role]);
+      if (!invite.target_user_id && invite.email) await client.query("INSERT INTO user_email_identities(user_id,display_email,normalized_email,state,verified_at) VALUES ($1,$2,$2,'verified',now())", [userId, invite.email]);
+      if((await client.query('SELECT 1 FROM memberships WHERE user_id=$1 AND organization_id=$2',[userId,invite.organization_id])).rowCount) throw new AppError('Membership already exists',409);
+      const membership = await client.query<{ id: string }>("INSERT INTO memberships(legacy_mongo_id,user_id,organization_id,role,custom_role_id,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,'active',now(),now()) RETURNING id", [generateLegacyMongoMembershipId(), userId, invite.organization_id, invite.role,invite.custom_role_id]);
       for (const branch of branches.rows) await client.query('INSERT INTO membership_branch_assignments(membership_id,branch_id,organization_id) VALUES ($1,$2,$3)', [membership.rows[0]!.id, branch.branch_id, invite.organization_id]);
       await client.query('UPDATE staff_invitations SET consumed_at=now() WHERE id=$1', [invite.id]);
       await client.query('UPDATE identity_challenges SET consumed_at=now() WHERE id=$1', [challenge.id]);
       await this.audit(client, 'invitation.accepted', userId, invite.id);
+      await adminEvent(client,invite.organization_id,userId,'invitation.accepted',invite.id);
     });
   }
 }

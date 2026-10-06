@@ -15,11 +15,13 @@ import serviceRoutes from './serviceRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import publicRoutes from './publicRoutes.js';
 import customerDuesRoutes from './customerDuesRoutes.js';
+import organizationRoutes from './organizationRoutes.js';
 
 export const createRoutes = (identityService = getIdentityAccountService) => {
 const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/', organizationRoutes);
 router.use('/auth', createIdentityAccountRouter(identityService));
 router.use('/staff/invitations', createStaffInvitationRouter(identityService));
 router.use('/queue', queueRoutes);

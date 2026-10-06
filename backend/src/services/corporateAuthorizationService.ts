@@ -1,18 +1,19 @@
 import type { MembershipRole } from '../models/Membership.js';
-import { permissions, permissionsForRole } from './authorizationPolicy.js';
+import { permissions, permissionsForRole, type Permission } from './authorizationPolicy.js';
 import { AppError } from '../utils/AppError.js';
 
 export const assertCorporateLinkAuthority = (input: {
   actorUserId: string;
   parentOwnerId: string;
   childMembershipRole?: MembershipRole;
+  childPermissions?: Permission[];
 }): void => {
   if (input.parentOwnerId !== input.actorUserId) {
     throw new AppError('Corporate relationship not found', 404);
   }
   if (
     !input.childMembershipRole ||
-    !permissionsForRole(input.childMembershipRole).includes(permissions.ORGANIZATION_MANAGE)
+    !(input.childPermissions ?? permissionsForRole(input.childMembershipRole)).includes(permissions.ORGANIZATION_MANAGE)
   ) {
     throw new AppError('Access denied to child organization', 403);
   }

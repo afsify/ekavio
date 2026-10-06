@@ -2,6 +2,7 @@ import type { Server as HTTPServer } from 'node:http';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { Server as SocketIOServer } from 'socket.io';
 import type { RuntimeConfig } from './env.js';
+import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import {
   resolveAuthorizationContext,
   type AccessIdentityClaims,
@@ -128,6 +129,14 @@ export const disconnectUserSockets = (userId: string): void => {
   }
 };
 
+export const disconnectOrganizationSockets = (organizationId: string): void => {
+  if (!io) return;
+  for (const socket of io.sockets.sockets.values()) {
+    const context = socket.data.authorization as AuthorizationContext | undefined;
+    if (context?.organizationId === organizationId) socket.disconnect(true);
+  }
+};
+
 export const disconnectSessionSockets = (sessionId: string): void => {
   if (!io) return;
   for (const socket of io.sockets.sockets.values()) {
@@ -141,5 +150,22 @@ export const emitToTenant = (tenantId: string, event: string, data: unknown): vo
 };
 
 export const emitToBranch = (branchId: string, event: string, data: unknown): void => {
-  if (io) io.to(branchRoom(branchId)).emit(event, data);
+  const active=io;
+  if(!active) return;
+  // A branch room identifies context, not module/permission authority. Recheck
+  // live authority before each Queue notification so custom roles and commercial
+  // expiry cannot leak events through an old authenticated socket.
+  for(const socket of active.sockets.sockets.values()) {
+    const previous=socket.data.authorization as AuthorizationContext|undefined;
+    if(previous?.branchId!==branchId) continue;
+    void (async()=>{
+      try {
+        const current=await resolveAuthorizationContext({userId:previous.userId,sessionId:previous.sessionId,defaultOrganizationId:previous.organizationId},{organizationId:previous.organizationId,branchId});
+        if(!current.permissions.includes('queue.read')) return;
+        const modules=(await runtimePersistence.commercial.getEffective(current.organizationId)).modules;
+        if(!modules.some(module=>module.key==='queue'&&module.enabled)) return;
+        if(socket.connected) socket.emit(event,data);
+      } catch { socket.disconnect(true); }
+    })();
+  }
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { publicClient } from '../../api/client';
+import { publicClient, client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
 import { Input } from '../../components/ui/Input';
 import { useAppStore } from '../../store/useAppStore';
@@ -23,12 +23,14 @@ export default function AccountActionPage({ action }: { action: Action }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const signedIn=useAppStore(state=>state.isAuthenticated);
   const purpose = action === 'reset' ? 'password_reset' : action === 'invite' ? 'staff_invitation' : 'email_verification';
   const titles = { forgot: 'Forgot password', reset: 'Reset password', verify: 'Verify email', invite: 'Join your workspace' };
   useEffect(() => { fragment = undefined; }, []);
   const inspection = useQuery({ queryKey: ['account-action', action, revision], enabled: action !== 'forgot' && Boolean(token), retry: false, staleTime: 0, gcTime: 0,
-    queryFn: async () => (await publicClient.post<{ data: { valid: boolean; organizationName?: string; name?: string } }>('/auth/inspect-action', { token, purpose })).data.data });
+    queryFn: async () => (await publicClient.post<{ data: { valid: boolean; organizationName?: string; name?: string; existingAccount?:boolean } }>('/auth/inspect-action', { token, purpose })).data.data });
   const submit = useMutation({ mutationFn: async () => {
+    if(action==='invite'&&inspection.data?.existingAccount) return (await client.post<{data:{message:string}}>('/auth/accept-existing-invitation',{token})).data.data;
     const path = action === 'forgot' ? '/auth/forgot-password' : action === 'reset' ? '/auth/reset-password' : action === 'verify' ? '/auth/verify-email' : '/auth/accept-invitation';
     return (await publicClient.post<{ data: { message: string } }>(path, action === 'forgot' ? { identifier } : action === 'verify' ? { token } : { token, password })).data.data;
   }, onSuccess: () => { setToken(null); setPassword(''); setConfirm(''); if (action === 'reset') useAppStore.getState().clearSession(); } });
@@ -54,13 +56,14 @@ export default function AccountActionPage({ action }: { action: Action }) {
       </>}
       {(action === 'forgot' || inspection.data) && <form className="page-stack" onSubmit={(event) => { event.preventDefault(); submit.mutate(); }}>
         {inspection.data?.organizationName && <p>{inspection.data.name}, join {inspection.data.organizationName}. Your assigned role and branches are set by your administrator.</p>}
-        {action === 'forgot' ? <Input label="Phone or email" required maxLength={254} autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} /> : action !== 'verify' && <>
+        {inspection.data?.existingAccount&&<p className="muted">Sign in to your invited existing account, then reopen this invitation to explicitly join. Your password and identity will not change. {signedIn?'Acceptance verifies the exact invited account.':<Link to="/login">Sign in</Link>}</p>}
+        {action === 'forgot' ? <Input label="Phone or email" required maxLength={254} autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} /> : action !== 'verify' && !inspection.data?.existingAccount && <>
           <p className="muted">Choose your own password: at least 12 characters, at most 72 UTF-8 bytes.</p>
           <Input label="New password" required type="password" autoComplete="new-password" maxLength={72} value={password} onChange={(event) => setPassword(event.target.value)} />
           <Input label="Confirm password" required type="password" autoComplete="new-password" maxLength={72} value={confirm} onChange={(event) => setConfirm(event.target.value)} />
           {confirm && password !== confirm && <p role="alert">Passwords do not match</p>}
         </>}
-        <button className="action-link" disabled={submit.isPending || (action === 'forgot' ? !identifier.trim() : action !== 'verify' && passwordInvalid)}>{submit.isPending ? 'Please wait…' : action === 'forgot' ? 'Send reset link' : action === 'verify' ? 'Verify email' : action === 'invite' ? 'Accept invitation' : 'Reset password'}</button>
+        <button className="action-link" disabled={submit.isPending || (inspection.data?.existingAccount ? !signedIn : action === 'forgot' ? !identifier.trim() : action !== 'verify' && passwordInvalid)}>{submit.isPending ? 'Please wait…' : action === 'forgot' ? 'Send reset link' : action === 'verify' ? 'Verify email' : action === 'invite' ? 'Accept invitation' : 'Reset password'}</button>
       </form>}
       {submit.isError && <p role="alert">{getErrorMessage(submit.error, 'This action could not be completed.')}</p>}
     </>}

@@ -23,10 +23,19 @@ const capture=new EmailCapture(); const identity=new IdentityAccountService(data
 let application=createApp({config,identityAccountService:identity});
 const root=express(); root.use(express.json());
 root.get('/__test/health',(_request,response) => response.json({ready:true}));
-root.post('/__test/fixture',async(_request,response,next) => {
+root.post('/__test/fixture',async(request,response,next) => {
   try {
     const phone=`+919${Math.floor(100000000+Math.random()*899999999)}`,password=randomUUID(),email=`${randomUUID()}@example.invalid`;
     const created=await new PostgresAccountRepository(database).registerAdmin({orgName:'Disposable browser workspace',orgType:'shop',userName:'QA owner',phone,passwordHash:await bcrypt.hash(password,4)});
+    const userId=String(created.user.id),organizationId=String(created.user.tenantId);
+    await database.query("UPDATE branches SET timezone='Asia/Kolkata' WHERE organization_id=$1",[organizationId]);
+    if(['owner','admin','manager','hr','staff'].includes(request.body?.role)) await database.query('UPDATE memberships SET role=$1 WHERE user_id=$2',[request.body.role,userId]);
+    if(request.body?.operator===true) await database.query("UPDATE users SET platform_role='operator' WHERE id=$1",[userId]);
+    if(Array.isArray(request.body?.permissions)) {
+      const role=(await database.query("INSERT INTO organization_roles(organization_id,name) VALUES($1,'Disposable custom role') RETURNING id",[organizationId])).rows[0]!.id;
+      for(const permission of request.body.permissions) await database.query('INSERT INTO organization_role_permissions(role_id,permission) VALUES($1,$2)',[role,permission]);
+      await database.query("UPDATE memberships SET role='staff',custom_role_id=$1 WHERE user_id=$2",[role,userId]);
+    }
     capture.messages=[];
     // Independent tests get independent middleware/limiter state. Ordinary
     // deployed thresholds and real PostgreSQL requests are unchanged within tests.

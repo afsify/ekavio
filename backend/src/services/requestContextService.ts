@@ -10,6 +10,7 @@ export interface AccessIdentityClaims {
 }
 
 export interface ActiveMembershipRecord {
+  effectivePermissions?: Permission[];
   id: string;
   userId: string;
   organizationId: string;
@@ -107,7 +108,7 @@ export const createAuthorizationContextResolver = (
       organizationId,
       membershipId: membership.id,
       role: membership.role,
-      permissions: permissionsForRole(membership.role),
+    permissions: membership.effectivePermissions ?? permissionsForRole(membership.role),
       platformOperator: await repository.isPlatformOperator(claims.userId),
       ...(branchId ? { branchId } : {}),
     };

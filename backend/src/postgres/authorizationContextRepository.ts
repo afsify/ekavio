@@ -11,6 +11,7 @@ import type {
   BranchAccessRecord,
 } from '../services/requestContextService.js';
 import type { MembershipRole } from '../models/Membership.js';
+import { membershipAuthority } from './organizationAuthorization.js';
 
 interface MembershipRow {
   id: string;
@@ -81,6 +82,7 @@ export class PostgresAuthorizationContextRepository implements AuthorizationCont
           organizationId: row.organization_id,
           role: row.role,
           branchIds: row.branch_ids.map(String),
+          effectivePermissions: (await membershipAuthority(this.database,userId,organizationId)).effective,
         }
       : null;
   }

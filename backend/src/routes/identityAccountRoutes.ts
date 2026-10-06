@@ -16,7 +16,7 @@ const tokenBody = z.object({ token }).strict();
 const passwordBody = z.object({ token, password: passwordSchema }).strict();
 const empty = z.object({}).strict();
 const appearance = z.object({ mode: z.enum(['light', 'dark', 'system']), primaryColor: z.enum(['#4F46E5','#087443','#7040BC','#B42358']) }).strict();
-const invitation = z.object({ name: z.string().trim().min(1).max(200), phone: z.string().trim().max(32), email: emailSchema.optional(), role: z.enum(['admin','manager','hr','staff']), branchIds: z.array(z.uuid()).min(1).max(50).refine((values) => new Set(values).size === values.length) }).strict();
+const invitation = z.object({ name: z.string().trim().min(1).max(200), phone: z.string().trim().max(32), email: emailSchema.optional(), role: z.enum(['admin','manager','hr','staff']), customRoleId:z.uuid().nullable().optional(), branchIds: z.array(z.uuid()).min(1).max(50).refine((values) => new Set(values).size === values.length) }).strict();
 let runtimeService: IdentityAccountService | undefined;
 export const getIdentityAccountService = () => {
   runtimeService ??= new IdentityAccountService(runtimePostgresDatabase, createEmailService(getRuntimeConfig().email!), disconnectUserSockets);
@@ -36,6 +36,7 @@ export const createIdentityAccountRouter = (getService = getIdentityAccountServi
     try { await getService().resetPassword(request.body.token, request.body.password); clearRefreshCookie(response, getRuntimeConfig()); response.setHeader('Cache-Control','no-store'); response.json({ data: { message: 'Password reset. Sign in again.' } }); } catch (error) { next(error); }
   });
   router.post('/accept-invitation', validateRequest(passwordBody), handle(async (request) => { await getService().acceptInvitation(request.body.token, request.body.password); return { message: 'Account ready. Sign in.' }; }));
+  router.post('/accept-existing-invitation', authenticate, validateRequest(tokenBody), handle(async request=>{await getService().acceptInvitation(request.body.token,undefined,request.auth!.userId);return {message:'Organization joined. Refresh your workspace context.'};}));
   router.get('/email', authenticate, handle((request) => getService().emailState(request.auth!.userId)));
   router.put('/email', authenticate, validateRequest(z.object({ email: emailSchema }).strict()), handle(async (request) => { await getService().proposeEmail(request.auth!.userId, request.body.email); return { message: 'Check your email to verify' }; }));
   router.post('/email/resend', authenticate, validateRequest(empty), handle(async (request) => { await getService().resendEmail(request.auth!.userId); return { message: 'Verification sent' }; }));

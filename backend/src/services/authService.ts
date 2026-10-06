@@ -56,6 +56,8 @@ export interface MembershipContext {
 }
 
 export interface PublicUser {
+  roleName?: string;
+  customRoleId?: string;
   id: string;
   tenantId: string;
   organizationId: string;

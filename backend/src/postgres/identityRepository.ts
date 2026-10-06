@@ -12,7 +12,7 @@ import type {
 } from '../services/authService.js';
 import type { EffectiveEntitlements } from '../services/entitlementService.js';
 import type { MembershipRole } from '../models/Membership.js';
-import { permissionsForRole } from '../services/authorizationPolicy.js';
+import { membershipAuthority } from './organizationAuthorization.js';
 import { AppError } from '../utils/AppError.js';
 import { phoneUserIds } from '../services/identityPolicy.js';
 
@@ -178,7 +178,8 @@ export class PostgresIdentityRepository implements IdentityRepository {
       (membership) => membership.organization_id === activeMembership.organizationId,
     );
     if (!organization) throw new AppError('Access denied to this organization', 403);
-    const permissions = permissionsForRole(activeMembership.role);
+    const authority = await membershipAuthority(this.database,user.id,activeMembership.organizationId);
+    const permissions = authority.effective;
     const assignments = memberships
       .filter((membership) => membership.id !== activeMembership.id)
       .map((membership) => ({
@@ -194,6 +195,7 @@ export class PostgresIdentityRepository implements IdentityRepository {
       ...(branchId ? { branchId } : {}),
       role: activeMembership.role,
       permissions,
+      ...(authority.custom_role_id?{customRoleId:authority.custom_role_id,roleName:authority.role_name??'Unavailable custom role'}:{}),
       ...(user.name ? { name: user.name } : {}),
       phone: user.phone,
       assignments,

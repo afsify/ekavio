@@ -1,4 +1,7 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { client } from '../../api/client';
+import { useSocketStore } from '../../store/useSocketStore';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { AdminSidebar } from './AdminSidebar';
@@ -8,6 +11,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const closeNavigation = useCallback(() => setOpen(false), []);
   const { user, entitlements, activeTenantId, activeBranchId, isPlatformOperator } = useAppStore();
+  const authority=useQuery({queryKey:['live-authority',activeTenantId,activeBranchId],retry:false,refetchOnWindowFocus:'always',refetchInterval:30_000,queryFn:async()=>(await client.get<{data:{permissions:string[];role:string}}>('/organization/context')).data.data});
+  useEffect(()=>{
+    if(!authority.data) return;
+    useAppStore.setState(state=>({user:state.user?{...state.user,permissions:authority.data.permissions,role:authority.data.role}:null}));
+    const current=useAppStore.getState();
+    if(current.token&&current.activeTenantId&&!useSocketStore.getState().isConnected)useSocketStore.getState().connectSocket(current.token,current.activeTenantId,current.activeBranchId??undefined);
+  },[authority.data,authority.dataUpdatedAt]);
   const location = useLocation();
   const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
   const current = items.find((item) => item.path === location.pathname);

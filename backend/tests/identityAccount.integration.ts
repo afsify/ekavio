@@ -40,7 +40,7 @@ test('identity email, recovery, invitations and preferences against disposable P
     await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [databaseName]);
     await admin.query(`DROP DATABASE "${databaseName}"`); await admin.close();
   });
-  await t.test('zero to latest and idempotent rerun', async () => { await migrate(database); await migrate(database); assert.equal((await getMigrationStatus(database)).length, 13); });
+  await t.test('zero to latest and idempotent rerun', async () => { await migrate(database); await migrate(database); assert.equal((await getMigrationStatus(database)).length, 14); });
   await t.test('prior 001–012 upgrades without rewriting ambiguous legacy phones', async () => {
     const olderName = `ekavio_v208b_${randomUUID().replaceAll('-', '')}`;
     await admin.query(`CREATE DATABASE "${olderName}"`);
@@ -169,7 +169,7 @@ test('identity email, recovery, invitations and preferences against disposable P
     manual=await service.createInvitation(context,{name:'Test staff',phone:'+919876543211',role:'staff',branchIds:[branchId]});
     assert.ok(manual.handoffUrl); assert.equal((await identities.findByPhone('+919876543211')).length,0);
     assert.equal((await service.listInvitations({...context,organizationId:String(b.user.tenantId)})).length,0);
-    await assert.rejects(service.revokeInvitation({...context,organizationId:String(b.user.tenantId)},manual.id), /not found/);
+    await assert.rejects(service.revokeInvitation({...context,organizationId:String(b.user.tenantId)},manual.id), /Access denied/);
   });
   await t.test('manual invitation accept is single-use, chooses own password and cannot grant operator', async () => {
     const raw = new URLSearchParams(new URL(manual.handoffUrl!).hash.slice(1)).get('token')!;
@@ -184,8 +184,8 @@ test('identity email, recovery, invitations and preferences against disposable P
     assert.equal(issued.delivery,'email'); assert.equal('handoffUrl' in issued,false);
     await service.acceptInvitation(capture.token('staff_invitation'),password);
     assert.equal((await auth.login({identifier:inviteEmail.toUpperCase(),password})).response.role,'hr');
-    await assert.rejects(service.createInvitation(context,{name:'Existing',phone:'+919876543212',role:'staff',branchIds:[branchId]}), /Identity already exists/);
-    await assert.rejects(service.createInvitation(context,{name:'Existing',phone:'+919876543219',email:inviteEmail,role:'staff',branchIds:[branchId]}), /Identity already exists/);
+    await assert.rejects(service.createInvitation(context,{name:'Existing',phone:'+919876543212',role:'staff',branchIds:[branchId]}), /Membership already exists/);
+    await assert.rejects(service.createInvitation(context,{name:'Existing',phone:'+919876543219',email:inviteEmail,role:'staff',branchIds:[branchId]}), /Phone and email/);
   });
   await t.test('invitation replacement, revoke and expiry invalidate old links', async () => {
     const input={name:'Replacement staff',phone:'+919876543213',role:'staff' as const,branchIds:[branchId]};

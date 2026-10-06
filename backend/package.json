@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:identity-account": "tsx --test tests/identityAccount.integration.ts",
+    "test:organization-admin": "tsx --test tests/organizationAdministration.integration.ts",
     "test:postgres": "tsx --test tests/postgres.integration.ts",
     "test:parity": "tsx --test tests/persistenceParity.integration.ts",
     "test:preflight": "tsx --test tests/postgres.integration.ts",
@@ -85,7 +86,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
     "bcryptjs": "^3.0.3",
-    "compression": "^1.8.1",
+    "compression": "1.8.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

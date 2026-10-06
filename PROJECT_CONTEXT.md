@@ -1,5 +1,37 @@
 # EkaVio Project Context
 
+## Latest product foundation: V2-08C (2026-10-06)
+
+Organization administration, branch lifecycle, normalized custom tenant RBAC,
+membership lifecycle, authenticated existing-account staff linking, safe tenant
+audit and operator-only organization oversight extend the accepted V2-08B baseline.
+Migration 014 is additive; 001–013 and historical built-in memberships are not
+rewritten. Operating profile fields are distinct from canonical commercial billing
+agreement fields. Server permission catalogue is authoritative. Owners retain their
+built-in authority; custom permissions replace, never union, built-in grants and
+archived references deny all. Grants are subset-checked under organization locks;
+version checks reject stale writes. Owner/self authority cannot be destructively
+changed, although safe branch assignments remain possible. Assigned roles cannot
+be archived and active staff cannot be stranded by branch deactivation.
+
+Customers/Services are explicitly CORE with dedicated `customers.read/manage` and
+`services.read/manage`, superseding the historical Queue gates described below.
+Queue/Appointments and other commercial domains retain independent entitlement
+checks. Staff suspension/revocation is organization-local and preserves global
+identity and other organization sessions. Existing-account invitation acceptance
+requires the exact authenticated target and explicit single-use acceptance; no
+identity/password/email overwrite. Administration events are atomic and append-only;
+tenant audit projections exclude raw details/credentials. Platform Operations has
+no impersonation or secret-management facility. HTTP and realtime permission checks
+remain server-side; frontend context refresh is navigation convenience only.
+
+See [ADR 0022](docs/adr/0022-organization-administration-and-custom-rbac.md) and the
+[V2-08C review](docs/reviews/V2-08C_ORGANIZATION_RBAC.md) for acceptance/release evidence.
+**NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained
+Atlas are unchanged. V2-08D remains deferred and does not start automatically.
+
+## Established architecture and historical decisions
+
 - Product: EkaVio.
 - EkaVio is a low-cost, modular, multi-tenant SaaS platform for small and medium businesses.
 - Initial market: Kerala.

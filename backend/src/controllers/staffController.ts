@@ -1,12 +1,12 @@
 import type { NextFunction, Response } from 'express';
-import { disconnectUserSockets } from '../config/socket.js';
 import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import type { MembershipRole } from '../models/Membership.js';
 import { runtimePersistence } from '../persistence/runtimePersistence.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
-import { createStaff, listStaff, revokeStaff } from '../services/staffService.js';
-import { runtimeRefreshSessions } from '../services/sessionService.js';
-import { AppError, getErrorMessage } from '../utils/AppError.js';
+import { createStaff } from '../services/staffService.js';
+import { OrganizationAdministrationService } from '../services/organizationAdministrationService.js';
+import { runtimePostgresDatabase } from '../persistence/runtimePersistence.js';
+import { AppError } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
 
 export const getStaff = async (
@@ -16,10 +16,10 @@ export const getStaff = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const staff = await listStaff(runtimePersistence.staff, context);
+    const staff = await new OrganizationAdministrationService(runtimePostgresDatabase).staff(context);
     response.json({ success: true, data: staff });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    next(error);
   }
 };
 
@@ -58,7 +58,7 @@ export const addStaff = async (
       },
     });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    next(error);
   }
 };
 
@@ -70,18 +70,13 @@ export const deleteStaff = async (
   try {
     const context = requireAuthorizationContext(request);
     const targetUserId = request.params.id as string;
-    const membership = await revokeStaff(runtimePersistence.staff, context, targetUserId);
-
-    await runtimeRefreshSessions.revokeAllForUser(targetUserId);
-    disconnectUserSockets(targetUserId);
-    await recordSecurityAudit(
-      context,
-      'membership.revoked',
-      { targetUserId, membershipId: membership.membershipId },
-      request.ip,
-    );
+    const service=new OrganizationAdministrationService(runtimePostgresDatabase);
+    const members=await service.staff(context);
+    const member=members.find(value=>value.id===targetUserId);
+    if(!member) throw new AppError('Staff membership not found',404);
+    await service.saveMember(context,String(member.membershipId),{role:member.role,customRoleId:member.customRoleId,status:'revoked',branchIds:member.branchIds,version:member.version});
     response.json({ success: true, message: 'Staff membership revoked successfully.' });
   } catch (error: unknown) {
-    next(error instanceof AppError ? error : new AppError(getErrorMessage(error), 500));
+    next(error);
   }
 };

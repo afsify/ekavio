@@ -20,12 +20,15 @@ test('B2 production composition has PostgreSQL Queue authority with no Mongo fal
 });
 
 test('B2 route boundaries preserve separate entitlement and Queue permissions', () => {
-  for (const path of ['../src/routes/customerRoutes.ts', '../src/routes/serviceRoutes.ts', '../src/routes/appointmentRoutes.ts', '../src/routes/queueRoutes.ts']) {
+  for (const path of ['../src/routes/appointmentRoutes.ts', '../src/routes/queueRoutes.ts']) {
     const source = read(path);
     assert.match(source, /requireEntitlement\(MODULES\.QUEUE\)/);
     assert.match(source, /permissions\.QUEUE_(READ|MANAGE)/);
   }
   assert.equal(permissionsForRole('hr').includes(permissions.QUEUE_MANAGE), false);
+  for(const [path,capability] of [['../src/routes/customerRoutes.ts','CUSTOMERS'],['../src/routes/serviceRoutes.ts','SERVICES']]) {
+    const source=read(path!);assert.doesNotMatch(source,/requireEntitlement/);assert.match(source,new RegExp('permissions\\.'+capability+'_(READ|MANAGE)'));
+  }
 });
 
 test('realtime Queue events are branch-scoped and PII-minimized', () => {
