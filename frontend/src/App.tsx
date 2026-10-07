@@ -15,6 +15,8 @@ import AccountActionPage from './pages/Identity/AccountActionPage';
 import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue';
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
+const ReportsPage=React.lazy(()=>import('./pages/Reports/ReportsPage'));
+const NotificationsPage=React.lazy(()=>import('./pages/Notifications/NotificationsPage'));
 const LedgerPage = React.lazy(() => import("./pages/Ledger/LedgerPage"));
 const AttendancePage = React.lazy(
   () => import("./pages/Attendance/AttendancePage"),
@@ -170,7 +172,8 @@ export const App: React.FC = () => {
             <Route path="/roles" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="roles.read"><OrganizationPage section="roles" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/audit" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="audit.read"><OrganizationPage section="audit" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/platform" element={<ProtectedRoute><AdminLayout><PlatformOperatorGuard><OrganizationPage section="platform" /></PlatformOperatorGuard></AdminLayout></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><FoundationPage name="Reports" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><ReportsPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><AdminLayout><NotificationsPage /></AdminLayout></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><AdminLayout><FoundationPage name="Help & Support" /></AdminLayout></ProtectedRoute>} />
             <Route
               path="/login"

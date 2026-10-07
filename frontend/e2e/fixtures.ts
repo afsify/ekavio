@@ -51,7 +51,8 @@ export async function workspace(page: Page, options: { permissions?: string[]; m
     if (path === '/billing/operator/public-pricing') return reply(route, { data: [{ offerType: 'plan', key: 'pilot_core', name: 'Pilot Core', status: 'active', available: true, pricing: { monthlyPriceMinor: '12345', yearlyPriceMinor: '100000', published: true, displayOrder: 0 } }] });
     if (path.startsWith('/billing/operator/public-pricing/') && request.method() === 'PUT') { savedPricing = request.postDataJSON(); return reply(route, {}); }
     if (path === '/billing/operator/access-requests') return reply(route, { data: [], pagination: { total: 0 } });
-    if (path === '/analytics/dashboard') return reply(route, { data: { totalQueue: 0, lowStockItems: 0, presentStaff: 0 } });
+    if (path === '/analytics/dashboard') return reply(route, { data: { widgets:[],layout:{order:[],hidden:[],version:0},timezone:'Asia/Kolkata',businessDate:'2026-10-07' } });
+    if (path === '/notifications') return reply(route,{data:{rows:[],unread:0,total:0,page:1,limit:25}});
     return reply(route, { data: [], pagination: { total: 0, totalPages: 0 } });
   });
   // Forbid accidentally sending test data to any hosted API.

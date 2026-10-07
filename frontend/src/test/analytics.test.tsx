@@ -1,0 +1,20 @@
+import { describe,it,expect,vi,afterEach } from 'vitest';
+import { render,screen,fireEvent,cleanup,waitFor } from '@testing-library/react';
+import { QueryClient,QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { arrangeWidgets,exactRupees,notificationPath,saveCsv } from '../components/analytics/contracts';
+import { NotificationBell } from '../components/analytics/NotificationBell';
+import NotificationPreferences from '../pages/Notifications/NotificationPreferences';
+import { client } from '../api/client';
+import { useAppStore } from '../store/useAppStore';
+vi.mock('../api/client',()=>({client:{get:vi.fn(),put:vi.fn()}}));
+afterEach(()=>{cleanup();vi.clearAllMocks();});
+const wrap=(child:React.ReactNode)=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter>{child}</MemoryRouter></QueryClientProvider>);
+describe('analytics presentation contracts',()=>{
+ it('layout filters to actual server widgets and applies hide/order without authority',()=>{const widgets=['customers','services'].map(key=>({key,label:key,value:'1',description:'Test',path:'/'+key}));expect(arrangeWidgets(widgets,['inventory','services','customers'],['customers']).map(w=>w.key)).toEqual(['services']);});
+ it('formats exact signed integer INR without floating point',()=>{expect(exactRupees('900719925474099399')).toBe('₹9007199254740993.99');expect(exactRupees('-101')).toBe('-₹1.01');});
+ it('deep links use a closed mapping, never arbitrary supplied URLs',()=>{expect(notificationPath('settings')).toBe('/settings');expect(notificationPath('https://evil.invalid')).toBeNull();});
+ it('downloads server CSV and revokes the temporary object URL',()=>{vi.useFakeTimers();const create=vi.fn(()=> 'blob:test'),revoke=vi.fn(),click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});vi.stubGlobal('URL',class extends URL {static createObjectURL=create;static revokeObjectURL=revoke;});saveCsv(new Blob(['safe']),'customers');expect(click).toHaveBeenCalledOnce();vi.runAllTimers();expect(revoke).toHaveBeenCalledWith('blob:test');click.mockRestore();vi.unstubAllGlobals();vi.useRealTimers();});
+ it('shows unread count, recent text and empty center link without exposing identifiers',async()=>{useAppStore.setState({user:{id:'qa',permissions:[]} as never,activeTenantId:'qa'});vi.mocked(client.get).mockResolvedValue({data:{data:{rows:[],unread:2,total:2,page:1,limit:25}}});wrap(<NotificationBell/>);await waitFor(()=>expect(screen.getByRole('button',{name:'Notifications, 2 unread'})).toBeTruthy());fireEvent.click(screen.getByRole('button',{name:'Notifications, 2 unread'}));expect(screen.getByText("You're all caught up.")).toBeTruthy();expect(screen.getByRole('link',{name:'View all'}).getAttribute('href')).toBe('/notifications');});
+ it('saves only narrow notification preference, never client-selected recipient',async()=>{vi.mocked(client.get).mockResolvedValue({data:{data:{organizationChanges:true}}});vi.mocked(client.put).mockResolvedValue({data:{}});wrap(<NotificationPreferences/>);const checkbox=await screen.findByRole('checkbox',{name:'Organization changes'});fireEvent.click(checkbox);await waitFor(()=>expect(client.put).toHaveBeenCalledWith('/notifications/preferences',{organizationChanges:false}));});
+});

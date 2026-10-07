@@ -20,7 +20,7 @@ describe('exact presentation money', () => {
 it('normalizes international and Indian phones, rejecting incomplete values', () => { expect(normalizePhone('9876543210')).toBe('+919876543210'); expect(normalizePhone('+442079460018')).toBe('+442079460018'); expect(normalizePhone('12')).toBeUndefined(); });
 it('phone wrapper has a country selector, read-only calling code, and normalized output', () => { const change = vi.fn(); render(<PhoneInput label="Contact phone" value="" onChange={change} />); expect(screen.getByLabelText('Contact phone country')).toBeTruthy(); expect(screen.getByLabelText('Calling code').textContent).toBe('+91'); fireEvent.change(screen.getByLabelText('Contact phone', { exact: true }), { target: { value: '9876543210' } }); expect(change).toHaveBeenCalledWith('+919876543210'); });
 it('navigation separately filters permissions, entitlements, and platform status', () => {
-  expect(visibleDestinations([], null, false).map((item) => item.path)).toEqual(['/dashboard','/settings','/help']);
+  expect(visibleDestinations([], null, false).map((item) => item.path)).toEqual(['/dashboard','/settings','/notifications','/help']);
   expect(visibleDestinations(['queue.read'], null, false).some((item) => item.path === '/queue')).toBe(false);
   expect(visibleDestinations([], null, true).some((item) => item.path === '/commercial/requests')).toBe(true);
   expect(visibleDestinations(['corporate.manage'], null, false).some((item) => item.path === '/corporate')).toBe(false);

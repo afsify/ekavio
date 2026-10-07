@@ -48,7 +48,7 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
   await migrate(database);
   assert.deepEqual(
     (await getMigrationStatus(database)).map(({ state }) => state),
-    Array.from({ length: 15 }, () => 'applied'),
+    Array.from({ length: 16 }, () => 'applied'),
   );
   const migrationDirectory = path.resolve(process.cwd(), 'postgres', 'migrations');
   const accepted = (await readdir(migrationDirectory))
@@ -61,7 +61,7 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
   await migrate(upgradeDatabase);
   assert.deepEqual(
     (await getMigrationStatus(upgradeDatabase)).map(({ state }) => state),
-    Array.from({ length: 15 }, () => 'applied'),
+    Array.from({ length: 16 }, () => 'applied'),
   );
 
   const now = new Date('2026-10-01T00:00:00.000Z');

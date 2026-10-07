@@ -1,4 +1,22 @@
 @import "tailwindcss";
+
+.notification-bell {position:relative; min-width:0}
+.notification-popover {position:absolute;right:0;top:100%;z-index:40;width:min(320px,85vw);display:grid;gap:12px}
+.reports-page select,.reports-page input {min-width:0;max-width:100%}
+.report-columns {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:12px;margin-top:16px}
+.report-table {overflow:auto;max-width:100%;border:1px solid var(--border);border-radius:12px}
+.report-table table {width:100%;border-collapse:collapse}
+.report-table th,.report-table td {text-align:left;padding:12px;vertical-align:top;overflow-wrap:anywhere;max-width:300px;border-bottom:1px solid var(--border)}
+.report-mobile-rows,.reports-page .report-mobile-filter {display:none}
+.report-desktop-filter>.page-stack {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:12px}
+@media(max-width:767px) {
+ .notification-label {display:none}
+ .workspace-header>.flex:last-child {gap:6px;flex-wrap:wrap;justify-content:flex-end}
+ .reports-page .report-mobile-filter,.report-mobile-rows {display:block}
+ .report-mobile-rows {display:grid;gap:16px}
+ .report-mobile-rows dd {overflow-wrap:anywhere;margin-bottom:12px}
+ .report-table,.report-desktop-filter {display:none}
+}
 @custom-variant dark (&:where(.dark, .dark *));
 @theme { --color-primary: #4f46e5; }
 /* Semantic tokens and compatibility palette for existing utility-based pages. */

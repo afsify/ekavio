@@ -240,7 +240,16 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:fields
 
+      - name: Test PostgreSQL analytics reports notifications
+        working-directory: backend
+        run: npm run test:analytics-notifications
+
+      - name: Test PostgreSQL-backed analytics notifications in browser
+        working-directory: frontend
+        run: npm run test:e2e:analytics
+
       - name: Upload frontend QA evidence
+        # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -250,6 +259,7 @@ jobs:
             !frontend/test-results/identity/**
             !frontend/test-results/organization-admin/**
             !frontend/test-results/dynamic-fields/**
+            !frontend/test-results/analytics/**
           retention-days: 7
 
       - name: Validate Docker Compose

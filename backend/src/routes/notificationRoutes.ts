@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { authenticate,type AuthenticatedRequest } from '../middlewares/authMiddleware.js';
+import { runtimePostgresDatabase } from '../persistence/runtimePersistence.js';
+import { NotificationService } from '../domains/notifications/service.js';
+import { AppError } from '../utils/AppError.js';
+const router=Router(),service=new NotificationService(runtimePostgresDatabase);router.use(authenticate);
+const handle=(fn:(r:AuthenticatedRequest)=>Promise<unknown>):import('express').RequestHandler=>async(req,res,next)=>{try{res.setHeader('Cache-Control','no-store');res.json({data:await fn(req)});}catch(error){next(error);}};
+router.get('/',handle(r=>service.list(r.auth!,r.query)));
+router.get('/preferences',handle(r=>service.preferences(r.auth!)));
+router.put('/preferences',handle(r=>service.savePreferences(r.auth!,r.body)));
+router.post('/read-all',handle(async r=>{if(!z.object({}).strict().safeParse(r.body).success)throw new AppError('Invalid notification request',400);await service.readAll(r.auth!);return {updated:true};}));
+router.patch('/:id',handle(async r=>{const v=z.object({read:z.boolean()}).strict().safeParse(r.body);if(!v.success)throw new AppError('Invalid notification request',400);await service.read(r.auth!,String(r.params.id),v.data.read);return {updated:true};}));
+export default router;

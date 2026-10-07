@@ -56,7 +56,7 @@ interface CustomerDueRow extends QueryResultRow {
   command_fingerprint: string | null;
 }
 
-const signedEffectSql = (entry = 'e', target = 'target'): string => `
+export const signedEffectSql = (entry = 'e', target = 'target'): string => `
   CASE ${entry}.entry_type
     WHEN 'charge' THEN ${entry}.amount_minor
     WHEN 'adjustment_increase' THEN ${entry}.amount_minor

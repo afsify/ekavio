@@ -38,4 +38,5 @@ router.patch('/members/:id',requirePermission('staff.manage'),validateRequest(z.
 router.get('/audit',requirePermission('audit.read'),handle(r=>service.audit(r.auth!,z.object({from:z.iso.datetime().optional(),to:z.iso.datetime().optional(),actor:z.uuid().optional(),action:text(128).optional(),category:text(64).optional(),page:z.coerce.number().int().min(1).max(10000).default(1)}).strict().parse(r.query))));
 router.get('/audit/actors',requirePermission('audit.read'),handle(r=>service.auditActors(r.auth!)));
 router.get('/platform/organizations',requirePlatformOperator,handle(r=>service.directory(search(r),z.coerce.number().int().min(1).max(10000).parse(r.query.page??1))));
+router.get('/platform/overview',requirePlatformOperator,handle(()=>service.platformOverview()));
 export default router;

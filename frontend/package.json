@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "test:e2e:identity": "playwright test --config playwright.identity.config.ts",
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",
-    "test:e2e:fields": "playwright test --config playwright.fields.config.ts"
+    "test:e2e:fields": "playwright test --config playwright.fields.config.ts",
+    "test:e2e:analytics": "playwright test --config playwright.analytics.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

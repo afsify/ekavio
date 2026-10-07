@@ -54,7 +54,7 @@ test('V2-06B5B agreement, payment, onboarding, and atomic provisioning', async (
   await migrate(database);
   assert.deepEqual(
     (await getMigrationStatus(database)).map(({ state }) => state),
-    Array.from({ length: 15 }, () => 'applied'),
+    Array.from({ length: 16 }, () => 'applied'),
   );
 
   const commercialRepository = new PostgresCommercialRepository(database);

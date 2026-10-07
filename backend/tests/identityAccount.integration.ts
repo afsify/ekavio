@@ -40,7 +40,7 @@ test('identity email, recovery, invitations and preferences against disposable P
     await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [databaseName]);
     await admin.query(`DROP DATABASE "${databaseName}"`); await admin.close();
   });
-  await t.test('zero to latest and idempotent rerun', async () => { await migrate(database); await migrate(database); assert.equal((await getMigrationStatus(database)).length, 15); });
+  await t.test('zero to latest and idempotent rerun', async () => { await migrate(database); await migrate(database); assert.equal((await getMigrationStatus(database)).length, 16); });
   await t.test('prior 001–012 upgrades without rewriting ambiguous legacy phones', async () => {
     const olderName = `ekavio_v208b_${randomUUID().replaceAll('-', '')}`;
     await admin.query(`CREATE DATABASE "${olderName}"`);

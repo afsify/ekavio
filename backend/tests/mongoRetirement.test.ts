@@ -48,7 +48,7 @@ test('normal runtime config and Compose require PostgreSQL but not MongoDB', asy
   assert.equal(health.includes('mongodb'), false);
 });
 
-test('Message, Notification, and false frontend integrations are retired without replacements', async () => {
+test('legacy Mongo messages/notifications remain retired; new attention uses PostgreSQL only', async () => {
   const [layout, socketStore, app, sidebar, corporate] = await Promise.all([
     source('../../frontend/src/components/layout/AdminLayout.tsx'),
     source('../../frontend/src/store/useSocketStore.ts'),
@@ -57,7 +57,7 @@ test('Message, Notification, and false frontend integrations are retired without
     source('../../frontend/src/pages/Corporate/CorporateDashboard.tsx'),
   ]);
   for (const forbidden of [
-    'NotificationBell', 'new_notification', '/notifications', 'receive_message',
+    'new_notification', 'receive_message',
     'send_message', '/chat/contacts', 'defaultParent', 'fallback subscription',
   ]) assert.equal(`${layout}\n${socketStore}\n${sidebar}\n${corporate}`.includes(forbidden), false, forbidden);
   assert.match(app, /UnavailableFeature name="Messages"/);
@@ -68,6 +68,10 @@ test('Message, Notification, and false frontend integrations are retired without
     '../../frontend/src/components/layout/NotificationBell.tsx',
     '../../frontend/src/pages/Chat/ChatPage.tsx',
   ]) await assert.rejects(access(new URL(relative, import.meta.url)));
+  const notificationService=await source('../src/domains/notifications/service.ts');
+  assert.match(notificationService,/user_notifications/);
+  assert.equal(/mongoose|models\/Notification|new_notification/.test(notificationService),false);
+  assert.match(app,/NotificationsPage/);
 });
 
 test('corporate frontend selects authorized canonical parents with honest states', async () => {

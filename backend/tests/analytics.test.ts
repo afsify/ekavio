@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { authorizeReport,canRead,filterSchema,layoutSchema,csvCell,validateRange,rupees,reports } from '../src/domains/analytics/policy.js';
+import { preferenceSchema,notificationFilter,notificationActions } from '../src/domains/notifications/service.js';
+import type { AuthorizationContext } from '../src/services/requestContextService.js';
+const c:AuthorizationContext={userId:'test',sessionId:'test',organizationId:'test',membershipId:'test',role:'staff',platformOperator:false,permissions:['reports.read']};
+test('report authority is reports AND domain AND commercial, independently',()=>{
+ for(const r of reports){assert.throws(()=>authorizeReport(c,r.key,new Set(['queue','inventory','ledger','attendance'])));assert.throws(()=>authorizeReport({...c,permissions:[r.permission]},r.key,new Set(['queue','inventory','ledger','attendance'])));if(r.module)assert.throws(()=>authorizeReport({...c,permissions:['reports.read',r.permission]},r.key,new Set()));assert.equal(authorizeReport({...c,permissions:['reports.read',r.permission]},r.key,new Set(['queue','inventory','ledger','attendance'])).key,r.key);}
+ assert.equal(canRead({...c,permissions:['customers.read']},'customers.read',null,new Set()),true);
+ assert.equal(canRead(c,'customers.read',null,new Set()),false);
+});
+test('CORE reports require no Queue subscription and unknown catalogue keys fail closed',()=>{for(const key of ['customers','services'])assert.equal(authorizeReport({...c,permissions:['reports.read','customers.read','services.read']},key,new Set()).key,key);assert.throws(()=>authorizeReport(c,'SELECT * FROM users',new Set()));});
+test('closed bounded report filters and exact calendar range',()=>{assert.ok(filterSchema.safeParse({from:'2026-10-01',to:'2026-10-31',page:'2'}).success);for(const input of [{sql:'x'},{search:'x'.repeat(201)},{page:201},{limit:101},{from:'2026-02-30'},{branchId:'no'}])assert.equal(filterSchema.safeParse(input).success,false);assert.throws(()=>validateRange('2025-01-01','2026-01-02'));assert.throws(()=>validateRange('2026-01-02','2026-01-01'));validateRange('2026-01-01','2026-12-31');});
+test('CSV neutralizes formulas, control prefixes, quoting and newlines',()=>{for(const value of ['=SUM(1,2)','+cmd','-cmd','@SUM(A1)',' \t=1','\r=1','\n+1','\tordinary'])assert.ok(csvCell(value).startsWith('"\''));assert.equal(csvCell('a,"b"\nc'),'"a,""b""\nc"');assert.equal(csvCell(null),'""');assert.equal(csvCell('text'),'"text"');});
+test('money stays exact beyond Number safe integer range',()=>{assert.equal(rupees('900719925474099399'),'₹9007199254740993.99');assert.equal(rupees('-1'),'-₹0.01');});
+test('presentation layouts never accept arbitrary widgets, duplicate keys or authority',()=>{assert.equal(layoutSchema.safeParse({order:['customers'],hidden:[],version:0}).success,true);for(const v of [{order:['sql'],hidden:[],version:0},{order:['customers','customers'],hidden:[],version:0},{order:[],hidden:[],version:0,userId:'foreign'}])assert.equal(layoutSchema.safeParse(v).success,false);});
+test('notifications have closed category, safe action mapping and narrow own preferences',()=>{assert.equal(notificationActions.settings,'/settings');assert.equal(preferenceSchema.safeParse({organizationChanges:false}).success,true);assert.equal(preferenceSchema.safeParse({organizationChanges:true,userId:'foreign'}).success,false);assert.equal(notificationFilter.safeParse({category:'secret',page:1}).success,false);});

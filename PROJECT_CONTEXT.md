@@ -1,6 +1,33 @@
 # EkaVio Project Context
 
-## Latest product foundation: V2-08D (2026-10-07)
+## Latest product foundation: V2-08E (2026-10-07)
+
+Additive migration 016 supplies per-organization/user dashboard preferences,
+notification preferences and own-recipient attention rows, plus append-only safe
+export audit. Dashboard is CORE without reports.read, but executes/returns only
+domain-authorized and commercially entitled widgets. Ten curated reports and fresh
+server CSV require reports.read AND domain read AND any paid entitlement. Operational
+reports are selected-branch only; Customer/Staff directories are organization-owned.
+Branch business dates/timezone, exact Dues/stock projections and batched active
+reportable custom fields are reused; Dues are not revenue and stock is not sales.
+
+Exports are formula-safe UTF-8, hard maximum 2,000 rows/5 MiB with a conservative
+adaptive lower row budget for wide data, not silently truncated. Generic Membership/
+custom-role update messages resolve active assigned recipients on the server in the
+canonical transaction. Own center/bell/read/preferences use bounded foreground
+polling, no new Socket.IO room or messaging provider. Explicit bounded pruning removes
+only read attention older than 90 days. Saved presets/general notification email,
+low-stock events, multi-branch paid summaries and broader custom filters are deferred.
+
+See [ADR 0024](docs/adr/0024-dashboards-reports-notifications.md) and
+[V2-08E acceptance](docs/reviews/V2-08E_DASHBOARDS_REPORTS_NOTIFICATIONS.md).
+Hosted migrations 001–016 are applied with matching checksums; public live/ready and
+frontend/login probes passed. This is not authenticated hosted acceptance. Other
+environments must apply 016 explicitly before deployment; extend recovery proof separately.
+**NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained Atlas
+are unchanged. V2-08F does not start automatically.
+
+## Previous product foundation: V2-08D (2026-10-07)
 
 Dynamic Fields / Data & Forms adds additive migration 015 for Customer, Service,
 Appointment, Inventory item and organization-local Membership. Definitions/options,
@@ -11,12 +38,12 @@ cannot overwrite metadata or backfill defaults. `fields.read/manage` separate co
 authority from entity data authority; existing tenant/branch/RBAC/entitlement checks
 remain. Actual canonical forms use one shared renderer and server layout. Customer
 search/filter is bounded/parameterized; reportable metadata, unique-value design,
-other-domain filters and custom CSV/reporting integration are deferred to V2-08E.
+other-domain filters and custom CSV/reporting integration were deferred to V2-08E.
 
 See [ADR 0023](docs/adr/0023-dynamic-fields-and-form-layouts.md) and
 [V2-08D acceptance](docs/reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
 **NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained
-Atlas remain unchanged. V2-08E does not start automatically. Apply 015 explicitly
+Atlas remain unchanged. V2-08E now extends this accepted foundation. Apply 015 explicitly
 before backend deployment; include its schema in future recovery proof.
 
 ## Previous foundation: V2-08C (2026-10-06)

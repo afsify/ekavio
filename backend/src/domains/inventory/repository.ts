@@ -98,7 +98,7 @@ interface StockMovementRow extends QueryResultRow {
   command_fingerprint: string | null;
 }
 
-const itemSelect = `
+export const itemSelect = `
   i.id, i.organization_id, l.branch_id, l.id AS location_id, l.name AS location_name,
   i.name, i.sku, i.barcode, i.unit_code, i.status,
   i.price_minor::text, i.currency,
@@ -109,7 +109,7 @@ const itemSelect = `
   i.creation_command_fingerprint
 `;
 
-const itemJoins = `
+export const itemJoins = `
   JOIN stock_locations l
     ON l.organization_id = i.organization_id
     AND l.branch_id = $2

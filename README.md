@@ -35,6 +35,28 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08E adds permission-aware Workspace dashboards, durable hide/order/reset,
+independently authorized Organization/Platform overviews, ten curated Reports,
+server-generated formula-safe CSV and a personal PostgreSQL notification center.
+Dashboard is CORE; Reports/exports require `reports.read` plus domain read and any
+existing paid entitlement. Branch business dates, exact Dues balances/journal effects,
+canonical stock and active reportable custom-field columns are used, not invented
+revenue/sales. Exports have hard 2,000-row/5-MiB limits with a conservative lower budget
+for wide records. Membership/custom-role attention is generic, own-recipient and
+transactional; foreground polling needs no Socket.IO or messaging provider.
+
+Apply additive **016** explicitly before backend deployment. See
+[ADR 0024](docs/adr/0024-dashboards-reports-notifications.md) and
+[V2-08E acceptance](docs/reviews/V2-08E_DASHBOARDS_REPORTS_NOTIFICATIONS.md).
+Run backend `npm run test:analytics-notifications` and frontend
+`npm run test:e2e:analytics` against disposable local PostgreSQL. Explicit maintenance
+`npm run notifications:prune -- --apply` deletes at most 1,000 read attention messages
+older than 90 days; unread, audit and business rows remain. General notification email
+and saved presets are deferred. **NO-GO FOR REAL CUSTOMER DATA** remains unchanged;
+Render Free is staging-only by choice, Atlas retained, no automatic V2-08F.
+Hosted 001–016 checksums/status and public live/ready/frontend/login are verified;
+this does not claim hosted authenticated V2-08E acceptance or extended recovery proof.
+
 V2-08D adds organization **Data & Forms** (`/custom-fields`): 13 bounded field types
 for Customers, Services, Appointments, Inventory items and staff Memberships; stable
 options, typed relational values, archive history and versioned sections/layouts.
@@ -43,13 +65,13 @@ Configuration permission (`fields.read/manage`) never grants entity-data access;
 existing RBAC, tenant/branch and commercial gates remain. Required fields validate
 new records and normal edits without historical backfill; defaults apply only to new
 records, not retries. Apply additive **015** explicitly before backend deployment.
-Customer custom search/filter is bounded and parameterized. Reporting, unique-value
-constraints, other-domain filters and custom CSV integration remain V2-08E scope.
+Customer custom search/filter is bounded and parameterized. V2-08E now consumes
+reportable fields and safe custom CSV; uniqueness and broader filters remain deferred.
 See [ADR 0023](docs/adr/0023-dynamic-fields-and-form-layouts.md) and
 [dynamic-fields acceptance](docs/reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
 Run backend `npm run test:dynamic-fields` and frontend `npm run test:e2e:fields`
 against disposable local PostgreSQL. **NO-GO FOR REAL CUSTOMER DATA** is unchanged;
-V2-08E does not start automatically.
+V2-08E extends this accepted foundation; V2-08F does not start automatically.
 
 V2-08C adds organization administration (`/admin`), safe branch lifecycle,
 organization-local custom roles, staff suspension/reactivation/revocation,

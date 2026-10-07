@@ -18,6 +18,7 @@ export const destinations: Destination[] = [
   { name: 'Billing', path: '/billing', group: 'Administration', permission: 'billing.read' },
   { name: 'Reports', path: '/reports', group: 'Administration', permission: 'reports.read' },
   { name: 'Settings', path: '/settings', group: 'Administration' },
+  { name: 'Notifications', path: '/notifications', group: 'Workspace' },
   { name: 'Help & Support', path: '/help', group: 'Administration' },
   { name: 'Commercial Intake', path: '/commercial/requests', group: 'Platform operations', operator: true },
   { name: 'Platform Operations', path: '/platform', group: 'Platform operations', operator: true },

@@ -8,7 +8,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-08B | Implemented identity/account recovery: explicit phone-or-verified-email lookup, optional provider-neutral SMTP, single-use verification/reset, recipient-chosen staff invitations and durable per-user preferences; local automated acceptance, no pilot GO |
 | V2-08C | Implemented organization administration/RBAC: additive 014, operating profile, safe branch lifecycle, custom replacement permissions, staff lifecycle, authenticated existing-account linking, safe audit and operator directory; automatic local acceptance, no pilot GO |
 | V2-08D | Implemented additive 015: five entity types, 13 typed fields, stable options/history, shared canonical form renderer, versioned layouts, safe configuration RBAC, Customer search/filter and automated local acceptance; no pilot GO |
-| V2-08E | Dashboards, reports and notifications; no invented metrics or mandatory messaging provider |
+| V2-08E | Implemented additive 016: individually authorized factual dashboards, personal layouts, ten curated branch-safe reports, bounded formula-safe CSV/reportable fields, own transactional attention center and polling; no pilot GO |
 | V2-08F | Public website and commercial UX completion |
 | V2-09 | Optional separately approved CRM, Purchase and HR extensions |
 | V2-10 | Automated final acceptance, hosted tenancy/realtime, recovery/operations evidence and separate strict GO/NO-GO review |
@@ -21,11 +21,13 @@ Commercial modules retain keys `queue`, `attendance`, `ledger`, `inventory`, pre
 
 ## Deferred work
 
-V2-08D delivers the bounded shared form foundation. V2-08E may consume reportable
-metadata, add reviewed other-entity/multiselect filters and custom reportable CSV
-exports, and separately design safe custom-value uniqueness. No bulk importer or
-full report builder is implied. See [V2-08D acceptance](../reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
-V2-08E does not begin automatically; NO-GO and the existing operational gates remain.
+V2-08D delivers the bounded shared form foundation; V2-08E consumes active reportable
+metadata and custom CSV, reusing the single typed Customer filter. Broader custom/
+multiselect filters, safe custom uniqueness, saved presets, general email, low-stock
+events and multi-branch paid aggregates remain deferred. No bulk importer, sales/POS
+or full arbitrary report builder is implied. See
+[V2-08E acceptance](../reviews/V2-08E_DASHBOARDS_REPORTS_NOTIFICATIONS.md).
+V2-08F public/commercial UX does not begin automatically; NO-GO and operations gates remain.
 
 V2-08C implements authenticated existing-identity linking, custom tenant roles and
 organization-local staff lifecycle. Owner transfer/support bypass remain deferred.

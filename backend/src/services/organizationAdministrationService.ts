@@ -8,6 +8,7 @@ import type { MembershipRole } from '../models/Membership.js';
 import { PostgresCommercialRepository } from '../postgres/commercialRepository.js';
 import { createEntitlementService } from './entitlementService.js';
 import { normalizeEmail, requirePhone } from './identityPolicy.js';
+import { notifyOrganizationChange } from '../domains/notifications/service.js';
 
 export interface RoleInput { name: string; description: string; permissions: Permission[]; version?: number; status?: 'active'|'archived' }
 export interface BranchInput { name: string; code: string; timezone: string; status: 'active'|'inactive'; version?: number }
@@ -24,6 +25,9 @@ export class OrganizationAdministrationService {
       (SELECT count(*)::int FROM organization_roles WHERE organization_id=o.id AND status='active') AS custom_roles,
       (SELECT count(*)::int FROM staff_invitations WHERE organization_id=o.id AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>now()) AS pending_invitations
       FROM organizations o LEFT JOIN organization_profiles p ON p.organization_id=o.id WHERE o.id=$1`,[c.organizationId])).rows[0];
+    if(profile){
+      for(const [key,permission] of [['active_staff','staff.read'],['active_branches','branches.read'],['custom_roles','roles.read'],['pending_invitations','staff.manage'],['legal_name','billing.read']] as const)if(!c.permissions.includes(permission))delete profile[key];
+    }
     return profile;
   }
   async saveProfile(c: AuthorizationContext,input: ProfileInput) {
@@ -96,6 +100,7 @@ export class OrganizationAdministrationService {
       await client.query('DELETE FROM organization_role_permissions WHERE role_id=$1',[result.id]);
       for(const permission of input.permissions) await client.query('INSERT INTO organization_role_permissions(role_id,permission) VALUES($1,$2)',[result.id,permission]);
       await adminEvent(client,c.organizationId,c.userId,!id?'role.created':input.status==='archived'?'role.archived':'role.updated',String(result.id));
+      if(id&&input.status!=='archived')await notifyOrganizationChange(client,c.organizationId,null,id,'role.updated',Number(result.version));
       return result;
     });
     disconnectOrganizationSockets(c.organizationId); return row;
@@ -123,9 +128,12 @@ export class OrganizationAdministrationService {
       const branches=await client.query("SELECT id FROM branches WHERE organization_id=$1 AND id=ANY($2::uuid[]) AND status='active'",[c.organizationId,input.branchIds]);
       if(branches.rowCount!==input.branchIds.length) throw new AppError('Select active branches from this organization',400);
       await client.query('UPDATE memberships SET role=$3,custom_role_id=$4,status=$5,version=version+1,updated_at=now() WHERE id=$1 AND organization_id=$2',[id,c.organizationId,input.role,input.customRoleId,input.status]);
-      await client.query('DELETE FROM membership_branch_assignments WHERE membership_id=$1',[id]);
-      for(const branch of input.branchIds) await client.query('INSERT INTO membership_branch_assignments(membership_id,branch_id,organization_id) VALUES($1,$2,$3)',[id,branch,c.organizationId]);
+      // Preserve unchanged assignments referenced by immutable operational history.
+      try {await client.query('DELETE FROM membership_branch_assignments WHERE membership_id=$1 AND NOT(branch_id=ANY($2::uuid[]))',[id,input.branchIds]);}
+      catch(error){if((error as {code?:string}).code==='23503')throw new AppError('This assignment is referenced by operational history and cannot be removed',409);throw error;}
+      for(const branch of input.branchIds) await client.query('INSERT INTO membership_branch_assignments(membership_id,branch_id,organization_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[id,branch,c.organizationId]);
       await adminEvent(client,c.organizationId,c.userId,'membership.updated',id);
+      if(input.status==='active')await notifyOrganizationChange(client,c.organizationId,id,null,'membership.updated',input.version+1);
     });
     // Do not revoke global sessions: other organizations remain valid.
     if(notifyRealtime)disconnectOrganizationSockets(c.organizationId);
@@ -134,6 +142,7 @@ export class OrganizationAdministrationService {
     return (await this.database.query(`WITH events AS (
       SELECT id,actor_user_id,action,occurred_at FROM organization_admin_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM field_admin_events WHERE organization_id=$1
+      UNION ALL SELECT id,actor_user_id,action,occurred_at FROM report_export_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM audit_events WHERE organization_id=$1)
       SELECT e.id,e.action,e.occurred_at,COALESCE(u.name,'Actor unavailable') AS actor
       FROM events e LEFT JOIN users u ON u.id=e.actor_user_id
@@ -146,6 +155,7 @@ export class OrganizationAdministrationService {
     return (await this.database.query(`SELECT DISTINCT u.id,u.name FROM users u JOIN (
       SELECT actor_user_id FROM organization_admin_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM field_admin_events WHERE organization_id=$1
+      UNION SELECT actor_user_id FROM report_export_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM audit_events WHERE organization_id=$1
     ) a ON a.actor_user_id=u.id ORDER BY u.name,u.id LIMIT 200`,[c.organizationId])).rows;
   }
@@ -157,5 +167,13 @@ export class OrganizationAdministrationService {
       WHERE o.name ILIKE $1 ORDER BY o.name,o.id LIMIT 50 OFFSET $2`,[`%${search}%`,(page-1)*50])).rows;
     const commercial=createEntitlementService(new PostgresCommercialRepository(this.database));
     return Promise.all(rows.map(async row=>({...row,modules:(await commercial.getEffective(String(row.id))).modules.filter(m=>m.enabled).map(m=>m.key)})));
+  }
+  async platformOverview(){
+    return (await this.database.query(`SELECT
+      (SELECT count(*)::text FROM organizations) AS organizations,
+      (SELECT count(*)::text FROM subscriptions WHERE status IN ('active','trialing') AND starts_at<=now() AND (current_period_ends_at IS NULL OR current_period_ends_at>now())) AS active_subscriptions,
+      (SELECT count(*)::text FROM commercial_access_requests WHERE status='pending') AS pending_requests,
+      (SELECT count(*)::text FROM subscriptions WHERE status IN ('active','trialing') AND current_period_ends_at<=now()+interval '30 days') AS renewals_attention,
+      (SELECT count(*)::text FROM public_offer_pricing p LEFT JOIN plans plan ON plan.id=p.plan_id LEFT JOIN add_ons addon ON addon.id=p.add_on_id WHERE p.published AND (plan.status='active' AND plan.available OR addon.status='active' AND addon.available)) AS published_offers`)).rows[0];
   }
 }
