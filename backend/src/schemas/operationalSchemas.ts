@@ -1,14 +1,17 @@
 import { z } from 'zod';
+import { customValuesSchema } from '../domains/dynamicFields/policy.js';
 
 const nullableText = (maximum: number) => z.string().trim().max(maximum).nullable().optional();
 
 export const createCustomerSchema = z.object({
+  customFields: customValuesSchema.optional(),
   name: z.string().trim().min(1).max(200),
   phone: nullableText(40),
   notes: nullableText(2000),
 }).strict();
 
 export const updateCustomerSchema = z.object({
+  customFields: customValuesSchema.optional(),
   name: z.string().trim().min(1).max(200).optional(),
   phone: nullableText(40),
   notes: nullableText(2000),
@@ -16,6 +19,7 @@ export const updateCustomerSchema = z.object({
 }).strict().refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 
 export const createServiceSchema = z.object({
+  customFields: customValuesSchema.optional(),
   name: z.string().trim().min(1).max(200),
   description: nullableText(2000),
   durationMinutes: z.number().int().positive().max(1440),
@@ -33,6 +37,7 @@ export const providerAssignmentSchema = z.object({
 }).strict();
 
 export const createAppointmentSchema = z.object({
+  customFields: customValuesSchema.optional(),
   customerId: z.uuid(),
   serviceId: z.uuid(),
   providerMembershipId: z.uuid().nullable().optional(),

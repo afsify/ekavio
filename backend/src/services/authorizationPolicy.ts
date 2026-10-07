@@ -1,6 +1,8 @@
 import type { MembershipRole } from '../models/Membership.js';
 
 export const permissions = {
+  FIELDS_READ: 'fields.read',
+  FIELDS_MANAGE: 'fields.manage',
   ORGANIZATION_READ: 'organization.read',
   BRANCHES_READ: 'branches.read',
   BRANCHES_MANAGE: 'branches.manage',
@@ -48,6 +50,7 @@ const operationalPermissions: readonly Permission[] = [
 ];
 
 const administratorPermissions: readonly Permission[] = [
+  permissions.FIELDS_READ, permissions.FIELDS_MANAGE,
   permissions.BRANCHES_MANAGE, permissions.ROLES_READ, permissions.ROLES_MANAGE, permissions.AUDIT_READ,
   ...operationalPermissions,
   permissions.ORGANIZATION_MANAGE,

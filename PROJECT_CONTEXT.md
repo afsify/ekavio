@@ -1,6 +1,25 @@
 # EkaVio Project Context
 
-## Latest product foundation: V2-08C (2026-10-06)
+## Latest product foundation: V2-08D (2026-10-07)
+
+Dynamic Fields / Data & Forms adds additive migration 015 for Customer, Service,
+Appointment, Inventory item and organization-local Membership. Definitions/options,
+typed relational values and versioned sections/layouts are separate. Thirteen bounded
+types, immutable keys/types, archive history, required-on-new/normal-edit rules and
+new-only validated defaults use atomic canonical/custom writes. Creation retries
+cannot overwrite metadata or backfill defaults. `fields.read/manage` separate config
+authority from entity data authority; existing tenant/branch/RBAC/entitlement checks
+remain. Actual canonical forms use one shared renderer and server layout. Customer
+search/filter is bounded/parameterized; reportable metadata, unique-value design,
+other-domain filters and custom CSV/reporting integration are deferred to V2-08E.
+
+See [ADR 0023](docs/adr/0023-dynamic-fields-and-form-layouts.md) and
+[V2-08D acceptance](docs/reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
+**NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained
+Atlas remain unchanged. V2-08E does not start automatically. Apply 015 explicitly
+before backend deployment; include its schema in future recovery proof.
+
+## Previous foundation: V2-08C (2026-10-06)
 
 Organization administration, branch lifecycle, normalized custom tenant RBAC,
 membership lifecycle, authenticated existing-account staff linking, safe tenant
@@ -28,7 +47,7 @@ remain server-side; frontend context refresh is navigation convenience only.
 See [ADR 0022](docs/adr/0022-organization-administration-and-custom-rbac.md) and the
 [V2-08C review](docs/reviews/V2-08C_ORGANIZATION_RBAC.md) for acceptance/release evidence.
 **NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained
-Atlas are unchanged. V2-08D remains deferred and does not start automatically.
+Atlas are unchanged. V2-08D now extends this accepted foundation as documented above.
 
 ## Established architecture and historical decisions
 

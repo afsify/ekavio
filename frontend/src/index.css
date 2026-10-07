@@ -73,6 +73,9 @@
 .phone-field { display: flex; align-items: center; gap: .35rem; }
 .phone-field select { max-width: 115px; }
 .phone-field span { white-space: nowrap; font-size: .9rem; }
+.dynamic-fields-admin :is(button,label,p) { overflow-wrap: anywhere; max-width: 100%; min-width: 0; }
+.dynamic-fields-admin button { white-space: normal; }
+.dynamic-fields-admin .page-stack { min-width: 0; }
 .error-text { color: var(--error); }
 .settings-tabs { display: flex; gap: .5rem; flex-wrap: wrap; }
 .settings-tabs [aria-current=page] { background: var(--primary); color: #fff; }

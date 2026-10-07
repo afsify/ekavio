@@ -232,6 +232,14 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:admin
 
+      - name: Test PostgreSQL dynamic fields and layouts
+        working-directory: backend
+        run: npm run test:dynamic-fields
+
+      - name: Test PostgreSQL-backed dynamic forms in browser
+        working-directory: frontend
+        run: npm run test:e2e:fields
+
       - name: Upload frontend QA evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -241,6 +249,7 @@ jobs:
             frontend/test-results
             !frontend/test-results/identity/**
             !frontend/test-results/organization-admin/**
+            !frontend/test-results/dynamic-fields/**
           retention-days: 7
 
       - name: Validate Docker Compose

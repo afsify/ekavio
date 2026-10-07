@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type Page, type Route } from '@playwright/test';
+import type { FieldEntity } from '../src/components/forms/formSchema';
 
 // Per-test in-memory HTTP contract fixtures. Never connects to hosted services.
 // These prove frontend behavior, not PostgreSQL/session/server-side tenancy.
@@ -21,6 +22,12 @@ export async function workspace(page: Page, options: { permissions?: string[]; m
     if (path === '/auth/refresh') return reply(route, authenticated ? session : { message: 'Sign in required' }, authenticated ? 200 : 401);
     if (path === '/auth/logout') { authenticated = false; return reply(route, {}); }
     if (path === '/auth/login') { authenticated = true; return reply(route, session); }
+    if(path.startsWith('/forms/')) {
+      const entity=path.split('/')[2] as FieldEntity;
+      const keys:Record<FieldEntity,string[]>={customer:['name','phone','notes','status'],service:['name','durationMinutes','description','priceMinor','active'],appointment:['customerId','serviceId','localStart','providerMembershipId','notes'],inventory_item:['name','unitCode','sku','barcode','price'],membership:['role','status','branchIds']};
+      if(path.endsWith('/schema'))return reply(route,{data:{entity,version:0,definitions:[],sections:[],builtins:(keys[entity]??[]).map(key=>({key,label:key,required:['name','durationMinutes','customerId','serviceId','localStart','unitCode','role','branchIds'].includes(key)}))}});
+      return reply(route,{data:{}});
+    }
     if (path.startsWith('/customers')) {
       if (failCustomers) return reply(route, { message: 'Fixture temporary failure' }, 503);
       if (request.method() === 'POST') { const row = { id: randomUUID(), status: 'active', ...request.postDataJSON() }; customers.push(row); return reply(route, { data: row }, 201); }

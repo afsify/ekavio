@@ -37,6 +37,9 @@ import {
 } from '../../hooks/useInventory';
 import { useAppStore } from '../../store/useAppStore';
 import { exportToCSV } from '../../utils/exportUtils';
+import { useDynamicForm } from '../../hooks/useDynamicForm';
+import { DynamicForm } from '../../components/forms/DynamicForm';
+import { EntityFields } from '../../components/forms/EntityFields';
 
 type ModalMode = 'create' | 'edit' | 'receive' | 'consume' | 'adjust' | 'reverse';
 
@@ -95,6 +98,7 @@ export const InventoryPage: React.FC = () => {
   const [historyPage, setHistoryPage] = useState(1);
   const [commandKey, setCommandKey] = useState(newCommandKey);
   const [form, setForm] = useState<InventoryFormState>(emptyForm);
+  const fields=useDynamicForm('inventory_item',modalMode==='edit'?selectedItem?.id:null,modalMode==='create'||modalMode==='edit');
   const pageLimit = 12;
 
   const user = useAppStore((state) => state.user);
@@ -144,6 +148,7 @@ export const InventoryPage: React.FC = () => {
     setModalMode(mode);
     setSelectedItem(item);
     setSelectedMovement(movement);
+    fields.reset();
     setCommandKey(newCommandKey());
     if (mode === 'edit' && item) {
       setForm({
@@ -179,6 +184,7 @@ export const InventoryPage: React.FC = () => {
       if (modalMode === 'create') {
         if (!form.name.trim()) throw new Error('Item name is required');
         await createMutation.mutateAsync({
+          customFields:fields.patch,
           name: form.name.trim(),
           unitCode: form.unitCode,
           sku: form.sku.trim() || null,
@@ -194,6 +200,7 @@ export const InventoryPage: React.FC = () => {
         toast.success('Inventory item created');
       } else if (modalMode === 'edit' && selectedItem) {
         await updateMutation.mutateAsync({
+          customFields:fields.patch,
           itemId: selectedItem.id,
           name: form.name.trim(),
           unitCode: form.unitCode,
@@ -426,7 +433,7 @@ export const InventoryPage: React.FC = () => {
                   <Button size="sm" variant="ghost" onClick={() => openModal('adjust', item)} disabled={item.status !== 'active'}>
                     <SlidersHorizontal className="h-4 w-4" /> Adjust
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => openModal('edit', item)}>
+                  <Button size="sm" variant="ghost" aria-label={`Edit ${item.name}`} onClick={() => openModal('edit', item)}>
                     <Pencil className="h-4 w-4" /> Edit
                   </Button>
                 </>
@@ -476,6 +483,7 @@ export const InventoryPage: React.FC = () => {
             </button>
           </div>
           {movementQuery.isLoading && <p className="py-8 text-center text-slate-400">Loading movement history…</p>}
+          <EntityFields entity="inventory_item" id={historyItem.id}/>
           {movementQuery.isError && (
             <p className="py-6 text-rose-300">{getErrorMessage(movementQuery.error, 'Movement history failed to load')}</p>
           )}
@@ -554,66 +562,32 @@ export const InventoryPage: React.FC = () => {
             <Button
               variant={modalMode === 'reverse' ? 'danger' : 'primary'}
               onClick={() => void submit()}
+              disabled={(modalMode==='create'||modalMode==='edit')&&(!fields.ready||!fields.valid||Boolean(fields.error))}
               isLoading={isMutating}
             >
               {modalMode === 'reverse' ? 'Record reversal' : 'Save'}
             </Button>
           </>
         )}
-      >
+                >
         {(modalMode === 'create' || modalMode === 'edit') && (
           <div className="space-y-4">
-            <Input label="Item name" value={form.name} onChange={(event) => setField('name', event.target.value)} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className={labelClass} htmlFor="inventory-unit">Unit</label>
-                <select
-                  id="inventory-unit"
-                  value={form.unitCode}
-                  onChange={(event) => setField('unitCode', event.target.value as InventoryUnit['code'])}
-                  className={selectClass}
-                >
-                  {(unitsQuery.data ?? []).map((unit) => <option key={unit.code} value={unit.code}>{unit.label}</option>)}
-                </select>
-                {modalMode === 'edit' && (
-                  <p className="mt-1 text-xs text-slate-500">Unit changes are rejected after movement history exists.</p>
-                )}
-              </div>
-              {modalMode === 'edit' && (
-                <div>
-                  <label className={labelClass} htmlFor="inventory-status">Status</label>
-                  <select
-                    id="inventory-status"
-                    value={form.status}
-                    onChange={(event) => setField('status', event.target.value as 'active' | 'inactive')}
-                    className={selectClass}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              )}
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="SKU (optional)" value={form.sku} onChange={(event) => setField('sku', event.target.value)} />
-              <Input label="Barcode (optional)" value={form.barcode} onChange={(event) => setField('barcode', event.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="Reference price (INR)"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={form.price}
-                onChange={(event) => setField('price', event.target.value)}
-              />
-              <Input
+            {fields.error&&<p role="alert">Form configuration unavailable. <button onClick={fields.retry}>Retry fields</button></p>}
+            {fields.schema&&<DynamicForm schema={fields.schema} values={fields.values} onChange={fields.change} builtins={{
+              name:<Input label="Item name" required value={form.name} onChange={e=>setField('name',e.target.value)}/>,
+              unitCode:<label className="field">Unit<select value={form.unitCode} onChange={e=>setField('unitCode',e.target.value as InventoryUnit['code'])} className={selectClass}>{(unitsQuery.data??[]).map(u=><option key={u.code} value={u.code}>{u.label}</option>)}</select></label>,
+              sku:<Input label="SKU (optional)" value={form.sku} onChange={e=>setField('sku',e.target.value)}/>,
+              barcode:<Input label="Barcode (optional)" value={form.barcode} onChange={e=>setField('barcode',e.target.value)}/>,
+              price:<Input label="Reference price (INR)" inputMode="decimal" value={form.price} onChange={e=>setField('price',e.target.value)}/>
+            }}/>}
+            {modalMode==='edit'&&<label className="field">Status<select value={form.status} onChange={e=>setField('status',e.target.value as 'active'|'inactive')}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>}
+            <Input
                 label="Low-stock threshold"
                 inputMode="decimal"
                 placeholder="0.000"
                 value={form.reorderThreshold}
                 onChange={(event) => setField('reorderThreshold', event.target.value)}
               />
-            </div>
             {modalMode === 'create' && (
               <Input
                 label="Opening quantity (optional)"

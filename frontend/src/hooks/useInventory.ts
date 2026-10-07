@@ -66,6 +66,7 @@ export interface Paginated<T> {
 }
 
 export interface CreateInventoryItemInput {
+  customFields?:Record<string,import('../components/forms/DynamicForm').FieldValue>;
   name: string;
   unitCode: InventoryUnit['code'];
   sku?: string | null;
@@ -78,6 +79,7 @@ export interface CreateInventoryItemInput {
 }
 
 export interface UpdateInventoryItemInput {
+  customFields?:Record<string,import('../components/forms/DynamicForm').FieldValue>;
   itemId: string;
   name?: string;
   unitCode?: InventoryUnit['code'];
@@ -109,6 +111,7 @@ export const inventoryKeys = {
 
 const invalidateInventory = async (queryClient: ReturnType<typeof useQueryClient>) => {
   await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['form-values'] }),
     queryClient.invalidateQueries({ queryKey: inventoryKeys.all }),
     queryClient.invalidateQueries({ queryKey: ['dashboardStats'] }),
   ]);

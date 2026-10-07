@@ -8,6 +8,7 @@ import {
 import type { AppointmentStatus } from '../domains/appointments/repository.js';
 import type { QueueStatus, QueueTokenDetails, QueueTokenRecord } from '../domains/queue/repository.js';
 import { AppError } from '../utils/AppError.js';
+import type { CustomerFieldFilter } from '../domains/dynamicFields/customerFilter.js';
 
 const branchIdFor = (context: AuthorizationContext): string => {
   if (!context.branchId) throw new AppError('An active branch context is required', 400);
@@ -71,10 +72,11 @@ const currentSession = async (context: AuthorizationContext) => {
 };
 
 export const operationalRuntimeService = Object.freeze({
-  listCustomers: (context: AuthorizationContext, search: string | undefined, page: number, limit: number) =>
+  listCustomers: (context: AuthorizationContext, search: string | undefined, page: number, limit: number,customFilter?:CustomerFieldFilter) =>
     runtimePersistence.customers.list({
       organizationId: context.organizationId,
       ...(search !== undefined ? { search } : {}),
+      ...(customFilter ? {customFilter} : {}),
       page,
       limit,
     }),

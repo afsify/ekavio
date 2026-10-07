@@ -12,6 +12,9 @@ import { IdentityAccountService } from '../src/services/identityAccountService.j
 import { createApp } from '../src/app.js';
 import { EmailCapture } from './helpers/emailCapture.js';
 import { setupSocket, closeSocket, disconnectUserSockets } from '../src/config/socket.js';
+import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
+import { DynamicFieldsService } from '../src/domains/dynamicFields/service.js';
+import { permissionsForRole } from '../src/services/authorizationPolicy.js';
 const url=new URL(process.env.POSTGRES_TEST_URL ?? '');
 if (!['localhost','127.0.0.1','postgres'].includes(url.hostname) || url.pathname!=='/postgres') throw new Error('Local maintenance database required');
 const admin=new PostgresDatabase(url.toString());
@@ -28,7 +31,18 @@ root.post('/__test/fixture',async(request,response,next) => {
     const phone=`+919${Math.floor(100000000+Math.random()*899999999)}`,password=randomUUID(),email=`${randomUUID()}@example.invalid`;
     const created=await new PostgresAccountRepository(database).registerAdmin({orgName:'Disposable browser workspace',orgType:'shop',userName:'QA owner',phone,passwordHash:await bcrypt.hash(password,4)});
     const userId=String(created.user.id),organizationId=String(created.user.tenantId);
+    if(request.body?.seedCustomerField===true) {
+      const membership=(await database.query('SELECT id FROM memberships WHERE organization_id=$1 AND user_id=$2',[organizationId,userId])).rows[0]!.id;
+      await new DynamicFieldsService(database).saveDefinition({userId,organizationId,membershipId:membership,sessionId:'local-fixture',branchId:String((created.branch as {id:string}).id),role:'admin',permissions:permissionsForRole('admin'),platformOperator:false},'customer',{key:'local_note',label:'QA ordinary note',help:'Local fixture only',fieldType:'text',status:'active',required:true,searchable:true,filterable:true,reportable:false,defaultValue:null,options:[]});
+    }
     await database.query("UPDATE branches SET timezone='Asia/Kolkata' WHERE organization_id=$1",[organizationId]);
+    if(Array.isArray(request.body?.modules)) {
+      const commercial=new PostgresCommercialRepository(database);await commercial.reconcileCatalogue();
+      for(const module of request.body.modules) {
+        if(!['queue','inventory'].includes(module))throw new Error('Unsupported disposable QA module');
+        await commercial.upsertEntitlement(organizationId,userId,module,{effect:'grant',status:'active',source:'pilot',reason:'Disposable local dynamic forms QA'});
+      }
+    }
     if(['owner','admin','manager','hr','staff'].includes(request.body?.role)) await database.query('UPDATE memberships SET role=$1 WHERE user_id=$2',[request.body.role,userId]);
     if(request.body?.operator===true) await database.query("UPDATE users SET platform_role='operator' WHERE id=$1",[userId]);
     if(Array.isArray(request.body?.permissions)) {

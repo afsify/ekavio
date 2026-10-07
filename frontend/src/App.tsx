@@ -32,6 +32,7 @@ const StaffManagementPage = React.lazy(
 );
 const SettingsPage = React.lazy(() => import("./pages/Settings/SettingsPage"));
 const OrganizationPage = React.lazy(() => import('./pages/Settings/OrganizationPage'));
+const CustomFieldsPage = React.lazy(() => import('./pages/Settings/CustomFieldsPage'));
 const CustomersPage = React.lazy(() => import('./pages/Customers/CustomersPage'));
 const ServicesPage = React.lazy(() => import('./pages/Services/ServicesPage'));
 const FoundationPage = React.lazy(() => import('./pages/Settings/FoundationPage'));
@@ -164,6 +165,7 @@ export const App: React.FC = () => {
             <Route path="/customers" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="customers.read"><CustomersPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/services" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="services.read"><ServicesPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="organization.read"><OrganizationPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/custom-fields" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="fields.read"><CustomFieldsPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/branches" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="branches.read"><OrganizationPage section="branches" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/roles" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="roles.read"><OrganizationPage section="roles" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/audit" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="audit.read"><OrganizationPage section="audit" /></PermissionGuard></AdminLayout></ProtectedRoute>} />

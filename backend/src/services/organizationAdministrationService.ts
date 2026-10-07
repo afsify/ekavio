@@ -108,7 +108,7 @@ export class OrganizationAdministrationService {
       LEFT JOIN user_email_identities e ON e.user_id=u.id AND e.state='verified'
       WHERE m.organization_id=$1 AND (u.name ILIKE $2 OR u.phone ILIKE $2) ORDER BY u.name LIMIT 200`,[c.organizationId,`%${search}%`])).rows;
   }
-  async saveMember(c: AuthorizationContext,id: string,input: MemberInput) {
+  async saveMember(c: AuthorizationContext,id: string,input: MemberInput,notifyRealtime=true) {
     await this.database.transaction(async(client)=>{
       const actor=await lockAdministration(client,c.userId,c.organizationId,'staff.manage');
       const old=(await client.query('SELECT * FROM memberships WHERE id=$1 AND organization_id=$2',[id,c.organizationId])).rows[0];
@@ -128,11 +128,12 @@ export class OrganizationAdministrationService {
       await adminEvent(client,c.organizationId,c.userId,'membership.updated',id);
     });
     // Do not revoke global sessions: other organizations remain valid.
-    disconnectOrganizationSockets(c.organizationId);
+    if(notifyRealtime)disconnectOrganizationSockets(c.organizationId);
   }
   async audit(c: AuthorizationContext,filter: {from?:string|undefined;to?:string|undefined;actor?:string|undefined;action?:string|undefined;category?:string|undefined;page:number}) {
     return (await this.database.query(`WITH events AS (
       SELECT id,actor_user_id,action,occurred_at FROM organization_admin_events WHERE organization_id=$1
+      UNION ALL SELECT id,actor_user_id,action,occurred_at FROM field_admin_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM audit_events WHERE organization_id=$1)
       SELECT e.id,e.action,e.occurred_at,COALESCE(u.name,'Actor unavailable') AS actor
       FROM events e LEFT JOIN users u ON u.id=e.actor_user_id
@@ -144,6 +145,7 @@ export class OrganizationAdministrationService {
   async auditActors(c: AuthorizationContext) {
     return (await this.database.query(`SELECT DISTINCT u.id,u.name FROM users u JOIN (
       SELECT actor_user_id FROM organization_admin_events WHERE organization_id=$1
+      UNION SELECT actor_user_id FROM field_admin_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM audit_events WHERE organization_id=$1
     ) a ON a.actor_user_id=u.id ORDER BY u.name,u.id LIMIT 200`,[c.organizationId])).rows;
   }

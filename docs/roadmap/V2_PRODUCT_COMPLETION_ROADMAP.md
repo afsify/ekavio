@@ -7,7 +7,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-08A | Product experience foundation: themes, responsive shell, canonical Customers/Services, Settings, phone input, human labels, commercial presentation and automated local QA |
 | V2-08B | Implemented identity/account recovery: explicit phone-or-verified-email lookup, optional provider-neutral SMTP, single-use verification/reset, recipient-chosen staff invitations and durable per-user preferences; local automated acceptance, no pilot GO |
 | V2-08C | Implemented organization administration/RBAC: additive 014, operating profile, safe branch lifecycle, custom replacement permissions, staff lifecycle, authenticated existing-account linking, safe audit and operator directory; automatic local acceptance, no pilot GO |
-| V2-08D | Dynamic fields and form layouts with safe schemas and authorization |
+| V2-08D | Implemented additive 015: five entity types, 13 typed fields, stable options/history, shared canonical form renderer, versioned layouts, safe configuration RBAC, Customer search/filter and automated local acceptance; no pilot GO |
 | V2-08E | Dashboards, reports and notifications; no invented metrics or mandatory messaging provider |
 | V2-08F | Public website and commercial UX completion |
 | V2-09 | Optional separately approved CRM, Purchase and HR extensions |
@@ -20,6 +20,12 @@ Core experience: Dashboard, Customers, Services, Branches, Staff, roles/permissi
 Commercial modules retain keys `queue`, `attendance`, `ledger`, `inventory`, presented as Queue & Appointments, Attendance, Customer Dues and Inventory. Entitlement (commercial availability), permission (membership authority), and navigation visibility remain separate decisions.
 
 ## Deferred work
+
+V2-08D delivers the bounded shared form foundation. V2-08E may consume reportable
+metadata, add reviewed other-entity/multiselect filters and custom reportable CSV
+exports, and separately design safe custom-value uniqueness. No bulk importer or
+full report builder is implied. See [V2-08D acceptance](../reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
+V2-08E does not begin automatically; NO-GO and the existing operational gates remain.
 
 V2-08C implements authenticated existing-identity linking, custom tenant roles and
 organization-local staff lifecycle. Owner transfer/support bypass remain deferred.

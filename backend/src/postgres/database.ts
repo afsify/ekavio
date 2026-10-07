@@ -1,8 +1,10 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 export class PostgresDatabase {
   private pool: Pool | undefined;
   private closed = false;
+  private readonly atomicClient = new AsyncLocalStorage<PoolClient>();
 
   public constructor(private readonly connectionString: string | (() => string)) {}
 
@@ -27,10 +29,12 @@ export class PostgresDatabase {
     text: string,
     values: readonly unknown[] = [],
   ): Promise<QueryResult<Row>> {
-    return this.getPool().query<Row>(text, [...values]);
+    return (this.atomicClient.getStore() ?? this.getPool()).query<Row>(text, [...values]);
   }
 
   public async withClient<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+    const scoped = this.atomicClient.getStore();
+    if (scoped) return operation(scoped);
     const client = await this.getPool().connect();
     try {
       return await operation(client);
@@ -40,6 +44,8 @@ export class PostgresDatabase {
   }
 
   public async transaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+    const scoped = this.atomicClient.getStore();
+    if (scoped) return operation(scoped);
     return this.withClient(async (client) => {
       await client.query('BEGIN');
       try {
@@ -51,6 +57,14 @@ export class PostgresDatabase {
         throw error;
       }
     });
+  }
+
+  /** Opt-in composition of a canonical mutation and dynamic values. Ordinary
+   * repository transactions retain their existing connection lifecycle. A nested
+   * failure must propagate to this boundary, which rolls back the whole write. */
+  public async atomic<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+    if (this.atomicClient.getStore()) throw new Error('Nested atomic boundary is not supported');
+    return this.transaction(client => this.atomicClient.run(client, () => operation(client)));
   }
 
   public async isReady(): Promise<boolean> {

@@ -3,6 +3,9 @@ import type { AuthenticatedRequest } from '../middlewares/authMiddleware.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
 import { mapOperationalError, operationalRuntimeService, pageInput } from '../services/operationalRuntimeService.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
+import { dynamicFieldsService } from '../services/dynamicFieldsService.js';
+import { AppError } from '../utils/AppError.js';
+import { z } from 'zod';
 
 const customerDto = (customer: NonNullable<Awaited<ReturnType<typeof operationalRuntimeService.getCustomer>>>) => ({
   id: customer.id,
@@ -20,11 +23,13 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response, ne
   try {
     const context = requireAuthorizationContext(req);
     const pagination = pageInput(req.query.page, req.query.limit);
+    const filter=req.query.field===undefined?undefined:z.object({key:z.string().max(64),value:z.string().max(1000),operator:z.enum(['eq','gte','lte'])}).parse({key:req.query.field,value:req.query.value,operator:req.query.operator??'eq'});
     const result = await operationalRuntimeService.listCustomers(
       context,
       typeof req.query.search === 'string' ? req.query.search : undefined,
       pagination.page,
       pagination.limit,
+      filter,
     );
     res.json({ data: result.data.map(customerDto), pagination: { ...pagination, total: result.total, totalPages: Math.ceil(result.total / pagination.limit) } });
   } catch (error) { next(mapOperationalError(error)); }
@@ -33,7 +38,8 @@ export const listCustomers = async (req: AuthenticatedRequest, res: Response, ne
 export const createCustomer = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const context = requireAuthorizationContext(req);
-    const customer = await operationalRuntimeService.createCustomer(context, req.body);
+    const {customFields,...canonical} = req.body;
+    const customer = await dynamicFieldsService.mutate(context,'customer',customFields,true,()=>operationalRuntimeService.createCustomer(context,canonical));
     await recordSecurityAudit(context, 'customer.created', { customerId: customer.id }, req.ip);
     res.status(201).json({ data: customerDto(customer) });
   } catch (error) { next(mapOperationalError(error)); }
@@ -50,7 +56,12 @@ export const getCustomer = async (req: AuthenticatedRequest, res: Response, next
 export const updateCustomer = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const context = requireAuthorizationContext(req);
-    const customer = await operationalRuntimeService.updateCustomer(context, req.params.customerId as string, req.body);
+    const {customFields,...canonical} = req.body;
+    const customer = await dynamicFieldsService.mutate(context,'customer',customFields,false,async()=>{
+      const result=await operationalRuntimeService.updateCustomer(context,req.params.customerId as string,canonical);
+      if(!result) throw new AppError('Customer not found',404);
+      return result;
+    });
     if (!customer) { res.status(404).json({ message: 'Customer not found' }); return; }
     await recordSecurityAudit(context, 'customer.updated', { customerId: customer.id }, req.ip);
     res.json({ data: customerDto(customer) });

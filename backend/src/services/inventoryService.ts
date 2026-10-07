@@ -124,6 +124,7 @@ export const createInventoryService = (
       const openingQuantity = parsedOpening === '0.000' ? null : parsedOpening;
       const priceMinor = input.price == null ? null : parseInrPriceToMinor(input.price);
       const normalized = {
+        ...(input.customFields ? {customFields:input.customFields} : {}),
         branchId,
         name: input.name.trim(),
         sku: normalizeOptional(input.sku),

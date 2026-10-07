@@ -16,6 +16,7 @@ import appointmentRoutes from './appointmentRoutes.js';
 import publicRoutes from './publicRoutes.js';
 import customerDuesRoutes from './customerDuesRoutes.js';
 import organizationRoutes from './organizationRoutes.js';
+import dynamicFieldRoutes from './dynamicFieldRoutes.js';
 
 export const createRoutes = (identityService = getIdentityAccountService) => {
 const router = Router();
@@ -35,6 +36,7 @@ router.use('/staff', staffRoutes);
 router.use('/billing', billingRoutes);
 router.use('/profile', profileRoutes);
 router.use('/customers', customerRoutes);
+router.use('/forms', dynamicFieldRoutes);
 router.use('/services', serviceRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/public', publicRoutes);

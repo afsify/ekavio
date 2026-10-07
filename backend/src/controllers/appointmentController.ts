@@ -4,6 +4,8 @@ import { requireAuthorizationContext } from '../utils/tenantScope.js';
 import { mapOperationalError, operationalRuntimeService, pageInput } from '../services/operationalRuntimeService.js';
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { emitToBranch } from '../config/socket.js';
+import { dynamicFieldsService } from '../services/dynamicFieldsService.js';
+import { fieldCreationRequest } from '../domains/dynamicFields/service.js';
 
 const appointmentDto = (appointment: NonNullable<Awaited<ReturnType<typeof operationalRuntimeService.getAppointment>>>) => ({
   id: appointment.id, customerId: appointment.customer_id, serviceId: appointment.service_id,
@@ -23,7 +25,8 @@ const detailAfter = async (context: ReturnType<typeof requireAuthorizationContex
 export const createAppointment = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const context = requireAuthorizationContext(req);
-    const created = await operationalRuntimeService.createAppointment(context, req.body);
+    const {customFields,...canonical}=req.body;
+    const created = await dynamicFieldsService.mutate(context,'appointment',customFields,true,()=>operationalRuntimeService.createAppointment(context,canonical),fieldCreationRequest(req.body));
     const appointment = await detailAfter(context, created.id);
     await recordSecurityAudit(context, 'appointment.created', { appointmentId: created.id, branchId: created.branch_id, serviceId: created.service_id }, req.ip);
     res.status(201).json({ data: appointmentDto(appointment) });

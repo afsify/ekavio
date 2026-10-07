@@ -35,6 +35,22 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08D adds organization **Data & Forms** (`/custom-fields`): 13 bounded field types
+for Customers, Services, Appointments, Inventory items and staff Memberships; stable
+options, typed relational values, archive history and versioned sections/layouts.
+Actual create/edit/detail forms and desktop/mobile previews share the renderer.
+Configuration permission (`fields.read/manage`) never grants entity-data access;
+existing RBAC, tenant/branch and commercial gates remain. Required fields validate
+new records and normal edits without historical backfill; defaults apply only to new
+records, not retries. Apply additive **015** explicitly before backend deployment.
+Customer custom search/filter is bounded and parameterized. Reporting, unique-value
+constraints, other-domain filters and custom CSV integration remain V2-08E scope.
+See [ADR 0023](docs/adr/0023-dynamic-fields-and-form-layouts.md) and
+[dynamic-fields acceptance](docs/reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
+Run backend `npm run test:dynamic-fields` and frontend `npm run test:e2e:fields`
+against disposable local PostgreSQL. **NO-GO FOR REAL CUSTOMER DATA** is unchanged;
+V2-08E does not start automatically.
+
 V2-08C adds organization administration (`/admin`), safe branch lifecycle,
 organization-local custom roles, staff suspension/reactivation/revocation,
 authenticated existing-account invitation acceptance, safe tenant audit and an

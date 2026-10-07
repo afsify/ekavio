@@ -1,5 +1,6 @@
 import type { PostgresDatabase } from '../../postgres/database.js';
 import { normalizeCustomerName, normalizePhone, type PhoneNormalizationPolicy } from './normalization.js';
+import { customerPredicate,validateCustomerFilter,type CustomerFieldFilter } from '../dynamicFields/customerFilter.js';
 
 export interface CreateCustomerInput {
   organizationId: string;
@@ -62,26 +63,26 @@ export class PostgresCustomerRepository {
   public async list(input: {
     organizationId: string;
     search?: string;
+    customFilter?: CustomerFieldFilter;
     page: number;
     limit: number;
   }): Promise<{ data: CustomerRecord[]; total: number }> {
     const search = input.search?.trim() || null;
+    const filter=input.customFilter?await validateCustomerFilter(this.database,input.organizationId,input.customFilter):undefined;
     return this.database.transaction(async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-      const values = [input.organizationId, search];
+      const values = [input.organizationId, search,filter?.key??null,filter?.value??null];
       const count = await client.query<{ total: string }>(`
         SELECT COUNT(*)::text AS total
         FROM customers
-        WHERE organization_id = $1 AND status <> 'merged'
-          AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%' OR normalized_phone ILIKE '%' || $2 || '%')
+        WHERE ${customerPredicate(filter)}
       `, values);
       const result = await client.query<CustomerRecord>(`
         SELECT ${customerColumns}
         FROM customers
-        WHERE organization_id = $1 AND status <> 'merged'
-          AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%' OR normalized_phone ILIKE '%' || $2 || '%')
+        WHERE ${customerPredicate(filter)}
         ORDER BY name, id
-        LIMIT $3 OFFSET $4
+        LIMIT $5 OFFSET $6
       `, [...values, input.limit, (input.page - 1) * input.limit]);
       return { data: result.rows, total: Number(count.rows[0]?.total ?? 0) };
     });

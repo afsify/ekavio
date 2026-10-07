@@ -15,6 +15,8 @@ import {
 import { recordSecurityAudit } from '../services/securityAuditService.js';
 import { AppError, getErrorMessage } from '../utils/AppError.js';
 import { requireAuthorizationContext } from '../utils/tenantScope.js';
+import { dynamicFieldsService } from '../services/dynamicFieldsService.js';
+import { fieldCreationRequest } from '../domains/dynamicFields/service.js';
 
 const uuid = z.string().uuid();
 const handleError = (error: unknown): AppError =>
@@ -50,10 +52,10 @@ export const createInventoryItem = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const data = await runtimePersistence.inventoryService.createItem(
+    const data = await dynamicFieldsService.mutate(context,'inventory_item',request.body.customFields,true,()=>runtimePersistence.inventoryService.createItem(
       context,
       request.body as AddInventoryItemInput,
-    );
+    ),fieldCreationRequest(request.body));
     await recordSecurityAudit(context, 'inventory.item_created', {
       itemId: data.id,
       branchId: data.branchId,
@@ -87,11 +89,11 @@ export const updateInventoryItem = async (
 ): Promise<void> => {
   try {
     const context = requireAuthorizationContext(request);
-    const data = await runtimePersistence.inventoryService.updateItem(
+    const data = await dynamicFieldsService.mutate(context,'inventory_item',request.body.customFields,false,()=>runtimePersistence.inventoryService.updateItem(
       context,
       itemIdFrom(request),
       request.body as UpdateInventoryItemInput,
-    );
+    ));
     await recordSecurityAudit(context, 'inventory.item_updated', {
       itemId: data.id,
       branchId: data.branchId,

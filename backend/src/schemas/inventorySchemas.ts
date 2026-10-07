@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { customValuesSchema } from '../domains/dynamicFields/policy.js';
 import { parseInrPriceToMinor } from '../domains/inventory/money.js';
 import { parseNonNegativeQuantity, parsePositiveQuantity } from '../domains/inventory/quantity.js';
 import { inventoryUnits } from '../domains/inventory/units.js';
@@ -33,6 +34,7 @@ const occurredAt = z.string().trim().max(35).refine((value) => (
 const optionalCode = z.string().trim().min(1).max(100).nullable().optional();
 
 export const addItemSchema = z.object({
+  customFields: customValuesSchema.optional(),
   name: z.string().trim().min(1).max(200),
   sku: optionalCode,
   barcode: optionalCode,
@@ -46,6 +48,7 @@ export const addItemSchema = z.object({
 }).strict();
 
 export const updateInventoryItemSchema = z.object({
+  customFields: customValuesSchema.optional(),
   name: z.string().trim().min(1).max(200).optional(),
   sku: optionalCode,
   barcode: optionalCode,

@@ -13,6 +13,7 @@ export const destinations: Destination[] = [
   { name: 'Organization', path: '/admin', group: 'Administration', permission: 'organization.read' },
   { name: 'Branches', path: '/branches', group: 'Administration', permission: 'branches.read' },
   { name: 'Roles', path: '/roles', group: 'Administration', permission: 'roles.read' },
+  { name: 'Data & Forms', path: '/custom-fields', group: 'Administration', permission: 'fields.read' },
   { name: 'Audit', path: '/audit', group: 'Administration', permission: 'audit.read' },
   { name: 'Billing', path: '/billing', group: 'Administration', permission: 'billing.read' },
   { name: 'Reports', path: '/reports', group: 'Administration', permission: 'reports.read' },
