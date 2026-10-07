@@ -256,6 +256,14 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:commercial
 
+      - name: Test PostgreSQL CRM and atomic Customer conversion
+        working-directory: backend
+        run: npm run test:crm
+
+      - name: Test PostgreSQL-backed CRM in browser
+        working-directory: frontend
+        run: npm run test:e2e:crm
+
       - name: Upload frontend QA evidence
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
@@ -269,6 +277,7 @@ jobs:
             !frontend/test-results/dynamic-fields/**
             !frontend/test-results/analytics/**
             !frontend/test-results/commercial/**
+            !frontend/test-results/crm/**
           retention-days: 7
 
       - name: Validate Docker Compose

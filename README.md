@@ -35,6 +35,22 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-09A adds optional **CRM & Follow-ups** (`crm`): organization pipeline stages,
+branch-scoped Leads, active staff assignments, manual follow-ups, retained activity
+and atomic conversion to canonical Customers. CRM starts unpublished; no prices,
+Pilot Core inclusion or existing subscription grants are invented. Entitlement,
+`crm.read/manage` and active branch authority remain independent. Shared Lead
+fields/layouts, factual widgets, two bounded CSV reports and generic assignment
+attention reuse the existing engines. No scheduled reminders or Sales are added.
+
+Apply additive **018** before deployment; migrations 001–017 are unchanged.
+Run backend `npm run test:crm` and frontend `npm run test:e2e:crm` with disposable
+PostgreSQL. See [ADR 0026](docs/adr/0026-crm-followups.md) and
+[CRM acceptance](docs/reviews/V2-09A_CRM_FOLLOWUPS.md).
+**NO-GO FOR REAL CUSTOMER DATA** remains unchanged. Render Free is staging-only,
+Atlas is retained, and extended recovery through 018 is OPEN. V2-09B Suppliers /
+Purchasing and V2-09C HR Plus are deferred; neither starts automatically.
+
 V2-08F completes the public website and manual commercial experience: one original
 EkaVio mark/wordmark, Light/Dark/System navigation, factual module/CORE messaging,
 FAQ/privacy, and a three-step Request Access wizard. Explicit fixed/contact pricing

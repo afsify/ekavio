@@ -12,13 +12,13 @@ import { validateRequest } from '../middlewares/validateRequest.js';
 const router=Router(); router.use(authenticate);
 const entity=(r:AuthenticatedRequest)=>{const v=z.enum(entityTypes).safeParse(r.params.entity);if(!v.success)throw new AppError('Unsupported entity',400);return v.data;};
 const uuid=(value:unknown)=>{const v=z.uuid().safeParse(value);if(!v.success)throw new AppError('Invalid identifier',400);return v.data;};
-const read:Record<FieldEntity,'customers.read'|'services.read'|'queue.read'|'inventory.read'|'staff.read'>={customer:'customers.read',service:'services.read',appointment:'queue.read',inventory_item:'inventory.read',membership:'staff.read'};
-const table:Record<FieldEntity,string>={customer:'customers',service:'services',appointment:'appointments',inventory_item:'inventory_items',membership:'memberships'};
+const read:Record<FieldEntity,'customers.read'|'services.read'|'queue.read'|'inventory.read'|'staff.read'|'crm.read'>={customer:'customers.read',service:'services.read',appointment:'queue.read',inventory_item:'inventory.read',membership:'staff.read',lead:'crm.read'};
+const table:Record<FieldEntity,string>={customer:'customers',service:'services',appointment:'appointments',inventory_item:'inventory_items',membership:'memberships',lead:'crm_leads'};
 const permissionFor=(fixedEntity?:FieldEntity):RequestHandler=>(r,res,next)=>{try{
  const e=fixedEntity??entity(r as AuthenticatedRequest),c=(r as AuthenticatedRequest).auth!;
  const schema=r.path.endsWith('/schema');
  if(!(schema&&c.permissions.includes('fields.read'))&&!c.permissions.includes(read[e])) throw new AppError('Permission denied',403);
- if(!(schema&&c.permissions.includes('fields.read'))&&(e==='appointment'||e==='inventory_item')) return requireEntitlement(e==='appointment'?'queue':'inventory')(r,res,next);
+ if(!(schema&&c.permissions.includes('fields.read'))&&(e==='appointment'||e==='inventory_item'||e==='lead')) return requireEntitlement(e==='appointment'?'queue':e==='lead'?'crm':'inventory')(r,res,next);
  next();
 }catch(error){next(error);}};
 const permission=permissionFor();
@@ -35,7 +35,7 @@ router.put('/:entity/layout',config,validateRequest(layout),handle(r=>service.sa
 router.post('/:entity/layout/reset',config,validateRequest(layout),handle(r=>service.saveLayout(r.auth!,entity(r),r.body,true)));
 router.get('/:entity/values/:id',permission,handle(async r=>{
  const e=entity(r),id=uuid(r.params.id),c=r.auth!;
- const row=await database.query(`SELECT id FROM ${table[e]} WHERE id=$1 AND organization_id=$2${e==='appointment'?' AND branch_id=$3':''}`,[id,c.organizationId,...(e==='appointment'?[c.branchId??null]:[])]);
+ const row=await database.query(`SELECT id FROM ${table[e]} WHERE id=$1 AND organization_id=$2${e==='appointment'||e==='lead'?' AND branch_id=$3':''}`,[id,c.organizationId,...(e==='appointment'||e==='lead'?[c.branchId??null]:[])]);
  if(!row.rows[0])throw new AppError('Record not found',404);
  return service.values(c.organizationId,e,id);
 }));

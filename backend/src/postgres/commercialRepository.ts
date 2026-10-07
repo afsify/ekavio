@@ -195,7 +195,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
   public async loadSnapshot(organizationIdValue: string): Promise<EntitlementSnapshot> {
     const organizationId = asPostgresOrganizationId(organizationIdValue);
     return this.database.withClient(async (client) => {
-      await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      if (!this.database.inAtomicTransaction) await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
         const modulesResult = await client.query<ModuleRow>(`
             SELECT key, display_name, description, category, commercial_type, status
@@ -276,7 +276,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
             }
           : null;
 
-        await client.query('COMMIT');
+        if (!this.database.inAtomicTransaction) await client.query('COMMIT');
         return {
           modules: modulesResult.rows.map(moduleProjection),
           subscription,
@@ -290,7 +290,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
           })),
         };
       } catch (error) {
-        await client.query('ROLLBACK');
+        if (!this.database.inAtomicTransaction) await client.query('ROLLBACK');
         throw error;
       }
     });
@@ -298,7 +298,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
 
   public async getPublicCatalogue(): Promise<PublicCommercialCatalogue> {
     return this.database.withClient(async (client) => {
-      await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+      if (!this.database.inAtomicTransaction) await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
         const modules = await client.query<ModuleRow>(`
           SELECT key, display_name, description, category, commercial_type, status
@@ -308,7 +308,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
           WHERE p.status = 'active' AND p.available = TRUE ORDER BY p.key`);
         const addOns = await client.query<AddOnRow>(`${addOnSelect}
           WHERE a.status = 'active' AND a.available = TRUE ORDER BY a.key`);
-        await client.query('COMMIT');
+        if (!this.database.inAtomicTransaction) await client.query('COMMIT');
         return {
           modules: modules.rows.map(moduleProjection) as PublicCommercialCatalogue['modules'],
           plans: plans.rows.map((row) => {
@@ -333,7 +333,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
           }),
         };
       } catch (error) {
-        await client.query('ROLLBACK');
+        if (!this.database.inAtomicTransaction) await client.query('ROLLBACK');
         throw error;
       }
     });

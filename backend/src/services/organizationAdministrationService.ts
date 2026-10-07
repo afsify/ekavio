@@ -141,6 +141,7 @@ export class OrganizationAdministrationService {
   async audit(c: AuthorizationContext,filter: {from?:string|undefined;to?:string|undefined;actor?:string|undefined;action?:string|undefined;category?:string|undefined;page:number}) {
     return (await this.database.query(`WITH events AS (
       SELECT id,actor_user_id,action,occurred_at FROM organization_admin_events WHERE organization_id=$1
+      UNION ALL SELECT id,actor_user_id,action,occurred_at FROM crm_admin_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM field_admin_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM report_export_events WHERE organization_id=$1
       UNION ALL SELECT id,actor_user_id,action,occurred_at FROM audit_events WHERE organization_id=$1)
@@ -154,6 +155,7 @@ export class OrganizationAdministrationService {
   async auditActors(c: AuthorizationContext) {
     return (await this.database.query(`SELECT DISTINCT u.id,u.name FROM users u JOIN (
       SELECT actor_user_id FROM organization_admin_events WHERE organization_id=$1
+      UNION SELECT actor_user_id FROM crm_admin_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM field_admin_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM report_export_events WHERE organization_id=$1
       UNION SELECT actor_user_id FROM audit_events WHERE organization_id=$1

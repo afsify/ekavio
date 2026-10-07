@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { AppError } from '../../utils/AppError.js';
 
-export const entityTypes = ['customer','service','appointment','inventory_item','membership'] as const;
+export const entityTypes = ['customer','service','appointment','inventory_item','membership','lead'] as const;
 export type FieldEntity = typeof entityTypes[number];
 export const fieldTypes = ['text','textarea','number','currency','date','datetime','email','phone','checkbox','select','multiselect','radio','url'] as const;
 export type FieldType = typeof fieldTypes[number];
@@ -11,6 +11,7 @@ export const customValuesSchema = z.record(z.string().max(64),z.union([z.string(
 export interface FieldOption { id:string; key:string; label:string; status:'active'|'archived'; position:number }
 export interface FieldDefinition { id:string; key:string; label:string; help:string; field_type:FieldType; status:'active'|'archived'; required:boolean; searchable:boolean; filterable:boolean; reportable:boolean; default_value:FieldValue; version:number; options:FieldOption[] }
 export const builtinFields: Record<FieldEntity,readonly {key:string;label:string;required:boolean}[]> = {
+ lead:[{key:'name',label:'Lead name',required:true},{key:'pipelineStageId',label:'Pipeline stage',required:true},{key:'company',label:'Company',required:false},{key:'phone',label:'Phone',required:false},{key:'email',label:'Email',required:false},{key:'source',label:'Source',required:false},{key:'assignedMembershipId',label:'Assigned staff',required:false},{key:'notes',label:'Notes',required:false}],
  customer:[{key:'name',label:'Customer name',required:true},{key:'phone',label:'Phone',required:false},{key:'notes',label:'Notes',required:false},{key:'status',label:'Status',required:false}],
  service:[{key:'name',label:'Service name',required:true},{key:'durationMinutes',label:'Duration (minutes)',required:true},{key:'description',label:'Description',required:false},{key:'priceMinor',label:'Price',required:false},{key:'active',label:'Active',required:false}],
  appointment:[{key:'customerId',label:'Customer',required:true},{key:'serviceId',label:'Service',required:true},{key:'localStart',label:'Local start',required:true},{key:'providerMembershipId',label:'Provider',required:false},{key:'notes',label:'Notes',required:false}],

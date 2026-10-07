@@ -1,5 +1,5 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
-export const entities = ['customer','service','appointment','inventory_item','membership'] as const;
+export const entities = ['customer','service','appointment','inventory_item','membership','lead'] as const;
 export type FieldEntity = typeof entities[number];
 export const types = ['text','textarea','number','currency','date','datetime','email','phone','checkbox','select','multiselect','radio','url'] as const;
 export type FieldValue = string | boolean | string[] | null;

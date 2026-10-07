@@ -15,6 +15,7 @@ import { PostgresDatabase } from '../src/postgres/database.js';
 import { PostgresIdMappingRepository } from '../src/postgres/idMappingRepository.js';
 import { PostgresIdentityRepository } from '../src/postgres/identityRepository.js';
 import { migrate } from '../src/postgres/migrations.js';
+import { prepareHistoricalCatalogue } from './helpers/historicalCatalogue.js';
 import { PostgresSharedCoreRepository } from '../src/postgres/sharedCoreRepository.js';
 import type { SharedCoreSnapshot, ShadowSourceRepository } from '../src/postgres/sharedCoreTypes.js';
 import { createCommercialAdministrationService } from '../src/services/commercialAdministrationService.js';
@@ -77,7 +78,8 @@ const fixture = (): SharedCoreSnapshot => ({
       organizationLegacyMongoId: legacy.organizationB, role: 'owner', status: 'active',
       branchLegacyMongoIds: [legacy.branchB], createdAt: at, updatedAt: at },
   ],
-  moduleDefinitions: initialModuleCatalogue.map((module, index) => ({
+  // Historical Mongo fixture stays the original four modules; CRM is native 018.
+  moduleDefinitions: initialModuleCatalogue.filter(module=>module.key!=='crm').map((module, index) => ({
     legacyMongoId: moduleLegacyId(index + 1), key: module.key,
     displayName: module.displayName, description: module.description, category: module.category,
     commercialType: module.commercialType, status: module.status, version: module.version,
@@ -159,6 +161,7 @@ test('V2-05D PostgreSQL commercial parity, authority, and two-organization isola
   });
 
   await migrate(database);
+  await prepareHistoricalCatalogue(database);
   const source = new MemorySource(fixture());
   await new PostgresSharedCoreRepository(database).apply(fixture());
   const repository = new PostgresCommercialRepository(database);
@@ -298,7 +301,8 @@ test('V2-05D PostgreSQL commercial parity, authority, and two-organization isola
     const afterSubscriptions = await database.query<{ id: string; organization_id: string }>(
       'SELECT id, organization_id FROM subscriptions ORDER BY organization_id',
     );
-    assert.deepEqual(first, { modules: 4, plans: 2, addOns: 4 });
+    // Current native catalogue grows; the historical source above remains four modules.
+    assert.deepEqual(first, { modules: 5, plans: 2, addOns: 5 });
     assert.deepEqual(second, first);
     assert.deepEqual(afterSubscriptions.rows, beforeSubscriptions.rows);
   });

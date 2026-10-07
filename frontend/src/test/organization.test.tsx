@@ -19,5 +19,5 @@ it('audit projection displays human actor and does not expose payload details',a
 it('module summary uses server role permissions without enabling unsubscribed modules',async()=>{
   useAppStore.setState({entitlements:null,user:{id:'fixture',tenantId:'fixture',role:'admin',permissions:['organization.read','roles.read']}});
   vi.spyOn(client,'get').mockImplementation(async path=>({data:{data:path==='/roles'?{catalogue:[],system:[],custom:[{id:'fixture-role',name:'Queue reader',status:'active',permissions:['queue.read']}]}:{name:'Fixture workspace',type:'shop',active_staff:1,active_branches:1,custom_roles:1,pending_invitations:0}}}));
-  setup('overview');await screen.findByText('Queue reader · View: Allowed · Manage: Denied');expect(screen.getAllByText(/Subscription: Not enabled/)).toHaveLength(4);
+  setup('overview');await screen.findByText('Queue reader · View: Allowed · Manage: Denied');expect(screen.getAllByText(/Subscription: Not enabled/)).toHaveLength(5);
 });

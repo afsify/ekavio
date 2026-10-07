@@ -29,6 +29,7 @@ const moduleIcons: Record<ModuleKey, React.ElementType> = {
   [MODULES.INVENTORY]: PackageCheck,
   [MODULES.ATTENDANCE]: Users,
   [MODULES.QUEUE]: Clock,
+  [MODULES.CRM]: Users,
 };
 
 const limitLabels: Record<keyof EffectiveEntitlements['limits'], string> = {

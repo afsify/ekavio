@@ -12,6 +12,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { normalizePhone } from '../../utils/phone';
 import { useDynamicForm } from '../../hooks/useDynamicForm';
 import { DynamicForm } from '../../components/forms/DynamicForm';
+import { useSearchParams } from 'react-router-dom';
+import { CustomerCrmContext } from '../../components/crm/CustomerCrmContext';
 import { EntityFields } from '../../components/forms/EntityFields';
 
 interface Customer { id: string; name: string; phone: string | null; notes: string | null; status: 'active' | 'inactive' }
@@ -23,7 +25,8 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [filterField,setFilterField]=useState(''),[filterValue,setFilterValue]=useState(''),[filterOperator,setFilterOperator]=useState('eq');
   const [editing, setEditing] = useState<Customer | null | undefined>(undefined);
-  const [detail, setDetail] = useState<string | null>(null);
+  const [params]=useSearchParams();
+  const [detail, setDetail] = useState<string | null>(params.get('customer'));
   const [form, setForm] = useState(blank);
   const fields=useDynamicForm('customer',editing?.id);
   const filterDefinition=fields.schema?.definitions.find(f=>f.key===filterField);
@@ -58,7 +61,7 @@ export default function CustomersPage() {
       {save.isError && <p role="alert" className="error-text">{getErrorMessage(save.error, 'Customer could not be saved.')}</p>}
       <button className="action-link" type="submit" disabled={save.isPending || !fields.ready||!fields.valid || Boolean(fields.error) || !form.name.trim() || Boolean(phoneError)}>{save.isPending ? 'Saving…' : 'Save customer'}</button>
     </form></AdvancedModal>
-    <AdvancedModal isOpen={Boolean(detail)} onClose={() => setDetail(null)} title="Customer details">{selected.isLoading ? <p>Loading customer…</p> : selected.isError ? <><p role="alert">Customer details could not be loaded.</p><button className="quiet-button" onClick={() => void selected.refetch()}>Retry details</button></> : selected.data && <div className="page-stack"><h2 className="font-semibold">{selected.data.name}</h2><p>{selected.data.phone ?? 'No phone supplied'}</p><p className="whitespace-pre-wrap break-words">{selected.data.notes ?? 'No notes added'}</p><p className="capitalize">{selected.data.status}</p><EntityFields entity="customer" id={selected.data.id}/>{canManage && <button className="quiet-button" onClick={() => { setDetail(null); open(selected.data!); }}>Edit customer</button>}</div>}</AdvancedModal>
+    <AdvancedModal isOpen={Boolean(detail)} onClose={() => setDetail(null)} title="Customer details">{selected.isLoading ? <p>Loading customer…</p> : selected.isError ? <><p role="alert">Customer details could not be loaded.</p><button className="quiet-button" onClick={() => void selected.refetch()}>Retry details</button></> : selected.data && <div className="page-stack"><h2 className="font-semibold">{selected.data.name}</h2><p>{selected.data.phone ?? 'No phone supplied'}</p><p className="whitespace-pre-wrap break-words">{selected.data.notes ?? 'No notes added'}</p><p className="capitalize">{selected.data.status}</p><EntityFields entity="customer" id={selected.data.id}/><CustomerCrmContext customerId={selected.data.id}/>{canManage && <button className="quiet-button" onClick={() => { setDetail(null); open(selected.data!); }}>Edit customer</button>}</div>}</AdvancedModal>
     <span className="sr-only">Selected branch context is applied to new customers.</span>{!activeBranchId && <p className="muted">Select a branch before creating a customer.</p>}
   </div>;
 }

@@ -8,6 +8,7 @@ export const destinations: Destination[] = [
   { name: 'Appointments', path: '/appointments', group: 'Operations', permission: 'queue.read', module: 'queue' },
   { name: 'Attendance', path: '/attendance', group: 'Operations', permission: 'attendance.read', module: 'attendance' },
   { name: 'Customer Dues', path: '/ledger', group: 'Operations', permission: 'ledger.read', module: 'ledger' },
+  { name: 'CRM & Follow-ups', path: '/crm', group: 'Operations', permission: 'crm.read', module: 'crm' },
   { name: 'Inventory', path: '/inventory', group: 'Operations', permission: 'inventory.read', module: 'inventory' },
   { name: 'Staff', path: '/staff', group: 'Administration', permission: 'staff.read' },
   { name: 'Organization', path: '/admin', group: 'Administration', permission: 'organization.read' },

@@ -14,6 +14,7 @@ import { PostgresDatabase } from '../src/postgres/database.js';
 import { IdMappingNotFoundError, PostgresIdMappingRepository } from '../src/postgres/idMappingRepository.js';
 import { PostgresIdentityRepository } from '../src/postgres/identityRepository.js';
 import { getMigrationStatus, migrate } from '../src/postgres/migrations.js';
+import { prepareHistoricalCatalogue } from './helpers/historicalCatalogue.js';
 import { PostgresSessionRepository } from '../src/postgres/sessionRepository.js';
 import { PostgresSharedCoreRepository } from '../src/postgres/sharedCoreRepository.js';
 import { PostgresStaffRepository } from '../src/postgres/staffRepository.js';
@@ -140,19 +141,20 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   await context.test('migrates a clean database and reruns deterministically', async () => {
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 17 }, () => 'pending'),
+      Array.from({ length: 18 }, () => 'pending'),
     );
     await migrate(database);
     await migrate(database);
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 17 }, () => 'applied'),
+      Array.from({ length: 18 }, () => 'applied'),
     );
     const history = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM schema_migrations');
-    assert.equal(history.rows[0]?.count, '17');
+    assert.equal(history.rows[0]?.count, '18');
   });
 
   const source = new MemorySource(fixture());
+  await prepareHistoricalCatalogue(database);
   const repository = new PostgresSharedCoreRepository(database);
 
   await context.test('dry-run performs no PostgreSQL writes', async () => {

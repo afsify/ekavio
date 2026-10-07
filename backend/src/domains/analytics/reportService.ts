@@ -49,12 +49,12 @@ export class ReportService {
     where.push(`q.${column}=${p(f[filter])}::uuid`);
    }
    if(f.customKey||f.customValue){
-    if(report.key!=='customers'||!f.customKey||f.customValue===undefined)throw new AppError('Choose one complete supported Customer field filter',400);
-    const custom=await validateCustomerFilter(this.db,c.organizationId,{key:f.customKey,value:f.customValue,operator:f.customOperator});
+    if(!['customers','crm-leads'].includes(report.key)||!f.customKey||f.customValue===undefined)throw new AppError('Choose one complete supported Customer field filter',400);
+    const custom=await validateCustomerFilter(this.db,c.organizationId,{key:f.customKey,value:f.customValue,operator:f.customOperator},report.key==='crm-leads'?'lead':'customer');
     // Reuse the accepted typed predicate, remapping its four positional parameters.
     const bindings=['$1',p(null),p(custom.key),p(custom.value)];
-    const cp=customerPredicate(custom).replace(/\$(\d+)/g,(_m,n:string)=>bindings[Number(n)-1]!);
-    where.push(`q.id IN (SELECT id FROM customers WHERE ${cp})`);
+    const cp=customerPredicate(custom,report.key==='crm-leads'?'lead':'customer').replace(/\$(\d+)/g,(_m,n:string)=>bindings[Number(n)-1]!);
+    where.push(`q.id IN (SELECT id FROM ${report.key==='crm-leads'?'crm_leads':'customers'} WHERE ${cp})`);
    }
    const fields=report.entity?(await new DynamicFieldsService(this.db).definitions(c.organizationId,report.entity,client)).filter(d=>d.status==='active'&&d.reportable):[];
    const columns=[...source.columns,...fields.map(d=>({key:'custom:'+d.key,label:d.label,...(d.field_type==='currency'?{format:'money' as const}:{})}))];

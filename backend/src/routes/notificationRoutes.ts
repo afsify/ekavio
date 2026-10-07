@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate,type AuthenticatedRequest } from '../middlewares/authMiddleware.js';
-import { runtimePostgresDatabase } from '../persistence/runtimePersistence.js';
+import { runtimePostgresDatabase,runtimePersistence } from '../persistence/runtimePersistence.js';
 import { NotificationService } from '../domains/notifications/service.js';
 import { AppError } from '../utils/AppError.js';
-const router=Router(),service=new NotificationService(runtimePostgresDatabase);router.use(authenticate);
+const router=Router(),service=new NotificationService(runtimePostgresDatabase,async org=>new Set((await runtimePersistence.commercial.getEffective(org)).modules.filter(m=>m.enabled).map(m=>m.key)));router.use(authenticate);
 const handle=(fn:(r:AuthenticatedRequest)=>Promise<unknown>):import('express').RequestHandler=>async(req,res,next)=>{try{res.setHeader('Cache-Control','no-store');res.json({data:await fn(req)});}catch(error){next(error);}};
 router.get('/',handle(r=>service.list(r.auth!,r.query)));
 router.get('/preferences',handle(r=>service.preferences(r.auth!)));

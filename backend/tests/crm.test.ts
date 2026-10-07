@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { leadSchema,followupSchema,conversionSchema,recommendedStages,leadFilterSchema } from '../src/domains/crm/policy.js';
+import { permissionsForRole } from '../src/services/authorizationPolicy.js';
+import { initialPlans,initialModuleCatalogue } from '../src/commercial/catalogue.js';
+import { readFileSync } from 'node:fs';
+test('CRM is optional and never included in Pilot Core',()=>{assert.ok(initialModuleCatalogue.some(m=>m.key==='crm'&&m.commercialType==='purchasable'));assert.ok(!initialPlans.some(p=>(p.moduleKeys as readonly string[]).includes('crm')));});
+test('CRM built-in role policy does not expand HR or broad staff access',()=>{for(const role of ['owner','admin','manager'] as const)assert.ok(permissionsForRole(role).includes('crm.manage'));for(const role of ['staff','hr'] as const)assert.ok(!permissionsForRole(role).includes('crm.read'));});
+test('CRM bounded input and closed state/type/sort policies',()=>{assert.equal(leadSchema.safeParse({name:'QA',pipelineStageId:'ffffffff-ffff-4fff-8fff-ffffffffffff',revenue:10}).success,false);assert.equal(followupSchema.safeParse({leadId:'ffffffff-ffff-4fff-8fff-ffffffffffff',type:'email-campaign',subject:'QA',localDue:'2026-10-07T10:30'}).success,false);assert.equal(leadFilterSchema.safeParse({sort:'DROP TABLE'}).success,false);assert.equal(conversionSchema.safeParse({mode:'phone-match',expectedVersion:1}).success,false);assert.deepEqual(recommendedStages,['New','Contacted','Qualified','Discussion','Decision']);});
+test('CRM SQL is additive, history preserving and no commercial auto-grant',()=>{const sql=readFileSync('postgres/migrations/018_crm_followups.sql','utf8');assert.match(sql,/crm_activity_append_only/);assert.match(sql,/crm_assignment_guard/);assert.doesNotMatch(sql,/INSERT INTO (subscriptions|subscription_add_ons|plan_modules|entitlement_overrides|public_offer_pricing)/i);assert.match(sql,/converted_customer_id,organization_id/);});

@@ -32,7 +32,7 @@ export const mapOperationalError = (error: unknown): AppError => {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code ?? '')
     : '';
-  if (['23505', '23P01'].includes(code)
+  if (['23505', '23P01', '40001'].includes(code)
     || /version conflict|already used|overlap|conflicting key value|duplicate key/i.test(message)) {
     return new AppError(message, 409);
   }

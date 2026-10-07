@@ -8,6 +8,8 @@ export class PostgresDatabase {
 
   public constructor(private readonly connectionString: string | (() => string)) {}
 
+  public get inAtomicTransaction(): boolean { return Boolean(this.atomicClient.getStore()); }
+
   private getPool(): Pool {
     if (this.closed) throw new Error('PostgreSQL database connection is closed');
     if (this.pool) return this.pool;

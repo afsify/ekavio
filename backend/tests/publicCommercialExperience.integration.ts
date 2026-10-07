@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate, getMigrationStatus } from '../src/postgres/migrations.js';
-import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
+import { seedHistoricalCatalogue } from './helpers/historicalCatalogue.js';
 import { PostgresPublicCommercialRepository } from '../src/postgres/publicCommercialRepository.js';
 import { PostgresManualCommercialRepository } from '../src/postgres/manualCommercialRepository.js';
 import { createPublicCommercialService } from '../src/services/publicCommercialService.js';
@@ -27,7 +27,7 @@ test('V2-08F public commercial schema, quotes and historical intent', async (t) 
   const files = (await readdir('postgres/migrations')).filter((file) => file.endsWith('.sql') && Number(file.slice(0, 3)) <= 16);
   for (const file of files) await copyFile(path.join('postgres/migrations', file), path.join(dir, file));
   await migrate(db, dir);
-  await new PostgresCommercialRepository(db).reconcileCatalogue();
+  await seedHistoricalCatalogue(db);
   const operator = randomUUID(), customer = randomUUID(), oldRequest = randomUUID();
   await db.query("INSERT INTO users(id,name,phone,platform_role,created_at,updated_at) VALUES($1,'QA operator','+919800000001','operator',NOW(),NOW()),($2,'QA owner','+919800000002',NULL,NOW(),NOW())", [operator, customer]);
   await db.query("INSERT INTO public_offer_pricing(offer_type,plan_id,currency,monthly_price_minor,yearly_price_minor,published,display_order,updated_by_user_id) SELECT 'plan',id,'INR',10000,100000,TRUE,1,$1 FROM plans WHERE key='pilot-core'", [operator]);
@@ -35,7 +35,7 @@ test('V2-08F public commercial schema, quotes and historical intent', async (t) 
   const history = (await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
   await t.test('016 upgrade preserves prices, requests and historical checksums; repeat is idempotent', async () => {
     await migrate(db); await migrate(db);
-    assert.equal((await getMigrationStatus(db)).length, 17);
+    assert.equal((await getMigrationStatus(db)).length, 18);
     assert.ok((await getMigrationStatus(db)).every((item) => item.state === 'applied'));
     assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'017' ORDER BY name")).rows, history);
     const old = (await db.query('SELECT subtotal_minor::text,pricing_mode,public_reference FROM commercial_access_requests WHERE id=$1', [oldRequest])).rows[0]!;

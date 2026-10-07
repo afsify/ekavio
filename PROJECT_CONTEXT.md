@@ -1,6 +1,43 @@
 # EkaVio Project Context
 
-## Latest product experience: V2-08F (2026-10-07)
+## Latest optional module: V2-09A CRM & Follow-ups (2026-10-07)
+
+Migration 018 adds native PostgreSQL organization pipeline stages, selected-branch
+Leads/follow-ups and append-only CRM activity, with composite relationships and
+retained history. Commercial `crm` / **CRM & Follow-ups** is initially unpublished:
+no public price, Pilot Core inclusion or automatic subscription/entitlement grant.
+Owner/admin/manager have crm.read/manage; staff/HR do not automatically, and custom
+roles still replace built-ins. Entitlement, permission and active assigned branch
+authority are independently enforced, with live organization locking on writes.
+
+Manual call/meeting/task/note/other follow-ups store UTC using branch-local inputs;
+today/overdue use branch business dates. Terminal history cannot be reopened.
+Explicit new/existing Customer conversion is canonical, required-field-aware and
+atomic, with exactly-one concurrent winner and no automatic contact merge or Sale.
+Shared 13-type Lead fields/layouts, typed filters, four factual dashboard widgets,
+two branch-safe reports/bounded formula-safe CSV, generic deduplicated assignment
+notifications and bounded Customer-origin links extend existing engines.
+
+Local clean installs/quality/build, 186 backend unit tests, 72 components, all 30
+database files (244 tests), dedicated CRM (16), backup contracts (15) and source
+contracts (4) pass. Chromium: foundation 19, identity 11, administration 18, fields
+14, analytics 13, commercial 24 and CRM 15 pass; responsive CRM covers 360/390/768/
+1440 Light/Dark/System without page errors or document overflow. Final affected
+analytics and owner workflow were also rerun after preference/modal fixes.
+Normal Docker PostgreSQL/backend/frontend are healthy; local health/root/login/CRM
+are HTTP 200. Test-only legacy fixtures retain their historical catalogue; production
+verification and Mongo-retirement contracts are unchanged. No new paid dependency.
+
+Hosted 001–017 checksums matched before only accepted pending 018 was applied;
+001–018 now match. Hosted public health is recorded in the linked acceptance review,
+not inferred authenticated CRM or exact deployed-build evidence. See
+[ADR 0026](docs/adr/0026-crm-followups.md) and
+[V2-09A acceptance](docs/reviews/V2-09A_CRM_FOLLOWUPS.md) for evidence and release scope.
+Extended recovery 013–018 and hosted authenticated/exact-deployment acceptance remain
+OPEN. **NO-GO FOR REAL CUSTOMER DATA**, Free Render staging-only choice and retained
+untouched Atlas remain unchanged. V2-09B, V2-09C and V2-10 are deferred/not started.
+
+## Previous product experience: V2-08F (2026-10-07)
 
 An original folded-E SVG/wordmark now unifies public, workspace and account branding.
 Responsive Light/Dark/System public navigation and a complete factual landing site

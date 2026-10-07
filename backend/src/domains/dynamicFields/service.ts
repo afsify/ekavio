@@ -8,7 +8,7 @@ import { builtinFields, validateFieldKey, validateFieldValue, type FieldDefiniti
 
 export interface DefinitionInput { key:string; label:string; help:string; fieldType:FieldType; status:'active'|'archived'; required:boolean; searchable:boolean; filterable:boolean; reportable:boolean; defaultValue:FieldValue; version?:number; options:{id?:string;key:string;label:string;status:'active'|'archived'}[] }
 export interface LayoutInput { version:number; sections:{id:string;title:string;status?:'active'|'archived';fields:{key:string;visible:boolean}[]}[] }
-const entityColumn:Record<FieldEntity,string>={customer:'customer_id',service:'service_id',appointment:'appointment_id',inventory_item:'inventory_item_id',membership:'membership_id'};
+const entityColumn:Record<FieldEntity,string>={customer:'customer_id',service:'service_id',appointment:'appointment_id',inventory_item:'inventory_item_id',membership:'membership_id',lead:'lead_id'};
 type Query = {query<Row extends QueryResultRow = QueryResultRow>(text:string,values:unknown[]):Promise<QueryResult<Row>>};
 const fieldSelect=`d.id,d.key,d.label,d.help,d.field_type,d.status,d.required,d.searchable,d.filterable,d.reportable,d.default_value,d.version,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',o.id,'key',o.key,'label',o.label,'status',o.status,'position',o.position) ORDER BY o.position,o.id) FROM custom_field_options o WHERE o.definition_id=d.id),'[]'::jsonb) AS options`;
@@ -102,7 +102,7 @@ export class DynamicFieldsService {
   * organization lock first serializes schema changes and membership revocation. */
  async mutate<T extends {id:string}>(c:AuthorizationContext,entity:FieldEntity,patch:Record<string,FieldValue>|undefined,isNew:boolean,canonical:()=>Promise<T>,request?:{key:string;fingerprint:string}):Promise<T> {
   return this.database.atomic(async client=>{
-   const permission={customer:'customers.manage',service:'services.manage',appointment:'queue.manage',inventory_item:'inventory.manage',membership:'staff.manage'} as const;
+   const permission={customer:'customers.manage',service:'services.manage',appointment:'queue.manage',inventory_item:'inventory.manage',membership:'staff.manage',lead:'crm.manage'} as const;
    await lockAdministration(client,c.userId,c.organizationId,permission[entity]);
    if(c.branchId) {
     const branch=await client.query(`SELECT a.branch_id FROM membership_branch_assignments a JOIN branches b ON b.id=a.branch_id AND b.organization_id=a.organization_id

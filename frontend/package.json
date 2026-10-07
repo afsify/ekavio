@@ -15,6 +15,7 @@
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",
     "test:e2e:fields": "playwright test --config playwright.fields.config.ts",
     "test:e2e:analytics": "playwright test --config playwright.analytics.config.ts",
+    "test:e2e:crm": "playwright test --config playwright.crm.config.ts",
     "test:e2e:commercial": "playwright test --config playwright.commercial.config.ts"
   },
   "dependencies": {
