@@ -77,7 +77,7 @@ sole business authority; no Mongo fallback/dual-write or startup migration.
 | Migration | Fresh disposable schema + 015 upgrade, unchanged 001–015 checksums, repeated 016 apply/idempotence |
 | Mongo runtime source boundary | 4/4; legacy messages/notifications remain retired, new attention is PostgreSQL only |
 | Backup/envelope/tooling/watchdog | 15/15 |
-| Frontend lint/typecheck/component/PWA build | Final passed; 51/51 components after modal and CSS corrections |
+| Frontend lint/typecheck/component/PWA build | Final passed; 53/53 components including synchronous checkbox feedback regressions |
 | V2-08E Chromium | Final 13/13; loaded records, long labels/values, actual mobile no-match/readback, one control set and foreign export negatives |
 | Prior Chromium foundation/identity/admin/forms | 19/19, 11/11, 18/18, 14/14 passed; 75 browser tests total including V2-08E |
 | Responsive | 390/768/1440 × Light/Dark/System all passed with actual loaded content; no document overflow or page errors |
@@ -107,6 +107,12 @@ chooser unmounting during refetch. The staff mutation previously deleted unchang
 assignments referenced by immutable Dues; it now retains them and fails 409 for
 history-referenced removals, without weakening history constraints. Bell title markup
 and the report-selector locator were corrected without loosening data/API assertions.
+Exact-commit CI exposed a controlled-checkbox timing issue: mutation cache callbacks
+alone could let React restore the prior checked state. Dashboard layout and notification
+preferences now update a context-scoped draft synchronously inside the input event,
+cancel stale reads and retain server revalidation before clearing that draft. Two
+pending-persistence component regressions cover immediate feedback; original browser
+assertions remain unchanged and the complete affected 13-test suite passed again.
 The strengthened visual checks wait for actual records, not Suspense/loading screens,
 and keep mobile filter controls unique when the modal is open. Visual review found
 the base button CSS overriding desktop hiding; a scoped selector fixes the mobile
@@ -122,7 +128,7 @@ preview kept locally and excluded from CI upload/staging. No manual browser grou
 ## Cost, security, artifacts and release discipline
 
 Final PWA build: lazy Reports 10.56 KB / 3.27 KB gzip, Notifications 2.82 / 1.10,
-Dashboard 4.78 / 1.79; main 528.09 / 167.17 KB; 54 precache entries / 958.94 KiB.
+Dashboard 5.01 / 1.88; main 528.09 / 167.16 KB; 54 precache entries / 959.33 KiB.
 Existing non-blocking mixed-import and
 500-KB chunk warnings remain; no large chart/form/report framework or new dependency.
 Manifest/service worker build successfully; authenticated API data/credentials are
@@ -149,7 +155,7 @@ pilot operational blockers and **NO-GO FOR REAL CUSTOMER DATA** remain unchanged
 
 The reviewed implementation, tests, CI and documentation consist of 59 files:
 
-+- `.github/workflows/ci.yml`
+- `.github/workflows/ci.yml`
 - `PROJECT_CONTEXT.md`
 - `README.md`
 - `backend/package.json`
