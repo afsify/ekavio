@@ -10,9 +10,10 @@ import { useAppStore } from "./store/useAppStore";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
-import { Login } from "./pages/Login";
-import AccountActionPage from './pages/Identity/AccountActionPage';
+const Login = React.lazy(() => import('./pages/Login'));
+const AccountActionPage = React.lazy(() => import('./pages/Identity/AccountActionPage'));
 import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue';
+import { PageMetadata } from './components/brand/PageMetadata';
 
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const ReportsPage=React.lazy(()=>import('./pages/Reports/ReportsPage'));
@@ -40,6 +41,7 @@ const ServicesPage = React.lazy(() => import('./pages/Services/ServicesPage'));
 const FoundationPage = React.lazy(() => import('./pages/Settings/FoundationPage'));
 const BillingPage = React.lazy(() => import("./pages/Billing/BillingPage"));
 const LandingPage = React.lazy(() => import("./pages/Landing/LandingPage"));
+const PrivacyPage = React.lazy(() => import('./pages/Landing/PrivacyPage'));
 const CommercialRequestsPage = React.lazy(
   () => import('./pages/Commercial/CommercialRequestsPage'),
 );
@@ -142,6 +144,7 @@ export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <BrowserRouter>
+        <PageMetadata />
         <Toaster
           position="top-right"
           toastOptions={{
@@ -335,6 +338,7 @@ export const App: React.FC = () => {
                 </PublicLayout>
               }
             />
+            <Route path="/privacy" element={<PublicLayout><PrivacyPage /></PublicLayout>} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </React.Suspense>

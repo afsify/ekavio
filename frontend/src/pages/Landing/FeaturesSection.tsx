@@ -1,83 +1,15 @@
-import React from "react";
-import { Package, FileText, Users, Clock } from "lucide-react";
-
-export const FeaturesSection: React.FC = () => {
-  const features = [
-    {
-      title: "Inventory Management",
-      description:
-        "Keep track of your stock in real-time. Get alerts when items run low and manage suppliers effortlessly.",
-      icon: Package,
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-      border: "border-blue-500/20",
-    },
-    {
-      title: "Ledger",
-      description:
-        "Replace paper ledgers with a secure digital ledger. Track customer dues, payments, and history.",
-      icon: FileText,
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-      border: "border-emerald-500/20",
-    },
-    {
-      title: "Queue Management",
-      description:
-        "Organize patient or customer flow efficiently. Reduce wait times and improve satisfaction.",
-      icon: Clock,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10",
-      border: "border-purple-500/20",
-    },
-    {
-      title: "Staff Attendance",
-      description:
-        "Monitor employee shifts, attendance, and performance with our built-in HR tools.",
-      icon: Users,
-      color: "text-rose-500",
-      bg: "bg-rose-500/10",
-      border: "border-rose-500/20",
-    },
-  ];
-
-  return (
-    <section className="py-24 bg-slate-900/50 relative border-y border-slate-800">
-      <div className="container mx-auto px-4 max-w-7xl">
-        <div className="text-center mb-16 max-w-2xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Everything You Need
-          </h2>
-          <p className="text-slate-400 text-lg">
-            Powerful tools designed specifically for local businesses to streamline daily operations and grow faster.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {features.map((feature, index) => {
-            const Icon = feature.icon;
-            return (
-              <div
-                key={index}
-                className="group p-6 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-1 relative overflow-hidden"
-              >
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center mb-6 ${feature.bg} ${feature.border} border`}>
-                  <Icon className={`w-7 h-7 ${feature.color}`} />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-3 group-hover:text-indigo-400 transition-colors">
-                  {feature.title}
-                </h3>
-                <p className="text-slate-400 leading-relaxed">
-                  {feature.description}
-                </p>
-
-                {/* Subtle gradient effect on hover */}
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl" />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-};
+const modules = [
+  ['Queue & Appointments', 'Keep visits moving, without losing track.', ['Customer and service selection', 'Branch-scoped appointments and date filters', 'Queue tokens and visit status']],
+  ['Staff Attendance', 'See who is here and when.', ['Check-in and check-out records', 'Staff attendance history', 'Branch-scoped attendance reporting']],
+  ['Customer Dues', 'A clear record of what is owed.', ['Customer dues and payment entries', 'Outstanding balances and history', 'Branch-scoped summaries']],
+  ['Inventory', 'Know your stock, and its movements.', ['Items, categories and suppliers', 'Stock movement records', 'Branch stock balances and reports']],
+] as const;
+export function FeaturesSection() {
+  return <>
+    <section className="public-section public-container"><p className="public-eyebrow">Built around everyday work</p><h2>Different businesses. Familiar daily needs.</h2><div className="business-types">{['Clinics', 'Shops', 'Salons', 'Service counters', 'Offices'].map((type) => <span key={type}>{type}</span>)}</div><p className="muted">Operational coordination, not a clinical records system, retail POS or payroll service.</p></section>
+    <section className="public-section public-container"><p className="public-eyebrow">How it works</p><h2>A considered start, not a rushed checkout.</h2><div className="public-three-grid">{[['01', 'Choose your setup', 'Pick a package or individual modules and send your requirements.'], ['02', 'Confirm together', 'An operator reviews your request and confirms your agreement and manual payment.'], ['03', 'Open your workspace', 'Use your one-time invitation to choose your own password and begin.']].map(([number, title, text]) => <article className="panel" key={number}><span className="public-eyebrow">{number}</span><h3>{title}</h3><p className="muted">{text}</p></article>)}</div></section>
+    <section className="public-section public-container" id="modules"><p className="public-eyebrow">Your operations, connected</p><h2>Choose what your business needs.</h2><p className="public-lead">Use a package or start with individual modules. Module availability follows your confirmed subscription.</p><div className="public-module-grid">{modules.map(([name, summary, bullets]) => <article key={name} className="panel"><h3>{name}</h3><p className="muted">{summary}</p><ul>{bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul></article>)}</div><div className="panel public-core"><h3>The foundation comes with your workspace.</h3><p>Customers and services · Staff and branches · Roles and permissions · Organization settings · Dashboards and reports</p><p className="muted">These shared foundations are not separate paid add-ons. Reports remain scoped to your access and enabled modules.</p></div></section>
+    <section className="public-section public-container"><p className="public-eyebrow">Why EkaVio</p><h2>Less switching. More clarity.</h2><div className="public-three-grid">{[['One working context', 'Organization and branch context follows your work.'], ['Access with intent', 'Staff permissions and module access are enforced on the server.'], ['A human commercial process', 'Agreements, payments and renewals are confirmed manually — no surprise checkout.']].map(([title, text]) => <article className="panel" key={title}><h3>{title}</h3><p className="muted">{text}</p></article>)}</div></section>
+    <section className="public-section public-container" id="security"><div className="panel public-core"><p className="public-eyebrow">Security & privacy</p><h2>Practical boundaries, clearly stated.</h2><p>Organization and branch access controls, revocable sessions and permission checks protect authenticated workflows. Passwords and onboarding links are not marketing data.</p><p className="muted">This is a staging experience, not a production-readiness or uptime promise. We do not claim certifications or introduce marketing trackers.</p><a className="public-text-link" href="/privacy">Read the privacy overview →</a></div></section>
+  </>;
+}

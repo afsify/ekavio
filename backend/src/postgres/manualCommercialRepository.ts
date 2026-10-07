@@ -26,7 +26,7 @@ interface AgreementRow extends QueryResultRow {
   billing_cycle: 'monthly' | 'yearly';
   selected_plan_key: string | null;
   selected_add_on_keys: string[];
-  list_subtotal_minor: string;
+  list_subtotal_minor: string | null;
   list_pricing_snapshot: PublicCommercialQuote;
   agreed_total_minor: string;
   adjustment_reason: string | null;
@@ -78,6 +78,7 @@ interface InvitationRow extends QueryResultRow {
 }
 
 interface FinalOfferRow extends QueryResultRow {
+  pricing_mode: 'fixed' | 'contact';
   offer_type: 'plan' | 'add_on';
   key: string;
   name: string;
@@ -230,7 +231,7 @@ const loadFinalQuote = async (
           JOIN module_definitions m ON m.id = pm.module_definition_id
           WHERE pm.plan_id = p.id ORDER BY m.key
         ) AS module_keys,
-        pr.monthly_price_minor::text, pr.yearly_price_minor::text,
+        pr.pricing_mode, pr.monthly_price_minor::text, pr.yearly_price_minor::text,
         pr.updated_at AS pricing_updated_at
       FROM plans p
       JOIN public_offer_pricing pr ON pr.plan_id = p.id
@@ -248,7 +249,7 @@ const loadFinalQuote = async (
           JOIN module_definitions m ON m.id = am.module_definition_id
           WHERE am.add_on_id = a.id ORDER BY m.key
         ) AS module_keys,
-        pr.monthly_price_minor::text, pr.yearly_price_minor::text,
+        pr.pricing_mode, pr.monthly_price_minor::text, pr.yearly_price_minor::text,
         pr.updated_at AS pricing_updated_at
       FROM add_ons a
       JOIN public_offer_pricing pr ON pr.add_on_id = a.id
@@ -275,7 +276,7 @@ const loadFinalQuote = async (
     const amount = input.billingCycle === 'monthly'
       ? offer.monthly_price_minor
       : offer.yearly_price_minor;
-    if (amount === null) throw new AppError('Selected billing cycle is unavailable', 400);
+    if (amount === null && offer.pricing_mode !== 'contact') throw new AppError('Selected billing cycle is unavailable', 400);
     return {
       offerType: offer.offer_type,
       key: offer.key,
@@ -287,9 +288,11 @@ const loadFinalQuote = async (
     left.offerType.localeCompare(right.offerType) || left.key.localeCompare(right.key));
 
   return {
+    contactRequired: selected.some((offer) => offer.pricing_mode === 'contact'),
     billingCycle: input.billingCycle,
     currency: 'INR',
-    subtotalMinor: items.reduce((total, item) => total + BigInt(item.priceMinor), 0n).toString(),
+    subtotalMinor: selected.some((offer) => offer.pricing_mode === 'contact')
+      ? null : items.reduce((total, item) => total + BigInt(item.priceMinor!), 0n).toString(),
     calculatedAt: calculatedAt.toISOString(),
     items,
   };
@@ -888,6 +891,8 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
     `, [row.id]);
     return {
       agreement: {
+        planName: row.list_pricing_snapshot.items.find((item) => item.offerType === 'plan')?.name ?? null,
+        addOnNames: row.list_pricing_snapshot.items.filter((item) => item.offerType === 'add_on').map((item) => item.name),
         currency: row.currency,
         billingCycle: row.billing_cycle,
         selectedPlanKey: row.selected_plan_key,

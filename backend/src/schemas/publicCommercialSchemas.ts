@@ -36,6 +36,7 @@ export const publicAccessRequestSchema = z.object({
   planKey: offerKey.nullable().optional(),
   addOnKeys: selectedAddOns,
   note: z.string().trim().max(500).optional(),
+  quoteFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).strict().superRefine((value, context) => {
   if (!value.planKey && value.addOnKeys.length === 0) {
     context.addIssue({ code: 'custom', path: ['addOnKeys'], message: 'Select at least one offer' });
@@ -50,6 +51,7 @@ const minorUnitAmount = z.string().regex(/^(0|[1-9][0-9]{0,12})$/, {
 });
 
 export const publicPricingUpdateSchema = z.object({
+  pricingMode: z.enum(['fixed','contact']).default('fixed'),
   currency: z.literal('INR'),
   monthlyPriceMinor: minorUnitAmount.nullable(),
   yearlyPriceMinor: minorUnitAmount.nullable(),
@@ -57,7 +59,10 @@ export const publicPricingUpdateSchema = z.object({
   displayOrder: z.number().int().min(0).max(10000),
   marketingLabel: z.string().trim().min(1).max(80).nullable(),
 }).strict().superRefine((value, context) => {
-  if (value.published && value.monthlyPriceMinor === null && value.yearlyPriceMinor === null) {
+  if (value.pricingMode === 'contact' && (value.monthlyPriceMinor !== null || value.yearlyPriceMinor !== null)) {
+    context.addIssue({code:'custom',path:['pricingMode'],message:'Contact pricing cannot contain a numeric list price'});
+  }
+  if (value.pricingMode === 'fixed' && value.published && value.monthlyPriceMinor === null && value.yearlyPriceMinor === null) {
     context.addIssue({
       code: 'custom',
       path: ['published'],
@@ -75,6 +80,7 @@ export const operatorAccessRequestUpdateSchema = z.object({
 );
 
 export const operatorAccessRequestListQuerySchema = z.object({
+  search: z.string().trim().max(120).optional(),
   status: z.enum(accessRequestStatuses).optional(),
   page: z.coerce.number().int().min(1).max(100000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -85,5 +91,5 @@ export type OfferType = (typeof offerTypes)[number];
 export type AccessRequestStatus = (typeof accessRequestStatuses)[number];
 export type PublicQuoteInput = z.infer<typeof publicQuoteSchema>;
 export type PublicAccessRequestInput = z.infer<typeof publicAccessRequestSchema>;
-export type PublicPricingUpdateInput = z.infer<typeof publicPricingUpdateSchema>;
+export type PublicPricingUpdateInput = z.input<typeof publicPricingUpdateSchema>;
 export type OperatorAccessRequestUpdateInput = z.infer<typeof operatorAccessRequestUpdateSchema>;

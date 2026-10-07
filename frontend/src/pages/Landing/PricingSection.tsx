@@ -1,362 +1,102 @@
-import React, { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { Check, IndianRupee, PackageCheck, Send, ShieldCheck } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import axios from 'axios';
 import { publicClient } from '../../api/client';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { getErrorMessage } from '../../api/errors';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { normalizePhone } from '../../utils/phone';
-import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
-import {
-  formatInrMinor,
-  type AccessRequestReceipt,
-  type BillingCycle,
-  type PublicCommercialCatalogue,
-  type PublicCommercialOffer,
-  type PublicCommercialQuote,
-} from '../../commercial/publicCommercial';
+import { OfferCard } from '../../components/commercial/OfferCard';
+import { CommercialStepper } from '../../components/commercial/CommercialStepper';
+import { formatInrMinor, includedInPlan, type AccessRequestReceipt, type BillingCycle, type PublicCommercialCatalogue, type PublicCommercialOffer, type PublicCommercialQuote } from '../../commercial/publicCommercial';
 
-const requestFormSchema = z.object({
+const schema = z.object({
   businessName: z.string().trim().min(2, 'Enter your business name').max(160),
   businessType: z.string().trim().min(2, 'Enter the business type').max(80),
   contactName: z.string().trim().min(2, 'Enter a contact name').max(120),
-  phone: z.string().trim().refine((value) => Boolean(normalizePhone(value)), 'Enter a valid phone number'),
+  phone: z.string().refine((value) => Boolean(normalizePhone(value)), 'Enter a valid phone number'),
   email: z.union([z.literal(''), z.string().trim().email('Enter a valid email').max(254)]),
   note: z.string().trim().max(500, 'Keep the note under 500 characters'),
 });
+type RequestForm = z.infer<typeof schema>;
+const defaults: RequestForm = { businessName: '', businessType: 'Clinic', contactName: '', phone: '', email: '', note: '' };
+const businessTypes = ['Clinic', 'Shop', 'Salon', 'Service counter', 'Office', 'Other'];
 
-type RequestForm = z.infer<typeof requestFormSchema>;
-
-const errorMessage = (error: unknown): string => {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? 'The request could not be completed.';
-  }
-  return 'The request could not be completed.';
-};
-
-const cyclePrice = (offer: PublicCommercialOffer, cycle: BillingCycle): string | null =>
-  cycle === 'monthly'
-    ? offer.pricing?.monthlyPriceMinor ?? null
-    : offer.pricing?.yearlyPriceMinor ?? null;
-
-const OfferCard: React.FC<{
-  offer: PublicCommercialOffer;
-  cycle: BillingCycle;
-  selected: boolean;
-  onSelect: () => void;
-}> = ({ offer, cycle, selected, onSelect }) => {
-  const price = cyclePrice(offer, cycle);
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={price === null}
-      aria-pressed={selected}
-      className={`relative w-full rounded-3xl border p-6 text-left transition-all ${
-        selected
-          ? 'border-indigo-400 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
-          : 'border-slate-800 bg-slate-900 hover:border-slate-700'
-      } disabled:cursor-not-allowed disabled:opacity-75`}
-    >
-      {offer.marketingLabel && (
-        <span className="absolute right-4 top-4 rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200">
-          {offer.marketingLabel}
-        </span>
-      )}
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-300">
-        <PackageCheck className="h-5 w-5" />
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-        {offer.offerType === 'plan' ? 'Package' : offer.category}
-      </p>
-      <h3 className="mt-1 text-xl font-bold text-white">{offer.name}</h3>
-      <p className="mt-2 min-h-10 text-sm leading-relaxed text-slate-400">{offer.description}</p>
-      <div className="mt-5 text-2xl font-bold text-white">
-        {price === null ? 'Contact for pricing' : formatInrMinor(price)}
-        {price !== null && (
-          <span className="ml-1 text-sm font-normal text-slate-400">
-            /{cycle === 'monthly' ? 'month' : 'year'}
-          </span>
-        )}
-      </div>
-      <ul className="mt-5 space-y-2">
-        {offer.capabilities.map((capability) => (
-          <li key={capability} className="flex items-center gap-2 text-sm text-slate-300">
-            <Check className="h-4 w-4 text-emerald-400" />
-            {capability}
-          </li>
-        ))}
-      </ul>
-      <div className={`mt-6 rounded-xl px-3 py-2 text-center text-sm font-semibold ${
-        selected ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-300'
-      }`}>
-        {price === null ? 'Price not published' : selected ? 'Selected' : 'Select'}
-      </div>
-    </button>
-  );
-};
-
-export const PricingSection: React.FC = () => {
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
-  const [planKey, setPlanKey] = useState<string | null>(null);
-  const [addOnKeys, setAddOnKeys] = useState<string[]>([]);
+export function PricingSection() {
+  const cache = useQueryClient();
+  const [billingCycle, setCycle] = useState<BillingCycle>('monthly');
+  const [planKey, setPlan] = useState<string | null>(null);
+  const [addOnKeys, setAddOns] = useState<string[]>([]);
+  const [step, setStep] = useState(1);
+  const [businessCategory, setBusinessCategory] = useState('Clinic');
   const [receipt, setReceipt] = useState<AccessRequestReceipt | null>(null);
-  const catalogueQuery = useQuery({
-    queryKey: ['public-commercial-catalogue'],
-    queryFn: async () => {
-      const response = await publicClient.get<{ data: PublicCommercialCatalogue }>(
-        '/public/commercial/catalogue',
-      );
-      return response.data.data;
+  const [receiptNames, setReceiptNames] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState('');
+  const [copied, setCopied] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (step > 1) heading.current?.focus(); }, [step]);
+  const form = useForm<RequestForm>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const phone = useWatch({ control: form.control, name: 'phone' });
+  const catalogue = useQuery({ queryKey: ['public-commercial-catalogue'], retry: false, queryFn: async () => (await publicClient.get<{ data: PublicCommercialCatalogue }>('/public/commercial/catalogue')).data.data });
+  const selection = useMemo(() => ({ billingCycle, planKey, addOnKeys: [...addOnKeys].sort() }), [billingCycle, planKey, addOnKeys]);
+  const hasSelection = Boolean(planKey || addOnKeys.length);
+  const quote = useQuery({ queryKey: ['public-commercial-quote', selection], enabled: hasSelection && !receipt, retry: false, queryFn: async () => (await publicClient.post<{ data: PublicCommercialQuote }>('/public/commercial/quote', selection)).data.data });
+  const selectedPlan = catalogue.data?.plans.find((offer) => offer.key === planKey);
+  const selectedNames = quote.data?.items.map((item) => item.name) ?? [];
+  const go = (next: number) => setStep(next);
+  const request = useMutation({
+    mutationFn: async () => {
+      const fields = schema.parse(form.getValues());
+      if (!quote.data || quote.isFetching || quote.isError) throw new Error('Review a current quote before submitting.');
+      return (await publicClient.post<{ data: AccessRequestReceipt }>('/public/access-requests', {
+        ...selection, businessName: fields.businessName, businessType: fields.businessType, contactName: fields.contactName,
+        phone: normalizePhone(fields.phone), ...(fields.email ? { email: fields.email } : {}), ...(fields.note ? { note: fields.note } : {}),
+        quoteFingerprint: quote.data.quoteFingerprint,
+      })).data.data;
     },
-  });
-  const selection = useMemo(() => ({
-    billingCycle,
-    planKey,
-    addOnKeys: [...addOnKeys].sort(),
-  }), [billingCycle, planKey, addOnKeys]);
-  const hasSelection = Boolean(planKey || addOnKeys.length > 0);
-  const quoteQuery = useQuery({
-    queryKey: ['public-commercial-quote', selection],
-    enabled: hasSelection,
-    retry: false,
-    queryFn: async () => {
-      const response = await publicClient.post<{ data: PublicCommercialQuote }>(
-        '/public/commercial/quote',
-        selection,
-      );
-      return response.data.data;
-    },
-  });
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    control,
-    setValue,
-  } = useForm<RequestForm>({
-    resolver: zodResolver(requestFormSchema),
-    defaultValues: {
-      businessName: '', businessType: '', contactName: '', phone: '', email: '', note: '',
-    },
-  });
-  const contactPhone = useWatch({ control, name: 'phone', defaultValue: '' });
-  const submitMutation = useMutation({
-    mutationFn: async (form: RequestForm) => {
-      const response = await publicClient.post<{ data: AccessRequestReceipt }>(
-        '/public/access-requests',
-        {
-          businessName: form.businessName,
-          businessType: form.businessType,
-          contactName: form.contactName,
-          phone: form.phone,
-          ...(form.email ? { email: form.email } : {}),
-          ...(form.note ? { note: form.note } : {}),
-          ...selection,
-        },
-      );
-      return response.data.data;
-    },
-    onSuccess: (data) => {
-      setReceipt(data);
-      reset();
-    },
-  });
-
-  const chooseCycle = (cycle: BillingCycle) => {
-    setBillingCycle(cycle);
-    const catalogue = catalogueQuery.data;
-    if (!catalogue) return;
-    const plan = catalogue.plans.find(({ key }) => key === planKey);
-    if (plan && cyclePrice(plan, cycle) === null) setPlanKey(null);
-    setAddOnKeys((current) => current.filter((key) => {
-      const addOn = catalogue.addOns.find((offer) => offer.key === key);
-      return addOn ? cyclePrice(addOn, cycle) !== null : false;
-    }));
-    setReceipt(null);
-  };
-
-  const choosePlan = (offer: PublicCommercialOffer) => {
-    const selecting = planKey !== offer.key;
-    setPlanKey(selecting ? offer.key : null);
-    if (selecting && catalogueQuery.data) {
-      const claimedModules = new Set(offer.moduleKeys);
-      setAddOnKeys((current) => current.filter((key) => {
-        const addOn = catalogueQuery.data?.addOns.find((candidate) => candidate.key === key);
-        return addOn ? addOn.moduleKeys.every((moduleKey) => !claimedModules.has(moduleKey)) : false;
-      }));
-    }
-    setReceipt(null);
-  };
-
-  const chooseAddOn = (offer: PublicCommercialOffer) => {
-    const adding = !addOnKeys.includes(offer.key);
-    setAddOnKeys((current) => adding
-      ? [...current, offer.key]
-      : current.filter((key) => key !== offer.key));
-    if (adding && planKey && catalogueQuery.data) {
-      const plan = catalogueQuery.data.plans.find(({ key }) => key === planKey);
-      if (plan && offer.moduleKeys.some((moduleKey) => plan.moduleKeys.includes(moduleKey))) {
-        setPlanKey(null);
+    onSuccess: (result) => { setReceiptNames(selectedNames); setReceipt(result); form.reset(defaults); cache.removeQueries({ queryKey: ['public-commercial-quote'] }); },
+    onError: async (error) => {
+      if (axios.isAxiosError(error) && [400, 409].includes(error.response?.status ?? 0)) {
+        setFeedback('The setup or pricing changed. Review the refreshed selection before submitting again.');
+        go(1);
+        await Promise.all([catalogue.refetch(), quote.refetch()]);
       }
+    },
+  });
+  const choosePlan = (offer: PublicCommercialOffer) => {
+    const next = planKey === offer.key ? null : offer.key;
+    setPlan(next);
+    if (next) {
+      const included = catalogue.data?.addOns.filter((item) => includedInPlan(offer, item)).map((item) => item.key) ?? [];
+      if (addOnKeys.some((key) => included.includes(key))) setFeedback(`Included modules removed from extra selections: ${offer.name} already covers them.`);
+      setAddOns((keys) => keys.filter((key) => !included.includes(key)));
     }
-    setReceipt(null);
   };
-
-  return (
-    <section id="pilot-access" className="relative py-24">
-      <div className="container mx-auto max-w-7xl px-4">
-        <div className="mx-auto mb-12 max-w-3xl text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-200">
-            <IndianRupee className="h-4 w-4" />
-            Operator-published list pricing
-          </div>
-          <h2 className="text-3xl font-bold text-white md:text-5xl">Build the right EkaVio workspace</h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Choose a package or individual modules. EkaVio recalculates every estimate on the server before accepting your request.
-          </p>
-        </div>
-
-        <div className="mx-auto mb-10 flex w-fit rounded-2xl border border-slate-800 bg-slate-900 p-1">
-          {(['monthly', 'yearly'] as const).map((cycle) => (
-            <button
-              type="button"
-              key={cycle}
-              onClick={() => chooseCycle(cycle)}
-              className={`rounded-xl px-5 py-2.5 text-sm font-semibold capitalize transition ${
-                billingCycle === cycle ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {cycle}
-            </button>
-          ))}
-        </div>
-
-        {catalogueQuery.isLoading && (
-          <p className="py-12 text-center text-slate-400">Loading the current catalogue…</p>
-        )}
-        {catalogueQuery.isError && (
-          <div className="mx-auto max-w-2xl rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center text-rose-200">
-            The public catalogue is temporarily unavailable. No price has been guessed or cached.
-          </div>
-        )}
-        {catalogueQuery.data && (
-          <div className="space-y-10">
-            {catalogueQuery.data.plans.length > 0 && (
-              <div>
-                <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Packages</h3>
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                  {catalogueQuery.data.plans.map((offer) => (
-                    <OfferCard
-                      key={offer.key}
-                      offer={offer}
-                      cycle={billingCycle}
-                      selected={planKey === offer.key}
-                      onSelect={() => choosePlan(offer)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            <div>
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Individual modules</h3>
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {catalogueQuery.data.addOns.map((offer) => (
-                  <OfferCard
-                    key={offer.key}
-                    offer={offer}
-                    cycle={billingCycle}
-                    selected={addOnKeys.includes(offer.key)}
-                    onSelect={() => chooseAddOn(offer)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mx-auto mt-14 grid max-w-5xl gap-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl md:grid-cols-[0.85fr_1.15fr] md:p-10">
-          <div>
-            <ShieldCheck className="h-10 w-10 text-indigo-400" />
-            <h3 className="mt-5 text-2xl font-bold text-white">Request Access</h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">
-              This sends a commercial enquiry for operator review. It does not take payment, create an account, or activate modules.
-            </p>
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Server-calculated estimate</p>
-              {!hasSelection && <p className="mt-2 text-slate-300">Select a priced package or module.</p>}
-              {hasSelection && quoteQuery.isFetching && <p className="mt-2 text-slate-300">Calculating…</p>}
-              {quoteQuery.data && (
-                <>
-                  <p className="mt-2 text-3xl font-bold text-white">{formatInrMinor(quoteQuery.data.subtotalMinor)}</p>
-                  <p className="mt-1 text-xs capitalize text-slate-500">{quoteQuery.data.billingCycle} list estimate</p>
-                  <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                    {quoteQuery.data.items.map((item) => (
-                      <li key={`${item.offerType}:${item.key}`} className="flex justify-between gap-4">
-                        <span>{item.name}</span><span>{formatInrMinor(item.priceMinor)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {quoteQuery.isError && <p className="mt-2 text-sm text-rose-300">{errorMessage(quoteQuery.error)}</p>}
-            </div>
-          </div>
-
-          {receipt ? (
-            <div className="flex flex-col justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-7">
-              <Check className="h-10 w-10 text-emerald-400" />
-              <h3 className="mt-4 text-2xl font-bold text-white">Request received</h3>
-              <p className="mt-3 text-emerald-50/80">{receipt.message}</p>
-              <p className="mt-5 text-sm text-slate-300">
-                Accepted {receipt.billingCycle} list estimate: <strong>{formatInrMinor(receipt.subtotalMinor)}</strong>
-              </p>
-              <TechnicalDetails values={{ Receipt: receipt.receiptId }} />
-              <Button className="mt-6" variant="secondary" onClick={() => setReceipt(null)}>Send another request</Button>
-            </div>
-          ) : (
-            <form className="grid gap-4" onSubmit={(event) => void handleSubmit((form) => submitMutation.mutate(form))(event)}>
-              <Input label="Business name" {...register('businessName')} error={errors.businessName?.message} />
-              <Input label="Business type" placeholder="Clinic, shop, office…" {...register('businessType')} error={errors.businessType?.message} />
-              <Input label="Contact name" {...register('contactName')} error={errors.contactName?.message} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <PhoneInput label="Phone" required value={contactPhone} onChange={(value) => setValue('phone', value, { shouldValidate: true })} error={errors.phone?.message} />
-                <Input label="Email (optional)" type="email" {...register('email')} error={errors.email?.message} />
-              </div>
-              <div>
-                <label htmlFor="access-note" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-300">Note (optional)</label>
-                <textarea
-                  id="access-note"
-                  rows={3}
-                  className="w-full rounded-2xl border border-slate-700/80 bg-slate-900/70 px-4 py-3 text-sm text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-                  {...register('note')}
-                />
-                {errors.note && <p className="mt-1 text-xs text-rose-400">{errors.note.message}</p>}
-              </div>
-              {submitMutation.isError && (
-                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200">
-                  {errorMessage(submitMutation.error)}
-                </p>
-              )}
-              <Button
-                type="submit"
-                size="lg"
-                isLoading={submitMutation.isPending}
-                disabled={!quoteQuery.data || quoteQuery.isFetching}
-                className="mt-2 w-full"
-              >
-                <Send className="h-4 w-4" /> Request Access
-              </Button>
-              <p className="text-center text-xs text-slate-500">Final commercial terms are confirmed manually. No payment is collected here.</p>
-            </form>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-};
+  const chooseAddOn = (offer: PublicCommercialOffer) => {
+    if (includedInPlan(selectedPlan, offer)) return;
+    const others = catalogue.data?.addOns.filter((item) => item.key !== offer.key && item.moduleKeys.some((key) => offer.moduleKeys.includes(key))).map((item) => item.key) ?? [];
+    if (addOnKeys.some((key) => others.includes(key))) { setFeedback('Those modules are already selected. Remove the overlapping add-on first.'); return; }
+    setAddOns((keys) => keys.includes(offer.key) ? keys.filter((key) => key !== offer.key) : [...keys, offer.key]);
+  };
+  const reset = () => { setReceipt(null); setPlan(null); setAddOns([]); setCycle('monthly'); setFeedback(''); setCopied(false); setBusinessCategory('Clinic'); request.reset(); go(1); };
+  const field = (name: 'businessName' | 'contactName' | 'email' | 'note', label: string, required = false) => <div className={name === 'note' ? 'field full-width' : 'field'}><label htmlFor={`request-${name}`}>{label}</label>{name === 'note' ? <textarea id={`request-${name}`} rows={3} maxLength={500} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} /> : <input id={`request-${name}`} required={required} type={name === 'email' ? 'email' : 'text'} maxLength={name === 'email' ? 254 : name === 'businessName' ? 160 : 120} {...form.register(name)} aria-invalid={Boolean(form.formState.errors[name])} aria-describedby={form.formState.errors[name] ? `error-${name}` : undefined} />} {form.formState.errors[name] && <p id={`error-${name}`} className="error-text" role="alert">{form.formState.errors[name]?.message}</p>}</div>;
+  const summary = <div className="public-quote">{quote.data?.items.map((item) => <div key={`${item.offerType}:${item.key}`}><span>{item.name}</span><strong>{formatInrMinor(item.priceMinor)}</strong></div>)}<div><span>{quote.data?.contactRequired ? 'Discussion required' : 'Estimated total'} · {billingCycle}</span><strong>{quote.data ? formatInrMinor(quote.data.subtotalMinor) : 'Select your setup'}</strong></div><p className="public-small muted">An estimate, not an invoice or purchase. Final terms are confirmed manually.</p></div>;
+  return <section className="public-section public-container" id="pricing"><p className="public-eyebrow">Your setup, your starting point</p><h2>Plans & modules. No surprise checkout.</h2><p className="public-lead">Choose a package or individual modules. Send one request and we’ll confirm the requirements, terms and next steps.</p>
+    {receipt && feedback && <p className="muted" role="status">{feedback}</p>}
+    {receipt ? <div className="panel public-wizard" role="status"><h3>Request received</h3><p className="public-reference">{receipt.publicReference ?? 'Your request has been recorded'}</p>{receipt.publicReference && <button className="quiet-button" type="button" onClick={() => { void navigator.clipboard.writeText(receipt.publicReference!).then(() => setCopied(true)).catch(() => setFeedback('Copy unavailable. Select and copy the reference above.')); }}>{copied ? 'Reference copied' : 'Copy reference'}</button>}<p>{receiptNames.join(' + ')} · {receipt.billingCycle}</p><p>{receipt.contactRequired ? 'Contact for pricing — final terms need a discussion.' : `Estimated total: ${formatInrMinor(receipt.subtotalMinor)}`}</p><p className="muted">{receipt.message}</p><p className="muted">Review → agreement → manual payment → one-time onboarding invitation. Your workspace is not activated by this request.</p><div className="public-actions"><a className="quiet-button" href="#product">Back to home</a><button className="action-link" type="button" onClick={reset}>Send another request</button></div></div> : <>
+      <div className="public-actions" role="group" aria-label="Billing cycle">{(['monthly', 'yearly'] as const).map((cycle) => <button type="button" key={cycle} className={billingCycle === cycle ? 'action-link' : 'quiet-button'} aria-pressed={billingCycle === cycle} onClick={() => { setCycle(cycle); go(1); }}>{cycle === 'monthly' ? 'Monthly' : 'Yearly'}</button>)}</div>
+      <h3>Request Access</h3><div className="public-wizard-heading"><h3 ref={heading} tabIndex={-1}>Step {step} of 3 — {step === 1 ? 'Choose your setup' : step === 2 ? 'Business & contact' : 'Review your request'}</h3><CommercialStepper steps={[{ label: 'Choose setup', complete: step > 1 }, { label: 'Business & contact', complete: step > 2 }, { label: 'Review & submit', complete: false }]} /></div>
+      {feedback && <p className="muted" role="status">{feedback}</p>}
+      {catalogue.isLoading && <p role="status">Loading current offers…</p>}
+      {catalogue.isError && <div className="panel"><p role="alert">Pricing is unavailable right now. Your workspace has not been activated.</p><button className="quiet-button" onClick={() => { void catalogue.refetch(); }}>Retry pricing</button></div>}
+      {step === 1 && catalogue.data && <><h3>Packages</h3>{catalogue.data.plans.length === 0 && <p className="muted">No packages are currently published.</p>}<div className="catalogue-grid">{catalogue.data.plans.map((offer) => <OfferCard key={offer.key} offer={offer} cycle={billingCycle} selected={planKey === offer.key} onSelect={() => choosePlan(offer)} />)}</div><h3>Individual modules</h3>{catalogue.data.addOns.length === 0 && <p className="muted">No individual modules are currently published.</p>}<div className="catalogue-grid">{catalogue.data.addOns.map((offer) => <OfferCard key={offer.key} offer={offer} cycle={billingCycle} selected={addOnKeys.includes(offer.key)} included={includedInPlan(selectedPlan, offer) ? selectedPlan?.name : undefined} onSelect={() => chooseAddOn(offer)} />)}</div></>}
+      {quote.isFetching && <p role="status">Refreshing your estimate…</p>}{quote.isError && <p role="alert" className="error-text">{getErrorMessage(quote.error, 'This selection is unavailable. Change the setup or retry.')} <button className="quiet-button" onClick={() => { void quote.refetch(); }}>Retry estimate</button></p>}
+      {step === 1 && <div className="panel public-wizard">{summary}<button className="action-link" type="button" disabled={!hasSelection || !quote.data || quote.isFetching || quote.isError} onClick={() => go(2)}>Continue to business details</button></div>}
+      {step === 2 && <form className="panel public-wizard" onSubmit={form.handleSubmit(() => go(3))}><div className="public-form-grid">{field('businessName', 'Business name', true)}<div className="field"><label htmlFor="request-type">Business type</label><select id="request-type" value={businessCategory} onChange={(event) => { setBusinessCategory(event.target.value); form.setValue('businessType', event.target.value === 'Other' ? '' : event.target.value); }}>{businessTypes.map((type) => <option key={type}>{type}</option>)}</select>{businessCategory === 'Other' && <><label htmlFor="request-other">Other business type</label><input id="request-other" maxLength={80} {...form.register('businessType')} /></>}{form.formState.errors.businessType && <p role="alert" className="error-text">{form.formState.errors.businessType.message}</p>}</div>{field('contactName', 'Contact name', true)}<PhoneInput label="Phone number" value={phone} onChange={(value) => form.setValue('phone', value, { shouldValidate: form.formState.isSubmitted })} required error={form.formState.errors.phone?.message} />{field('email', 'Email (recommended, optional)')}{field('note', 'Requirements note (optional)')}</div><p className="public-small muted">Use staging details only. Don’t include patient information or payment credentials. <a className="public-text-link" href="/privacy">Privacy overview</a></p><div className="public-actions"><button className="quiet-button" type="button" onClick={() => go(1)}>Back to setup</button><button className="action-link" type="submit">Review request</button></div></form>}
+      {step === 3 && <div className="panel public-wizard"><h3>{form.getValues('businessName')}</h3><p>{form.getValues('businessType')} · {form.getValues('contactName')}</p><p>{normalizePhone(form.getValues('phone'))}</p>{form.getValues('email') && <p>{form.getValues('email')}</p>}{form.getValues('note') && <p>{form.getValues('note')}</p>}{summary}<p className="muted">We’ll contact you to confirm the final agreement. Submitting does not charge you, create a subscription or grant access.</p><div className="public-actions"><button className="quiet-button" type="button" disabled={request.isPending} onClick={() => go(2)}>Edit business details</button><button className="action-link" type="button" disabled={request.isPending || quote.isFetching || !quote.data || quote.isError} onClick={() => request.mutate()}>{request.isPending ? 'Sending…' : 'Submit access request'}</button></div></div>}
+      {request.isError && <p className="error-text" role="alert">{getErrorMessage(request.error, 'Your request could not be sent. Please try again.')}</p>}
+    </>}
+  </section>;
+}

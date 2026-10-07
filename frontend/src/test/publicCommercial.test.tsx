@@ -1,0 +1,54 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, it, vi } from 'vitest';
+import { BrandLockup } from '../components/brand/Brand';
+import { metadataForPath } from '../components/brand/metadata';
+import { PageMetadata } from '../components/brand/PageMetadata';
+import { PublicLayout } from '../components/layout/PublicLayout';
+import { OfferCard } from '../components/commercial/OfferCard';
+import { CommercialStepper } from '../components/commercial/CommercialStepper';
+import { PricingSection } from '../pages/Landing/PricingSection';
+import { annualSaving, includedInPlan, formatInrMinor, type PublicCommercialOffer } from '../commercial/publicCommercial';
+import { publicClient } from '../api/client';
+import { useAppStore } from '../store/useAppStore';
+const offer: PublicCommercialOffer = { offerType: 'plan', key: 'pilot-core', name: 'Core package', description: 'Queue workspace', available: true, moduleKeys: ['queue'], capabilities: ['Queue & Appointments'], category: 'package', marketingLabel: null, pricing: { currency: 'INR', pricingMode: 'fixed', monthlyPriceMinor: '10000', yearlyPriceMinor: '100000', billingCycles: ['monthly', 'yearly'] } };
+const inventory: PublicCommercialOffer = { ...offer, offerType: 'add_on', key: 'module-inventory', name: 'Inventory', moduleKeys: ['inventory'], capabilities: ['Inventory'], pricing: { ...offer.pricing!, pricingMode: 'contact', monthlyPriceMinor: null, yearlyPriceMinor: null } };
+const queue = { ...inventory, key: 'module-queue', name: 'Queue', moduleKeys: ['queue'] };
+const wrap = (node: React.ReactNode) => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MemoryRouter>{node}</MemoryRouter></QueryClientProvider>);
+it('one shared original mark and EkaVio wordmark', () => { const view = render(<BrandLockup />); expect(view.container.textContent).toBe('EkaVio'); expect(view.container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 40 40'); });
+it('fixed monthly and truthful yearly saving', () => { render(<OfferCard offer={offer} cycle="yearly" onSelect={vi.fn()} />); expect(screen.getByText('Save ₹200.00 yearly vs 12 monthly payments')).toBeTruthy(); expect(screen.getByRole('button', { name: 'Select Core package' })).toBeTruthy(); });
+it('contact pricing selectable without fake zero', () => { render(<OfferCard offer={inventory} cycle="monthly" onSelect={vi.fn()} />); expect(screen.getByText('Contact for pricing')).toBeTruthy(); expect(screen.getByRole('button', { name: 'Select Inventory' })).toHaveProperty('disabled', false); expect(screen.queryByText('₹0.00')).toBeNull(); });
+it('missing fixed cycle is unavailable, not inferred contact mode', () => { render(<OfferCard offer={{ ...offer, pricing: { ...offer.pricing!, yearlyPriceMinor: null } }} cycle="yearly" onSelect={vi.fn()} />); expect(screen.getByRole('button')).toHaveProperty('disabled', true); expect(screen.getByText('Cycle unavailable')).toBeTruthy(); });
+it('included module disabled with human package label', () => { render(<OfferCard offer={queue} cycle="monthly" included={offer.name} onSelect={vi.fn()} />); expect(screen.getByRole('button', { name: 'Included in Core package' })).toHaveProperty('disabled', true); expect(includedInPlan(offer, queue)).toBe(true); expect(includedInPlan(offer, inventory)).toBe(false); });
+describe('exact annual savings', () => {
+  it.each([['100','1200',null],['100','1201',null],['9999999999999','9999999999999','109999999999989']])('calculates without floating-point shortcuts', (monthly, yearly, expected) => expect(annualSaving({ ...offer.pricing!, monthlyPriceMinor: monthly, yearlyPriceMinor: yearly })).toBe(expected));
+  it('contact/no monthly cannot produce a savings claim', () => { expect(annualSaving(inventory.pricing)).toBeNull(); expect(annualSaving({ ...offer.pricing!, monthlyPriceMinor: null })).toBeNull(); expect(formatInrMinor(null)).toBe('Contact for pricing'); });
+});
+it('stepper marks only actual persisted completion', () => { render(<CommercialStepper steps={[{ label: 'Agreement', complete: true }, { label: 'Payment settled', complete: false }]} />); expect(screen.getByText('Agreement', { exact: false }).dataset.complete).toBe('true'); expect(screen.getByText('Payment settled', { exact: false }).dataset.complete).toBe('false'); });
+it('public navigation, preference and focus-managed mobile drawer', () => {
+  useAppStore.setState({ user: null, theme: { mode: 'light', primaryColor: '#4F46E5' } });
+  wrap(<PublicLayout><p>Public content</p></PublicLayout>);
+  const menu = screen.getByRole('button', { name: 'Open public navigation' }); menu.focus(); fireEvent.click(menu);
+  expect(screen.getByRole('dialog', { name: 'Public navigation' })).toBeTruthy(); fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(document.activeElement).toBe(menu);
+  fireEvent.change(screen.getByLabelText('Appearance'), { target: { value: 'dark' } }); expect(useAppStore.getState().theme.mode).toBe('dark');
+});
+it('sensitive routes noindex, token-free canonical and meaningful title', () => { expect(metadataForPath('/onboarding').robots).toBe('noindex,nofollow'); expect(metadataForPath('/privacy').canonical).toBe('https://ekavio.afsify.com/privacy'); const robots = document.createElement('meta'); robots.name = 'robots'; document.head.append(robots); wrap(<PageMetadata />); expect(document.title).toContain('EkaVio'); expect(robots.content).toBe('index,follow'); robots.remove(); });
+it('wizard keeps plan with contact add-on, reviews normalized phone and human-only receipt', async () => {
+  vi.spyOn(publicClient, 'get').mockResolvedValue({ data: { data: { plans: [offer], addOns: [inventory, queue] } } });
+  let body: Record<string, unknown> | undefined;
+  vi.spyOn(publicClient, 'post').mockImplementation(async (url, data) => {
+    if (url === '/public/commercial/quote') return { data: { data: { billingCycle: 'monthly', currency: 'INR', subtotalMinor: null, contactRequired: true, quoteFingerprint: 'a'.repeat(64), calculatedAt: new Date().toISOString(), items: [{ offerType: 'plan', key: offer.key, name: offer.name, priceMinor: '10000', pricingUpdatedAt: '' }, { offerType: 'add_on', key: inventory.key, name: inventory.name, priceMinor: null, pricingUpdatedAt: '' }] } } };
+    body = data as Record<string, unknown>; return { data: { data: { receiptId: 'internal-private-uuid', publicReference: 'EV-REQ-ABCDEF0123456789ABCDEF0123456789', billingCycle: 'monthly', subtotalMinor: null, contactRequired: true, message: 'We will contact you.' } } };
+  });
+  wrap(<PricingSection />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Select Core package' }));
+  expect(screen.getByRole('button', { name: 'Included in Core package' })).toHaveProperty('disabled', true);
+  fireEvent.click(screen.getByRole('button', { name: 'Select Inventory' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Continue to business details' })).toHaveProperty('disabled', false));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to business details' }));
+  fireEvent.change(screen.getByLabelText('Business name'), { target: { value: 'STAGING F business' } }); fireEvent.change(screen.getByLabelText('Contact name'), { target: { value: 'QA owner' } }); fireEvent.change(screen.getByLabelText('Phone number', { exact: true }), { target: { value: '9876543210' } });
+  await act(async () => { fireEvent.submit(screen.getByRole('button', { name: 'Review request' }).closest('form')!); });
+  expect(screen.getByText('+919876543210')).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: 'Submit access request' }));
+  expect(await screen.findByText('EV-REQ-ABCDEF0123456789ABCDEF0123456789')).toBeTruthy(); expect(screen.queryByText('internal-private-uuid')).toBeNull(); expect(body?.planKey).toBe('pilot-core'); expect(body?.addOnKeys).toEqual(['module-inventory']); expect(body).not.toHaveProperty('subtotalMinor');
+});

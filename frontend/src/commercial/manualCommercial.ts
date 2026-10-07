@@ -29,7 +29,7 @@ export interface CommercialAgreement {
   billingCycle: BillingCycle;
   selectedPlanKey: string | null;
   selectedAddOnKeys: string[];
-  listSubtotalMinor: string;
+  listSubtotalMinor: string | null;
   listPricingSnapshot: PublicCommercialQuote;
   agreedTotalMinor: string;
   adjustmentReason: string | null;
@@ -91,6 +91,8 @@ export interface OnboardingInspection {
 
 export interface CustomerCommercialSummary {
   agreement: {
+    planName?: string | null;
+    addOnNames?: string[];
     currency: 'INR';
     billingCycle: BillingCycle;
     selectedPlanKey: string | null;

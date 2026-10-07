@@ -6,6 +6,6 @@ export default defineConfig({
   // Secrets/action URLs never appear in automatic failure traces or screenshots.
   webServer:[
     ...(process.env.IDENTITY_QA_EXTERNAL_API ? [] : [{command:'npx tsx tests/identityBrowserServer.ts',cwd:'../backend',url:'http://127.0.0.1:5011/__test/health',reuseExistingServer:false,timeout:60_000}]),
-    {command:'npm run dev -- --host 127.0.0.1 --port 4175 --strictPort',url:'http://127.0.0.1:4175',reuseExistingServer:false,timeout:60_000,env:{VITE_API_URL:'http://127.0.0.1:5011/api',VITE_SOCKET_URL:'http://127.0.0.1:5011'}},
+    ...(process.env.IDENTITY_QA_EXTERNAL_WEB ? [] : [{command:'npm run dev -- --host 127.0.0.1 --port 4175 --strictPort',url:'http://127.0.0.1:4175',reuseExistingServer:false,timeout:60_000,env:{VITE_API_URL:'http://127.0.0.1:5011/api',VITE_SOCKET_URL:'http://127.0.0.1:5011'}}]),
   ],
 });

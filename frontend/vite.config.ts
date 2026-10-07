@@ -30,9 +30,21 @@ export default defineConfig(({ mode }) => {
   const environment = { ...loadEnv(mode, process.cwd(), ''), ...process.env };
   readBuildUrl('VITE_API_URL', environment.VITE_API_URL, mode);
   readBuildUrl('VITE_SOCKET_URL', environment.VITE_SOCKET_URL, mode);
+  const publicUrl = new URL(environment.VITE_PUBLIC_APP_URL ?? 'https://ekavio.afsify.com');
+  if (publicUrl.protocol !== 'https:' || publicUrl.username || publicUrl.password || publicUrl.search || publicUrl.hash || publicUrl.pathname !== '/') throw new Error('VITE_PUBLIC_APP_URL must be a credential-free HTTPS origin');
+  const publicOrigin = publicUrl.origin;
 
   return {
+    define: { 'import.meta.env.VITE_PUBLIC_APP_URL': JSON.stringify(publicOrigin) },
     plugins: [
+      {
+        name: 'ekavio-public-metadata',
+        transformIndexHtml: (html: string) => html.replaceAll('%PUBLIC_APP_URL%', publicOrigin),
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'robots.txt', source: `User-agent: *\nAllow: /$\nAllow: /privacy$\nDisallow: /\nDisallow: /login\nDisallow: /onboarding\nDisallow: /forgot-password\nDisallow: /reset-password\nDisallow: /verify-email\nDisallow: /accept-invitation\nDisallow: /api/\nDisallow: /dashboard\nDisallow: /commercial/\nSitemap: ${publicOrigin}/sitemap.xml\n` });
+          this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${publicOrigin}/</loc></url><url><loc>${publicOrigin}/privacy</loc></url></urlset>` });
+        },
+      },
       react(),
       tailwindcss(),
       VitePWA({
@@ -44,20 +56,20 @@ export default defineConfig(({ mode }) => {
         },
         manifest: {
           id: '/',
-          name: "Eka Vio",
+          name: "EkaVio",
           short_name: "EkaVio",
           description: 'Tenant-aware operations for clinics and service businesses.',
           start_url: '/',
           scope: '/',
-          theme_color: "#0f172a",
-          background_color: "#0f172a",
+          theme_color: "#4f46e5",
+          background_color: "#f5f7fb",
           display: "standalone",
-          icons: [{
-            src: '/favicon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
-            purpose: 'any',
-          }],
+          icons: [
+            { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+            { src: '/brand/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/brand/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/brand/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
         },
       }),
     ],

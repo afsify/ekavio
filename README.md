@@ -35,6 +35,26 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-08F completes the public website and manual commercial experience: one original
+EkaVio mark/wordmark, Light/Dark/System navigation, factual module/CORE messaging,
+FAQ/privacy, and a three-step Request Access wizard. Explicit fixed/contact pricing
+never invents a zero/partial contact total. Server quotes and final transaction
+revalidation remain authority. Plan/add-on overlap is labeled and rejected safely.
+Unique immutable random public references replace raw UUIDs as receipt/intake labels.
+Operator pricing shares the public card preview; bounded intake search and factual
+agreement/payment/onboarding/renewal progress use human package names.
+
+Additive **017** must precede deployment; 001–016 and old fixed pricing remain intact.
+Run backend `npm run test:public-experience` and frontend
+`npm run test:e2e:commercial` against disposable PostgreSQL. Public HTTPS canonical
+origin is optionally `VITE_PUBLIC_APP_URL` (default `https://ekavio.afsify.com`);
+only home/privacy are indexed. Original social/PWA assets are self-hosted; local
+Nginx serves `application/manifest+json`. See [ADR 0025](docs/adr/0025-public-brand-commercial-experience.md)
+and [V2-08F acceptance](docs/reviews/V2-08F_PUBLIC_COMMERCIAL_UX.md) for test, bundle,
+hosted migration and exact-deployment boundaries.
+**NO-GO FOR REAL CUSTOMER DATA** is unchanged. Render Free stays staging-only,
+Atlas retained, extended schema recovery OPEN. No automatic V2-09, gateway or trackers.
+
 V2-08E adds permission-aware Workspace dashboards, durable hide/order/reset,
 independently authorized Organization/Platform overviews, ten curated Reports,
 server-generated formula-safe CSV and a personal PostgreSQL notification center.
@@ -53,7 +73,7 @@ Run backend `npm run test:analytics-notifications` and frontend
 `npm run notifications:prune -- --apply` deletes at most 1,000 read attention messages
 older than 90 days; unread, audit and business rows remain. General notification email
 and saved presets are deferred. **NO-GO FOR REAL CUSTOMER DATA** remains unchanged;
-Render Free is staging-only by choice, Atlas retained, no automatic V2-08F.
+Render Free is staging-only by choice, Atlas retained; V2-08F now extends this foundation.
 Hosted 001–016 checksums/status and public live/ready/frontend/login are verified;
 this does not claim hosted authenticated V2-08E acceptance or extended recovery proof.
 
@@ -71,7 +91,7 @@ See [ADR 0023](docs/adr/0023-dynamic-fields-and-form-layouts.md) and
 [dynamic-fields acceptance](docs/reviews/V2-08D_DYNAMIC_FIELDS_FORM_LAYOUTS.md).
 Run backend `npm run test:dynamic-fields` and frontend `npm run test:e2e:fields`
 against disposable local PostgreSQL. **NO-GO FOR REAL CUSTOMER DATA** is unchanged;
-V2-08E extends this accepted foundation; V2-08F does not start automatically.
+V2-08E/F extend this accepted foundation; V2-09 does not start automatically.
 
 V2-08C adds organization administration (`/admin`), safe branch lifecycle,
 organization-local custom roles, staff suspension/reactivation/revocation,

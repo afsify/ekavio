@@ -15,6 +15,7 @@ import type {
 } from '../services/publicCommercialService.js';
 import { AppError } from '../utils/AppError.js';
 import type { PostgresDatabase } from './database.js';
+import { calculatePublicQuote, quoteFingerprint } from '../services/publicCommercialService.js';
 
 interface OfferRow extends QueryResultRow {
   offer_type: OfferType;
@@ -27,6 +28,7 @@ interface OfferRow extends QueryResultRow {
   capabilities: string[];
   category: string;
   pricing_id: string | null;
+  pricing_mode: 'fixed' | 'contact' | null;
   currency: 'INR' | null;
   monthly_price_minor: string | null;
   yearly_price_minor: string | null;
@@ -38,6 +40,7 @@ interface OfferRow extends QueryResultRow {
 
 interface AccessRequestRow extends QueryResultRow {
   id: string;
+  public_reference: string;
   business_name: string;
   business_type: string;
   contact_name: string;
@@ -48,7 +51,7 @@ interface AccessRequestRow extends QueryResultRow {
   selected_plan_key: string | null;
   selected_add_on_keys: string[];
   currency: 'INR';
-  subtotal_minor: string;
+  subtotal_minor: string | null;
   pricing_snapshot: PublicCommercialQuote;
   status: AccessRequestStatus;
   public_note: string | null;
@@ -94,7 +97,7 @@ const offerSelect = `
   )
   SELECT o.offer_type, o.key, o.name, o.description, o.status, o.available,
     o.module_keys, o.capabilities, o.category,
-    pr.id AS pricing_id, pr.currency, pr.monthly_price_minor::text,
+    pr.id AS pricing_id, pr.pricing_mode, pr.currency, pr.monthly_price_minor::text,
     pr.yearly_price_minor::text, pr.published, pr.display_order,
     pr.marketing_label, pr.updated_at AS pricing_updated_at
   FROM offers o
@@ -104,7 +107,7 @@ const offerSelect = `
 `;
 
 const accessRequestSelect = `
-  SELECT id, business_name, business_type, contact_name, contact_phone,
+  SELECT id, public_reference, business_name, business_type, contact_name, contact_phone,
     normalized_phone, email, billing_cycle, selected_plan_key, selected_add_on_keys,
     currency, subtotal_minor::text, pricing_snapshot, status, public_note,
     internal_note, created_at, updated_at
@@ -124,6 +127,7 @@ const projectOffer = (row: OfferRow): CommercialOfferRecord => ({
   pricing: row.pricing_id && row.currency && row.pricing_updated_at
     ? {
         id: row.pricing_id,
+        pricingMode: row.pricing_mode ?? 'fixed',
         currency: row.currency,
         monthlyPriceMinor: row.monthly_price_minor,
         yearlyPriceMinor: row.yearly_price_minor,
@@ -137,6 +141,7 @@ const projectOffer = (row: OfferRow): CommercialOfferRecord => ({
 
 const projectAccessRequest = (row: AccessRequestRow): AccessRequestRecord => ({
   id: row.id,
+  publicReference: row.public_reference,
   businessName: row.business_name,
   businessType: row.business_type,
   contactName: row.contact_name,
@@ -186,7 +191,7 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
 
   public createAccessRequest(
     input: StoredAccessRequestInput,
-  ): Promise<{ id: string; createdAt: Date }> {
+  ): Promise<{ id: string; publicReference: string; createdAt: Date }> {
     return this.database.transaction(async (client) => {
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.normalizedPhone]);
       const recent = await client.query<{ exists: boolean }>(`
@@ -199,13 +204,27 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
         throw new AppError('A recent request already exists for this phone number', 429);
       }
 
-      const created = await client.query<{ id: string; created_at: Date }>(`
+      // Serialize price edits until the accepted quote and request are committed.
+      await client.query('SELECT id FROM plans WHERE key=$1 FOR SHARE', [input.selectedPlanKey]);
+      await client.query('SELECT id FROM add_ons WHERE key=ANY($1::text[]) ORDER BY id FOR SHARE', [input.selectedAddOnKeys]);
+      await client.query('SELECT id FROM public_offer_pricing ORDER BY id FOR SHARE');
+      const offers = await client.query<OfferRow>(offerSelect);
+      const fresh = calculatePublicQuote(offers.rows.map(projectOffer), {
+        billingCycle: input.billingCycle,
+        ...(input.selectedPlanKey ? { planKey: input.selectedPlanKey } : {}),
+        addOnKeys: input.selectedAddOnKeys,
+      }, new Date());
+      if (quoteFingerprint(fresh) !== quoteFingerprint(input.pricingSnapshot)) {
+        throw new AppError('Pricing changed. Review your setup again.', 409);
+      }
+
+      const created = await client.query<{ id: string; public_reference: string; created_at: Date }>(`
         INSERT INTO commercial_access_requests
           (business_name, business_type, contact_name, contact_phone, normalized_phone,
            email, billing_cycle, selected_plan_key, selected_add_on_keys, currency,
-           subtotal_minor, pricing_snapshot, status, public_note, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, NOW(), NOW())
-        RETURNING id, created_at
+           subtotal_minor, pricing_snapshot, status, public_note, pricing_mode, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13, $14, NOW(), NOW())
+        RETURNING id, public_reference, created_at
       `, [
         input.businessName,
         input.businessType,
@@ -220,6 +239,7 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
         input.subtotalMinor,
         JSON.stringify(input.pricingSnapshot),
         input.publicNote,
+        input.pricingSnapshot.contactRequired ? 'contact' : 'fixed',
       ]);
       const row = created.rows[0]!;
       await client.query(`
@@ -227,18 +247,26 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
           (access_request_id, actor_user_id, action, from_status, to_status, details)
         VALUES ($1, NULL, 'submitted', NULL, 'pending', '{}'::jsonb)
       `, [row.id]);
-      return { id: row.id, createdAt: row.created_at };
+      return { id: row.id, publicReference: row.public_reference, createdAt: row.created_at };
     });
   }
 
   public async listAccessRequests(input: {
     status?: AccessRequestStatus;
+    search?: string;
     limit: number;
     offset: number;
   }): Promise<{ items: AccessRequestRecord[]; total: number }> {
     const values: unknown[] = [];
-    const filter = input.status ? 'WHERE status = $1' : '';
-    if (input.status) values.push(input.status);
+    const filters: string[] = [];
+    if (input.status) filters.push(`status = $${values.push(input.status)}`);
+    if (input.search) {
+      const parameter = values.push(input.search.trim().slice(0, 120));
+      filters.push(`strpos(lower(concat_ws(' ', public_reference, business_name, contact_name,
+        normalized_phone, email)), lower($${parameter}::text)) > 0`);
+    }
+    const filter = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const countValues = [...values];
     const limitParameter = values.push(input.limit);
     const offsetParameter = values.push(input.offset);
     return this.database.withClient(async (client) => {
@@ -249,7 +277,6 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
           ORDER BY created_at DESC, id DESC
           LIMIT $${limitParameter} OFFSET $${offsetParameter}
         `, values);
-        const countValues = input.status ? [input.status] : [];
         const count = await client.query<{ total: string }>(`
           SELECT COUNT(*)::text AS total FROM commercial_access_requests ${filter}
         `, countValues);
@@ -302,7 +329,7 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
         UPDATE commercial_access_requests
         SET status = $2, internal_note = $3, updated_at = NOW()
         WHERE id = $1
-        RETURNING id, business_name, business_type, contact_name, contact_phone,
+        RETURNING id, public_reference, business_name, business_type, contact_name, contact_phone,
           normalized_phone, email, billing_cycle, selected_plan_key, selected_add_on_keys,
           currency, subtotal_minor::text, pricing_snapshot, status, public_note,
           internal_note, created_at, updated_at
@@ -350,19 +377,19 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
             UPDATE public_offer_pricing SET
               currency = $2, monthly_price_minor = $3, yearly_price_minor = $4,
               published = $5, display_order = $6, marketing_label = $7,
-              updated_by_user_id = $8, updated_at = NOW()
+              updated_by_user_id = $8, pricing_mode = $9, updated_at = NOW()
             WHERE id = $1 RETURNING id
           `, [previous.id, input.currency, input.monthlyPriceMinor, input.yearlyPriceMinor,
-            input.published, input.displayOrder, input.marketingLabel, actorUserId])
+            input.published, input.displayOrder, input.marketingLabel, actorUserId, input.pricingMode ?? 'fixed'])
         : await client.query<{ id: string }>(`
             INSERT INTO public_offer_pricing
               (offer_type, ${targetColumn}, currency, monthly_price_minor, yearly_price_minor,
-               published, display_order, marketing_label, updated_by_user_id, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+               published, display_order, marketing_label, updated_by_user_id, pricing_mode, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
             RETURNING id
           `, [offerType, targetId, input.currency, input.monthlyPriceMinor,
             input.yearlyPriceMinor, input.published, input.displayOrder,
-            input.marketingLabel, actorUserId]);
+            input.marketingLabel, actorUserId, input.pricingMode ?? 'fixed']);
       const pricingId = pricing.rows[0]!.id;
       const action = !previous
         ? 'created'
@@ -372,10 +399,10 @@ export class PostgresPublicCommercialRepository implements PublicCommercialRepos
       await client.query(`
         INSERT INTO public_offer_pricing_events
           (offer_pricing_id, actor_user_id, action, currency, monthly_price_minor,
-           yearly_price_minor, published, display_order, marketing_label, occurred_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+           yearly_price_minor, published, display_order, marketing_label, pricing_mode, occurred_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
       `, [pricingId, actorUserId, action, input.currency, input.monthlyPriceMinor,
-        input.yearlyPriceMinor, input.published, input.displayOrder, input.marketingLabel]);
+        input.yearlyPriceMinor, input.published, input.displayOrder, input.marketingLabel, input.pricingMode ?? 'fixed']);
 
       const result = await client.query<OfferRow>(`
         ${offerSelect}

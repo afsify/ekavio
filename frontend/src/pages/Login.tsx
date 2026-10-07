@@ -12,8 +12,6 @@ import toast from 'react-hot-toast';
 import {
   Phone,
   Lock,
-  Building2,
-  Sparkles,
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
@@ -21,6 +19,7 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useLogin } from '../hooks/useAuth';
 import { getErrorMessage } from '../api/errors';
+import { BrandLockup } from '../components/brand/Brand';
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'Phone or email is required').max(254),
@@ -81,23 +80,13 @@ export const Login: React.FC = () => {
       {/* Responsive Glassmorphic Form Card */}
       <div className="relative w-full max-w-md z-10">
         <div className="text-center mb-8">
-          <div
-            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl shadow-lg mb-4 ring-1 ring-white/20 transition-colors duration-300"
-            style={{ backgroundColor: 'var(--color-primary, #4F46E5)' }}
-          >
-            <Building2 className="w-7 h-7 text-white" />
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Ekavio Business Operations Suite</span>
-          </div>
+          <Link to="/" aria-label="EkaVio home" className="inline-block mb-5"><BrandLockup /></Link>
 
           <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Welcome Back
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Log in to manage your tenant modules & operations
+            Sign in to your business workspace
           </p>
         </div>
 
@@ -146,7 +135,7 @@ export const Login: React.FC = () => {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-500">
-          &copy; {new Date().getFullYear()} Ekavio Technologies. All rights reserved.
+          &copy; {new Date().getFullYear()} EkaVio. <Link to="/privacy">Privacy overview</Link>
         </p>
       </div>
     </div>

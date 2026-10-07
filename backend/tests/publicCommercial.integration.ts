@@ -47,7 +47,7 @@ test('V2-06B5A PostgreSQL pricing and public commercial intake', async (context)
   await migrate(database);
   assert.deepEqual(
     (await getMigrationStatus(database)).map(({ state }) => state),
-    Array.from({ length: 16 }, () => 'applied'),
+    Array.from({ length: 17 }, () => 'applied'),
   );
 
   await new PostgresCommercialRepository(database).reconcileCatalogue();
@@ -96,7 +96,7 @@ test('V2-06B5A PostgreSQL pricing and public commercial intake', async (context)
   await context.test('public catalogue and quotes hide drafts and use authoritative PostgreSQL prices', async () => {
     const catalogue = await service.getCatalogue();
     assert.equal(catalogue.plans.some(({ key }) => key === 'legacy-import'), false);
-    assert.equal(catalogue.addOns.find(({ key }) => key === 'module-attendance')?.pricing, null);
+    assert.equal(catalogue.addOns.find(({ key }) => key === 'module-attendance'), undefined);
     assert.equal(JSON.stringify(catalogue).includes(operatorId), false);
     const quote = await service.previewQuote({
       billingCycle: 'yearly', planKey: 'pilot-core', addOnKeys: ['module-inventory'],

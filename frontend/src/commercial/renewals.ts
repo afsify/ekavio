@@ -6,6 +6,7 @@ export type CommercialRenewalKind = 'continuous' | 'reactivation';
 export type RenewalQueueView = 'due' | 'expired' | 'in_progress' | 'paid' | 'recent' | 'all';
 
 export interface RenewalQueueItem {
+  addOnNames?: string[];
   organizationId: string;
   organizationName: string;
   subscriptionId: string;
@@ -110,7 +111,7 @@ export interface CommercialRenewalPreview {
 }
 
 export interface CustomerRenewalHistory {
-  renewal: Pick<CommercialRenewal,
+  renewal: { planName?: string | null; addOnNames?: string[] } & Pick<CommercialRenewal,
     | 'id'
     | 'renewalKind'
     | 'currency'

@@ -58,7 +58,7 @@ test('V2-06E Inventory migration transforms, reconciles, and blocks unsafe guess
   });
 
   await migrate(database);
-  assert.equal((await getMigrationStatus(database)).length, 16);
+  assert.equal((await getMigrationStatus(database)).length, 17);
   const migrationDirectory = path.resolve(process.cwd(), 'postgres', 'migrations');
   const accepted = (await readdir(migrationDirectory)).filter((name) =>
     /^0(?:0[1-9]|10)_.*\.sql$/.test(name));
@@ -68,7 +68,7 @@ test('V2-06E Inventory migration transforms, reconciles, and blocks unsafe guess
   await migrate(upgrade, temporaryMigrations);
   assert.equal((await getMigrationStatus(upgrade, temporaryMigrations)).length, 10);
   await migrate(upgrade);
-  assert.equal((await getMigrationStatus(upgrade)).length, 16);
+  assert.equal((await getMigrationStatus(upgrade)).length, 17);
 
   const now = new Date('2026-10-03T00:00:00.000Z');
   const organizationId = randomUUID();

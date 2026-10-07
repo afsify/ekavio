@@ -5,6 +5,7 @@ import { publicClient, client } from '../../api/client';
 import { getErrorMessage } from '../../api/errors';
 import { Input } from '../../components/ui/Input';
 import { useAppStore } from '../../store/useAppStore';
+import { BrandLockup } from '../../components/brand/Brand';
 
 type Action = 'forgot' | 'reset' | 'verify' | 'invite';
 // StrictMode may call initializers twice. Cache only until the component effect;
@@ -47,7 +48,7 @@ export default function AccountActionPage({ action }: { action: Action }) {
   }, [resetSubmission]);
   const passwordInvalid = password.length < 12 || new TextEncoder().encode(password).length > 72 || password !== confirm;
   return <main className="min-h-screen flex items-center justify-center px-4 py-10"><section className="panel page-stack w-full max-w-md">
-    <Link className="font-bold text-indigo-500" to="/">EkaVio</Link><h1 className="text-2xl font-semibold">{titles[action]}</h1>
+    <Link to="/" aria-label="EkaVio home"><BrandLockup /></Link><h1 className="text-2xl font-semibold">{titles[action]}</h1>
     {submit.isSuccess ? <p role="status">{submit.data.message}</p> : <>
       {action === 'forgot' ? <p className="muted">Enter your phone or verified email. Recovery is available only through your verified email; we do not disclose account information.</p> : <>
         {!token && <p role="alert">This link is missing. Request a new link.</p>}

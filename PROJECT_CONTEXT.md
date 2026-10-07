@@ -1,6 +1,36 @@
 # EkaVio Project Context
 
-## Latest product foundation: V2-08E (2026-10-07)
+## Latest product experience: V2-08F (2026-10-07)
+
+An original folded-E SVG/wordmark now unifies public, workspace and account branding.
+Responsive Light/Dark/System public navigation and a complete factual landing site
+lead to a three-step Request Access wizard, not checkout. Shared cards use canonical
+module capabilities. Plan selection removes/labels included add-ons; independent
+add-ons preserve the plan. Server quotes/fingerprints and transactional revalidation
+remain authoritative. Migration 017 adds explicit fixed/contact pricing (NULL whole
+estimate for contact), random unique immutable public references and retained request
+intent. Existing fixed prices and migrations 001–016 are preserved.
+
+Operator intake has bounded literal reference/contact search, status/pagination,
+shared public preview and explicit negotiated agreement amounts. Exact manual
+settlement, one-time invitation, recipient-chosen password and atomic provisioning
+remain unchanged. Billing/renewals use human frozen package names and factual progress.
+No gateway, recurring charge, fake invoice, new entitlement or paid dependency.
+
+Public metadata/social art, original PWA icons, local manifest MIME and a two-public-
+route sitemap/index allowlist exclude sensitive action URLs. Privacy/security wording
+is explicitly staging-only, without legal/certification/uptime claims or trackers.
+See [ADR 0025](docs/adr/0025-public-brand-commercial-experience.md) and
+[V2-08F acceptance](docs/reviews/V2-08F_PUBLIC_COMMERCIAL_UX.md) for exact final gates
+and hosted migration/deployment evidence. Hosted 001–017 are applied with matching
+checksums; only pending accepted 017 was applied. Public hosted health/pages are 200,
+but exact V2-08F deployment and hosted manifest MIME remain OPEN. Apply 017 explicitly
+before other deployments.
+Extended 013–017 recovery proof and hosted authenticated/exact deployment acceptance
+remain OPEN. **NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and
+retained Atlas are unchanged. V2-09 does not start automatically.
+
+## Previous product foundation: V2-08E (2026-10-07)
 
 Additive migration 016 supplies per-organization/user dashboard preferences,
 notification preferences and own-recipient attention rows, plus append-only safe
@@ -25,7 +55,7 @@ Hosted migrations 001–016 are applied with matching checksums; public live/rea
 frontend/login probes passed. This is not authenticated hosted acceptance. Other
 environments must apply 016 explicitly before deployment; extend recovery proof separately.
 **NO-GO FOR REAL CUSTOMER DATA**, intentionally Free Render staging and retained Atlas
-are unchanged. V2-08F does not start automatically.
+are unchanged. V2-08F now extends this accepted foundation.
 
 ## Previous product foundation: V2-08D (2026-10-07)
 

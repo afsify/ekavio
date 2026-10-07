@@ -22,6 +22,7 @@ import {
 import { formatInrMinor } from '../../commercial/publicCommercial';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { CommercialStepper } from '../../components/commercial/CommercialStepper';
 
 const views: Array<{ value: RenewalQueueView; label: string }> = [
   { value: 'due', label: 'Expires within 30 days' },
@@ -244,6 +245,7 @@ const CommercialRenewalsPage: React.FC = () => {
   return (
     <div className="space-y-6 p-4 md:p-8">
       <header className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+        {bundle && <CommercialStepper steps={[{ label: 'Finalized', complete: true }, { label: 'Payment settled', complete: bundle.settlementSatisfied }, { label: 'Applied', complete: bundle.renewal.status === 'applied' }]} />}
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-300"><RefreshCw className="h-7 w-7" /></div>
           <div><h1 className="text-2xl font-bold text-white">Subscriptions & Renewals</h1><p className="text-sm text-slate-400">Manual, exact-settlement subscription lifecycle</p></div>
@@ -253,7 +255,7 @@ const CommercialRenewalsPage: React.FC = () => {
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="font-bold text-white">Renewal queue</h2><p className="text-sm text-slate-400">{queueQuery.data?.pagination.total ?? 0} matching subscriptions</p></div>
-          <select value={view} onChange={(event) => { setView(event.target.value as RenewalQueueView); setPage(1); setSelected(null); setCreatedRenewalId(null); setStartingNextRenewal(false); }} className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white">
+          <select aria-label="Renewal queue view" value={view} onChange={(event) => { setView(event.target.value as RenewalQueueView); setPage(1); setSelected(null); setCreatedRenewalId(null); setStartingNextRenewal(false); }} className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white">
             {views.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}
           </select>
         </div>
@@ -264,7 +266,7 @@ const CommercialRenewalsPage: React.FC = () => {
               <button key={item.subscriptionId} type="button" onClick={() => chooseSubscription(item)} className={`w-full rounded-2xl border p-4 text-left ${selected?.subscriptionId === item.subscriptionId ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'}`}>
                 <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-white">{item.organizationName}</h3><p className="text-xs text-slate-500">{item.planName ?? 'Manual module access'}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${statusColor(item.renewalStatus ?? (item.expired ? 'cancelled' : 'awaiting_payment'))}`}>{item.renewalStatus ? titleCase(item.renewalStatus) : item.expired ? 'Expired' : 'Due'}</span></div>
                 <p className="mt-3 text-xs text-slate-400">Period ends {item.currentPeriodEndsAt ? new Date(item.currentPeriodEndsAt).toLocaleString() : 'without a boundary'}</p>
-                <p className="mt-1 text-xs text-slate-500">{item.addOnKeys.join(', ') || 'No add-ons'} · {item.billingCycle ?? 'No cycle'}</p>
+                <p className="mt-1 text-xs text-slate-500">{item.addOnNames?.join(', ') || 'No add-ons'} · {item.billingCycle ?? 'No cycle'}</p>
               </button>
             ))}
             {queueQuery.data?.data.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-slate-500">No subscriptions match this view.</p>}
@@ -276,10 +278,10 @@ const CommercialRenewalsPage: React.FC = () => {
             {selected && !activeRenewalId && (
               <div className="space-y-5">
                 <div><h3 className="text-xl font-bold text-white">Finalize renewal</h3><p className="text-sm text-slate-400">Review the current server-calculated package and list pricing before entering the negotiated amount. Finalization reloads these facts again. Package changes remain a separate operator action.</p></div>
-                <dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Organization</dt><dd className="font-semibold text-white">{selected.organizationName}</dd></div><div><dt className="text-slate-500">Current plan</dt><dd className="font-semibold text-white">{selected.planName ?? 'No base plan'}</dd></div><div><dt className="text-slate-500">Add-ons</dt><dd className="text-white">{selected.addOnKeys.join(', ') || 'None'}</dd></div><div><dt className="text-slate-500">Lifecycle</dt><dd className="text-white">{selected.expired ? 'Reactivation after expiry' : 'Continuous renewal'}</dd></div></dl>
+                <dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Organization</dt><dd className="font-semibold text-white">{selected.organizationName}</dd></div><div><dt className="text-slate-500">Current plan</dt><dd className="font-semibold text-white">{selected.planName ?? 'No base plan'}</dd></div><div><dt className="text-slate-500">Add-ons</dt><dd className="text-white">{selected.addOnNames?.join(', ') || 'None'}</dd></div><div><dt className="text-slate-500">Lifecycle</dt><dd className="text-white">{selected.expired ? 'Reactivation after expiry' : 'Continuous renewal'}</dd></div></dl>
                 {previewQuery.isLoading && <p className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-400">Calculating the authoritative list-price preview…</p>}
                 {previewQuery.isError && <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-200">{errorMessage(previewQuery.error)}</p>}
-                {previewQuery.data && <div className="rounded-xl border border-slate-800 bg-slate-900 p-3"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase text-slate-500">Current server list-price preview</p><p className="font-bold text-white">{previewQuery.data.listSubtotalMinor === null ? 'Not fully published' : formatInrMinor(previewQuery.data.listSubtotalMinor)}</p></div>{previewQuery.data.listPricingSnapshot.items.map((item) => <div key={`${item.offerType}:${item.key}`} className="mt-2 flex justify-between gap-3 text-sm"><span className="text-slate-300">{item.name}</span><span className="text-white">{item.priceMinor === null ? 'Not published' : formatInrMinor(item.priceMinor)}</span></div>)}</div>}
+                {previewQuery.data && <div className="rounded-xl border border-slate-800 bg-slate-900 p-3"><div className="flex items-center justify-between gap-3"><p className="text-xs font-semibold uppercase text-slate-500">Current server list-price preview</p><p className="font-bold text-white">{previewQuery.data.listSubtotalMinor === null ? 'List amount unavailable — agree terms manually' : formatInrMinor(previewQuery.data.listSubtotalMinor)}</p></div>{previewQuery.data.listPricingSnapshot.items.map((item) => <div key={`${item.offerType}:${item.key}`} className="mt-2 flex justify-between gap-3 text-sm"><span className="text-slate-300">{item.name}</span><span className="text-white">{item.priceMinor === null ? 'Amount to confirm' : formatInrMinor(item.priceMinor)}</span></div>)}</div>}
                 {selected.expired && <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">Enter and review an explicit non-backdated reactivation start. The backend will not silently fill the expired gap.</p>}
                 <div className="grid gap-3 sm:grid-cols-2"><Input label="Agreed renewal total ₹" inputMode="decimal" value={agreedTotalMinor} onChange={(event) => setAgreedTotalMinor(event.target.value)} /><Input label="Negotiated / complimentary reason" maxLength={500} value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} /><Input label="Renewal starts" type="datetime-local" value={renewalStartsAt} onChange={(event) => setRenewalStartsAt(event.target.value)} /><Input label="Renewal ends" type="datetime-local" value={renewalEndsAt} onChange={(event) => setRenewalEndsAt(event.target.value)} /></div>
                 <Button disabled={createInvalid || !previewQuery.data} isLoading={finalize.isPending} onClick={() => finalize.mutate()}><ShieldCheck className="h-4 w-4" /> Finalize renewal</Button>

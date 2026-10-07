@@ -97,6 +97,7 @@ interface SubscriptionAddOnRow extends QueryResultRow {
 }
 
 interface QueueRow extends QueryResultRow {
+  add_on_names: string[];
   organization_id: string;
   organization_name: string;
   subscription_id: string;
@@ -566,6 +567,7 @@ export class PostgresCommercialRenewalRepository implements CommercialRenewalRep
             JOIN add_ons a ON a.id = sa.add_on_id
             WHERE sa.subscription_id = s.id ORDER BY a.key
           ) AS add_on_keys,
+          ARRAY(SELECT a.name FROM subscription_add_ons sa JOIN add_ons a ON a.id=sa.add_on_id WHERE sa.subscription_id=s.id ORDER BY a.key) AS add_on_names,
           s.starts_at AS current_period_starts_at,
           s.current_period_ends_at,
           r.id AS renewal_id, r.status AS renewal_status, r.renewal_kind,
@@ -600,6 +602,7 @@ export class PostgresCommercialRenewalRepository implements CommercialRenewalRep
           planKey: row.plan_key,
           planName: row.plan_name,
           addOnKeys: row.add_on_keys,
+          addOnNames: row.add_on_names,
           currentPeriodStartsAt: row.current_period_starts_at,
           currentPeriodEndsAt: row.current_period_ends_at,
           renewalId: row.renewal_id,

@@ -9,7 +9,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-08C | Implemented organization administration/RBAC: additive 014, operating profile, safe branch lifecycle, custom replacement permissions, staff lifecycle, authenticated existing-account linking, safe audit and operator directory; automatic local acceptance, no pilot GO |
 | V2-08D | Implemented additive 015: five entity types, 13 typed fields, stable options/history, shared canonical form renderer, versioned layouts, safe configuration RBAC, Customer search/filter and automated local acceptance; no pilot GO |
 | V2-08E | Implemented additive 016: individually authorized factual dashboards, personal layouts, ten curated branch-safe reports, bounded formula-safe CSV/reportable fields, own transactional attention center and polling; no pilot GO |
-| V2-08F | Public website and commercial UX completion |
+| V2-08F | Implemented original shared brand, responsive public website/themes, additive 017 fixed/contact pricing and immutable request references, three-step server-quoted intake, manual commercial/onboarding/renewal UX, metadata/PWA and automated local acceptance; no pilot GO |
 | V2-09 | Optional separately approved CRM, Purchase and HR extensions |
 | V2-10 | Automated final acceptance, hosted tenancy/realtime, recovery/operations evidence and separate strict GO/NO-GO review |
 
@@ -27,7 +27,10 @@ multiselect filters, safe custom uniqueness, saved presets, general email, low-s
 events and multi-branch paid aggregates remain deferred. No bulk importer, sales/POS
 or full arbitrary report builder is implied. See
 [V2-08E acceptance](../reviews/V2-08E_DASHBOARDS_REPORTS_NOTIFICATIONS.md).
-V2-08F public/commercial UX does not begin automatically; NO-GO and operations gates remain.
+V2-08F now completes public/commercial UX; NO-GO and operations gates remain. See
+[V2-08F acceptance](../reviews/V2-08F_PUBLIC_COMMERCIAL_UX.md). Migration 017 must
+precede other deployments; recovery proof for 013–017 remains separate and OPEN.
+V2-09 requires separate approval and does not begin automatically.
 
 V2-08C implements authenticated existing-identity linking, custom tenant roles and
 organization-local staff lifecycle. Owner transfer/support bypass remain deferred.

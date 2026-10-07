@@ -27,7 +27,7 @@ export interface CommercialAgreementRecord {
   billingCycle: BillingCycle;
   selectedPlanKey: string | null;
   selectedAddOnKeys: string[];
-  listSubtotalMinor: string;
+  listSubtotalMinor: string | null;
   listPricingSnapshot: PublicCommercialQuote;
   agreedTotalMinor: string;
   adjustmentReason: string | null;
@@ -78,6 +78,8 @@ export interface AgreementBundle {
 
 export interface CustomerCommercialSummary {
   agreement: {
+    planName?: string | null;
+    addOnNames?: string[];
     currency: 'INR';
     billingCycle: BillingCycle;
     selectedPlanKey: string | null;

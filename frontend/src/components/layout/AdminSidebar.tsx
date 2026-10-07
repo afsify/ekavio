@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useAppStore } from '../../store/useAppStore';
 import { visibleDestinations } from './navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { BrandLockup } from '../brand/Brand';
 export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user, entitlements, isPlatformOperator, logout } = useAppStore();
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,7 @@ export function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
   return <>{isOpen && <button className="nav-backdrop" aria-label="Close navigation overlay" onClick={onClose} />}
     <aside ref={sidebarRef} className={`workspace-nav ${isOpen ? 'is-open' : ''}`} aria-label="Workspace sidebar">
-      <div className="flex items-center justify-between"><Link className="brand" to="/dashboard">EkaVio</Link><button className="nav-close quiet-button" onClick={onClose} aria-label="Close navigation">×</button></div>
+      <div className="flex items-center justify-between"><Link className="brand" to="/dashboard" aria-label="EkaVio workspace"><BrandLockup /></Link><button className="nav-close quiet-button" onClick={onClose} aria-label="Close navigation">×</button></div>
       <nav aria-label="Main navigation">{(['Workspace','Operations','Administration','Platform operations'] as const).map((group) => items.some((item) => item.group === group) && <section className="nav-group" key={group}><h2>{group}</h2>{items.filter((item) => item.group === group).map((item) => <NavLink key={item.path} className="nav-link" to={item.path} onClick={onClose}>{item.name}</NavLink>)}</section>)}</nav>
       <button className="quiet-button w-full" disabled={busy} onClick={() => { setBusy(true); void logout().catch(() => toast.error('Signed out locally; server revocation unavailable')).finally(() => { cache.clear(); setBusy(false); onClose(); navigate('/login', { replace: true }); }); }}>{busy ? 'Signing out…' : 'Sign out'}</button>
     </aside></>;

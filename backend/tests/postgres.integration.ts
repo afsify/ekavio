@@ -140,16 +140,16 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   await context.test('migrates a clean database and reruns deterministically', async () => {
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 16 }, () => 'pending'),
+      Array.from({ length: 17 }, () => 'pending'),
     );
     await migrate(database);
     await migrate(database);
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 16 }, () => 'applied'),
+      Array.from({ length: 17 }, () => 'applied'),
     );
     const history = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM schema_migrations');
-    assert.equal(history.rows[0]?.count, '16');
+    assert.equal(history.rows[0]?.count, '17');
   });
 
   const source = new MemorySource(fixture());

@@ -1,4 +1,4 @@
-import { rupeesToPaise, paiseToRupees } from '../../utils/money';
+import { rupeesToPaise } from '../../utils/money';
 import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -16,10 +16,13 @@ import {
 } from '../../commercial/publicCommercial';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { PhoneInput } from '../../components/ui/PhoneInput';
+import { CommercialStepper } from '../../components/commercial/CommercialStepper';
 
 const errorMessage = (error: unknown): string => {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? 'The commercial action could not be completed.';
+  if (axios.isAxiosError<{ message?: string; error?: { message?: string } }>(error)) {
+    if ((error.response?.status ?? 500) >= 500) return 'The commercial action could not be completed.';
+    return error.response?.data?.message ?? error.response?.data?.error?.message ?? 'The commercial action could not be completed.';
   }
   return 'The commercial action could not be completed.';
 };
@@ -35,7 +38,7 @@ export const CommercialActivationPanel: React.FC<{
   const [billingCycle, setBillingCycle] = useState(request.billingCycle);
   const [planKey, setPlanKey] = useState(request.selectedPlanKey ?? '');
   const [addOnKeys, setAddOnKeys] = useState<string[]>(request.selectedAddOnKeys);
-  const [agreedTotalMinor, setAgreedTotalMinor] = useState(paiseToRupees(request.subtotalMinor));
+  const [agreedTotalMinor, setAgreedTotalMinor] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
@@ -154,10 +157,10 @@ export const CommercialActivationPanel: React.FC<{
       const response = await client.post<{
         data: { onboardingPath: string; message: string; invitation: { expiresAt: string } };
       }>(`/billing/operator/agreements/${agreementId}/onboarding-invitations`, {});
-      return response.data.data;
+      // The raw handoff link lives only in component memory, not MutationCache.
+      setOneTimeLink(`${window.location.origin}${response.data.data.onboardingPath}`);
     },
-    onSuccess: async (data) => {
-      setOneTimeLink(`${window.location.origin}${data.onboardingPath}`);
+    onSuccess: async () => {
       await agreementQuery.refetch();
     },
   });
@@ -180,9 +183,9 @@ export const CommercialActivationPanel: React.FC<{
   const bundle = agreementQuery.data;
   const hasPublishedCyclePrice = (offer: OperatorPricing): boolean => Boolean(
     offer.pricing?.published
-    && (billingCycle === 'monthly'
+    && (offer.pricing.pricingMode === 'contact' || (billingCycle === 'monthly'
       ? offer.pricing.monthlyPriceMinor !== null
-      : offer.pricing.yearlyPriceMinor !== null),
+      : offer.pricing.yearlyPriceMinor !== null)),
   );
   const plans = offers.filter((offer) => offer.offerType === 'plan'
     && offer.available && offer.status === 'active' && hasPublishedCyclePrice(offer));
@@ -194,6 +197,7 @@ export const CommercialActivationPanel: React.FC<{
   const activeInvitation = bundle?.invitations.find((invitation) =>
     !invitation.revokedAt && !invitation.consumedAt && new Date(invitation.expiresAt) > new Date());
   const formInvalid = !startsAt || !endsAt || new Date(endsAt) <= new Date(startsAt)
+    || (offers.some((offer) => (offer.key === planKey || addOnKeys.includes(offer.key)) && offer.pricing?.pricingMode === 'contact') && adjustmentReason.trim().length < 3)
     || rupeesToPaise(agreedTotalMinor) === null
     || (!planKey && addOnKeys.length === 0)
     || !legalName.trim() || !billingContact.trim() || !billingPhone.trim();
@@ -206,6 +210,7 @@ export const CommercialActivationPanel: React.FC<{
   if (!bundle) {
     return (
       <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+        <CommercialStepper steps={[{ label: 'Request', complete: true }, { label: 'Approved', complete: true }, { label: 'Agreement', complete: false }, { label: 'Payment settled', complete: false }, { label: 'Onboarding issued', complete: false }, { label: 'Activated', complete: false }]} />
         <div>
           <h4 className="font-bold text-white">Finalize commercial agreement</h4>
           <p className="mt-1 text-xs text-slate-400">Current list pricing is recalculated by the backend. Enter the negotiated total in INR rupees.</p>
@@ -215,7 +220,7 @@ export const CommercialActivationPanel: React.FC<{
             <select value={billingCycle} onChange={(event) => setBillingCycle(event.target.value as typeof billingCycle)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
           </label>
           <label className="text-sm text-slate-300">Plan
-            <select value={planKey} onChange={(event) => setPlanKey(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="">No plan</option>{plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}</select>
+            <select value={planKey} onChange={(event) => { const key = event.target.value; setPlanKey(key); const modules = plans.find((plan) => plan.key === key)?.moduleKeys ?? []; setAddOnKeys((current) => current.filter((key) => !addOns.find((item) => item.key === key)?.moduleKeys?.some((module) => modules.includes(module)))); }} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="">No plan</option>{plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}</select>
           </label>
           <Input label="Agreed total ₹" inputMode="decimal" value={agreedTotalMinor} onChange={(event) => setAgreedTotalMinor(event.target.value)} />
           <Input label="Adjustment / complimentary reason" maxLength={500} value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} />
@@ -225,13 +230,16 @@ export const CommercialActivationPanel: React.FC<{
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-300">Final add-ons</p>
           <div className="grid gap-2 sm:grid-cols-2">
-            {addOns.map((addOn) => <label key={addOn.key} className="flex items-center gap-2 rounded-xl border border-slate-800 p-3 text-sm text-slate-300"><input type="checkbox" checked={addOnKeys.includes(addOn.key)} onChange={(event) => setAddOnKeys((current) => event.target.checked ? [...current, addOn.key] : current.filter((key) => key !== addOn.key))} />{addOn.name}</label>)}
+            {addOns.map((addOn) => {
+              const included = addOn.moduleKeys?.some((module) => plans.find((plan) => plan.key === planKey)?.moduleKeys?.includes(module));
+              return <label key={addOn.key} className="flex items-center gap-2 rounded-xl border border-slate-800 p-3 text-sm text-slate-300"><input type="checkbox" disabled={included} checked={addOnKeys.includes(addOn.key)} onChange={(event) => setAddOnKeys((current) => event.target.checked ? [...current, addOn.key] : current.filter((key) => key !== addOn.key))} />{addOn.name}{included && ' — included in plan'}</label>;
+            })}
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Billing legal name" maxLength={160} value={legalName} onChange={(event) => setLegalName(event.target.value)} />
           <Input label="Billing contact" maxLength={120} value={billingContact} onChange={(event) => setBillingContact(event.target.value)} />
-          <Input label="Billing phone" maxLength={32} value={billingPhone} onChange={(event) => setBillingPhone(event.target.value)} />
+          <PhoneInput label="Billing phone" value={billingPhone} onChange={setBillingPhone} required />
           <Input label="Billing email (optional)" type="email" maxLength={254} value={billingEmail} onChange={(event) => setBillingEmail(event.target.value)} />
           <Input label="Address line 1" maxLength={200} value={addressLine1} onChange={(event) => setAddressLine1(event.target.value)} />
           <Input label="Address line 2" maxLength={200} value={addressLine2} onChange={(event) => setAddressLine2(event.target.value)} />
@@ -248,6 +256,7 @@ export const CommercialActivationPanel: React.FC<{
 
   return (
     <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+      <CommercialStepper steps={[{ label: 'Request', complete: true }, { label: 'Approved', complete: true }, { label: 'Agreement', complete: true }, { label: 'Payment settled', complete: bundle.settlementSatisfied }, { label: 'Onboarding issued', complete: Boolean(activeInvitation || bundle.invitations.some((item) => item.consumedAt)) }, { label: 'Activated', complete: bundle.agreement.status === 'activated' }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h4 className="font-bold text-white">Commercial agreement</h4><p className="text-xs text-slate-400">Finalized {new Date(bundle.agreement.finalizedAt).toLocaleString()}</p></div>
         <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-200">{bundle.agreement.status.replace('_', ' ')}</span>

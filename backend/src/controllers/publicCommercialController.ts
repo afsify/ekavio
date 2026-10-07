@@ -99,7 +99,7 @@ export const createPublicCommercialHandlers = (service: PublicCommercialService)
     try {
       const query = operatorAccessRequestListQuerySchema.safeParse(request.query);
       if (!query.success) throw new AppError('Invalid access request filters', 400);
-      const result = await service.listRequests(query.data.status, query.data.page, query.data.limit);
+      const result = await service.listRequests(query.data.status, query.data.page, query.data.limit,query.data.search);
       response.json({
         success: true,
         data: result.items,

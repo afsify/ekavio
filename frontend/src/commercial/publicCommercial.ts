@@ -3,6 +3,7 @@ export type OfferType = 'plan' | 'add_on';
 export type AccessRequestStatus = 'pending' | 'contacted' | 'approved' | 'rejected' | 'activated';
 
 export interface PublicOfferPricing {
+  pricingMode?: 'fixed' | 'contact';
   currency: 'INR';
   monthlyPriceMinor: string | null;
   yearlyPriceMinor: string | null;
@@ -29,36 +30,45 @@ export interface PublicCommercialCatalogue {
 }
 
 export interface PublicCommercialQuote {
+  contactRequired?: boolean;
+  quoteFingerprint?: string;
   billingCycle: BillingCycle;
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   calculatedAt: string;
   items: Array<{
     offerType: OfferType;
     key: string;
     name: string;
-    priceMinor: string;
+    priceMinor: string | null;
     pricingUpdatedAt: string;
   }>;
 }
 
 export interface AccessRequestReceipt {
+  publicReference?: string;
+  contactRequired?: boolean;
   receiptId: string;
   status: 'pending';
   billingCycle: BillingCycle;
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   receivedAt: string;
   message: string;
 }
 
 export interface OperatorPricing {
+  description?: string;
+  category?: string;
+  moduleKeys?: string[];
+  capabilities?: string[];
   offerType: OfferType;
   key: string;
   name: string;
   status: 'active' | 'inactive';
   available: boolean;
   pricing: null | {
+    pricingMode?: 'fixed' | 'contact';
     currency: 'INR';
     monthlyPriceMinor: string | null;
     yearlyPriceMinor: string | null;
@@ -70,6 +80,7 @@ export interface OperatorPricing {
 }
 
 export interface OperatorAccessRequest {
+  publicReference?: string;
   id: string;
   businessName: string;
   businessType: string;
@@ -81,7 +92,7 @@ export interface OperatorAccessRequest {
   selectedPlanKey: string | null;
   selectedAddOnKeys: string[];
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   pricingSnapshot: PublicCommercialQuote;
   status: AccessRequestStatus;
   publicNote: string | null;
@@ -90,9 +101,19 @@ export interface OperatorAccessRequest {
   updatedAt: string;
 }
 
-export const formatInrMinor = (minor: string): string => {
+export const formatInrMinor = (minor: string | null): string => {
+  if (minor === null) return 'Contact for pricing';
   const amount = BigInt(minor);
   const rupees = amount / 100n;
   const paise = (amount % 100n).toString().padStart(2, '0');
   return `₹${new Intl.NumberFormat('en-IN').format(rupees)}.${paise}`;
 };
+
+export const annualSaving = (pricing: PublicOfferPricing | null): string | null => {
+  if (!pricing || pricing.pricingMode === 'contact' || pricing.monthlyPriceMinor === null || pricing.yearlyPriceMinor === null) return null;
+  const saving = BigInt(pricing.monthlyPriceMinor) * 12n - BigInt(pricing.yearlyPriceMinor);
+  return saving > 0n ? saving.toString() : null;
+};
+
+export const includedInPlan = (plan: PublicCommercialOffer | undefined, addOn: PublicCommercialOffer): boolean =>
+  Boolean(plan && addOn.moduleKeys.some((key) => plan.moduleKeys.includes(key)));

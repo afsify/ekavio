@@ -3,6 +3,7 @@ import { HeroSection } from "./HeroSection";
 import { FeaturesSection } from "./FeaturesSection";
 import { PricingSection } from "./PricingSection";
 import { PublicFooter } from "./PublicFooter";
+import { FaqSection } from './FaqSection';
 
 export const LandingPage: React.FC = () => {
   return (
@@ -10,6 +11,7 @@ export const LandingPage: React.FC = () => {
       <HeroSection />
       <FeaturesSection />
       <PricingSection />
+      <FaqSection />
       <PublicFooter />
     </div>
   );

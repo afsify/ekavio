@@ -129,6 +129,10 @@ jobs:
         working-directory: backend
         run: npm run test:manual-commercial
 
+      - name: Test public commercial experience and schema upgrade
+        working-directory: backend
+        run: npm run test:public-experience
+
       - name: Test manual commercial renewals
         working-directory: backend
         run: npm run test:commercial-renewal
@@ -248,6 +252,10 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:analytics
 
+      - name: Test PostgreSQL-backed public commercial experience in browser
+        working-directory: frontend
+        run: npm run test:e2e:commercial
+
       - name: Upload frontend QA evidence
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
@@ -260,6 +268,7 @@ jobs:
             !frontend/test-results/organization-admin/**
             !frontend/test-results/dynamic-fields/**
             !frontend/test-results/analytics/**
+            !frontend/test-results/commercial/**
           retention-days: 7
 
       - name: Validate Docker Compose

@@ -56,7 +56,7 @@ test('V2-06F corporate migration maps and reconciles exact legacy relationships'
   });
 
   await migrate(database);
-  assert.equal((await getMigrationStatus(database)).length, 16);
+  assert.equal((await getMigrationStatus(database)).length, 17);
   const migrationDirectory = path.resolve(process.cwd(), 'postgres', 'migrations');
   const accepted = (await readdir(migrationDirectory)).filter((name) =>
     /^(?:00[1-9]|01[01])_.*\.sql$/.test(name));
@@ -66,7 +66,7 @@ test('V2-06F corporate migration maps and reconciles exact legacy relationships'
   await migrate(upgrade, temporaryMigrations);
   assert.equal((await getMigrationStatus(upgrade, temporaryMigrations)).length, 11);
   await migrate(upgrade);
-  assert.equal((await getMigrationStatus(upgrade)).length, 16);
+  assert.equal((await getMigrationStatus(upgrade)).length, 17);
 
   const now = new Date('2026-09-30T01:00:00.000Z');
   const ownerLegacyId = legacyId();

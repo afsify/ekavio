@@ -102,6 +102,7 @@ export interface CommercialRenewalPreview {
 }
 
 export interface OperatorRenewalQueueRecord {
+  addOnNames?: string[];
   organizationId: string;
   organizationName: string;
   subscriptionId: string;
@@ -199,6 +200,8 @@ const serializePreview = (preview: CommercialRenewalPreview) => ({
 
 const serializeCustomerBundle = (bundle: CommercialRenewalBundle) => ({
   renewal: {
+    planName: bundle.renewal.packageSnapshot.plan?.name ?? null,
+    addOnNames: bundle.renewal.packageSnapshot.addOns.map((item) => item.name),
     id: bundle.renewal.id,
     renewalKind: bundle.renewal.renewalKind,
     currency: bundle.renewal.currency,

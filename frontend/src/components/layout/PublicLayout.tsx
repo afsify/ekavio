@@ -1,47 +1,37 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { Zap } from "lucide-react";
-
-interface PublicLayoutProps {
-  children: React.ReactNode;
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { BrandLockup } from '../brand/Brand';
+import { useAppStore } from '../../store/useAppStore';
+const destinations = [['Product', 'product'], ['Modules', 'modules'], ['Pricing', 'pricing'], ['FAQ', 'faq']];
+export function PublicLayout({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const menu = useRef<HTMLElement>(null);
+  const theme = useAppStore((state) => state.theme);
+  const setTheme = useAppStore((state) => state.setTheme);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null, overflow = document.body.style.overflow;
+    const items = () => Array.from(menu.current?.querySelectorAll<HTMLElement>('a,button') ?? []);
+    items()[0]?.focus(); document.body.style.overflow = 'hidden';
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+      if (event.key === 'Tab') {
+        const first = items()[0], last = items().at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('keydown', key); document.body.style.overflow = overflow; previous?.focus(); };
+  }, [open, close]);
+  const links = <>{destinations.map(([label, id]) => <a key={id} href={`/#${id}`} onClick={close}>{label}</a>)}<Link to="/login" onClick={close}>Login</Link><a className="action-link" href="/#pricing" onClick={close}>Request Access</a></>;
+  return <div className="public-site"><a className="skip-link" href="#public-main">Skip to content</a>
+    <header className="public-header"><div className="public-container public-header-inner">
+      <Link to="/" aria-label="EkaVio home"><BrandLockup /></Link><nav className="public-desktop-nav" aria-label="Public navigation">{links}</nav>
+      <label className="public-appearance"><span className="sr-only">Appearance</span><select aria-label="Appearance" value={theme.mode} onChange={(event) => setTheme(event.target.value as typeof theme.mode)}><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></label>
+      <button className="quiet-button public-menu-toggle" aria-label="Open public navigation" aria-expanded={open} onClick={() => setOpen(true)}>Menu</button>
+    </div></header>
+    {open && <div className="public-menu-backdrop"><nav ref={menu} className="public-mobile-nav panel" role="dialog" aria-modal="true" aria-label="Public navigation"><button className="quiet-button" onClick={close}>Close navigation</button>{links}</nav></div>}
+    <main id="public-main" tabIndex={-1}>{children}</main></div>;
 }
-
-export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col">
-      {/* Minimal Header */}
-      <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between max-w-7xl">
-          <Link to="/" className="flex items-center gap-2 group transition-opacity hover:opacity-90">
-            <div className="bg-indigo-600 p-2 rounded-xl group-hover:scale-105 transition-transform duration-300 shadow-lg shadow-indigo-500/20">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-              Eka Vio
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-4">
-            <Link
-              to="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
-            >
-              Login
-            </Link>
-            <a
-              href="#pilot-access"
-              className="text-sm font-semibold bg-white text-slate-900 hover:bg-slate-200 px-4 py-2 rounded-lg transition-all shadow-md shadow-white/10 hover:shadow-white/20 active:scale-95 hidden sm:block"
-            >
-              Request Access
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative w-full overflow-hidden">
-        {children}
-      </main>
-    </div>
-  );
-};

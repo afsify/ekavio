@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Building2, CheckCircle2, KeyRound, ShieldCheck } from 'lucide-react';
+import { Building2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { BrandMark } from '../../components/brand/Brand';
 import { useNavigate } from 'react-router-dom';
 import { publicClient } from '../../api/client';
 import type { OnboardingInspection } from '../../commercial/manualCommercial';
@@ -9,8 +10,9 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
 const errorMessage = (error: unknown): string => {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? 'This onboarding invitation cannot be used.';
+  if (axios.isAxiosError<{ message?: string; error?: { message?: string } }>(error)) {
+    if ((error.response?.status ?? 500) >= 500) return 'This onboarding invitation cannot be used.';
+    return error.response?.data?.message ?? error.response?.data?.error?.message ?? 'This onboarding invitation cannot be used.';
   }
   return 'This onboarding invitation cannot be used.';
 };
@@ -39,6 +41,7 @@ const OnboardingPage: React.FC = () => {
     queryKey: ['public-onboarding-inspection'],
     enabled: Boolean(token),
     retry: false,
+    gcTime: 0,
     queryFn: async () => {
       const response = await publicClient.post<{ data: OnboardingInspection }>(
         '/public/onboarding/inspect',
@@ -65,7 +68,7 @@ const OnboardingPage: React.FC = () => {
     <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-xl rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl sm:p-8">
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-300"><KeyRound className="h-7 w-7" /></div>
+          <BrandMark />
           <div><h1 className="text-2xl font-bold text-white">Complete EkaVio onboarding</h1><p className="text-sm text-slate-400">Choose your password and create the approved workspace.</p></div>
         </div>
 
@@ -81,6 +84,7 @@ const OnboardingPage: React.FC = () => {
               <p className="mt-1 text-sm capitalize text-slate-400">{inspection.data.subscription.billingCycle} subscription · {inspection.data.subscription.planName ?? 'Module package'}</p>
               {inspection.data.subscription.addOnNames.length > 0 && <p className="mt-1 text-sm text-slate-400">Add-ons: {inspection.data.subscription.addOnNames.join(', ')}</p>}
               <p className="mt-3 text-xs text-slate-500">Period: {new Date(inspection.data.subscription.startsAt).toLocaleDateString()} – {new Date(inspection.data.subscription.currentPeriodEndsAt).toLocaleDateString()}</p>
+              <p className="mt-2 text-xs text-slate-500">Invitation expires {new Date(inspection.data.expiresAt).toLocaleString()}</p>
             </div>
             <div className="grid gap-4">
               <Input label="Recovery email (recommended)" type="email" autoComplete="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} />

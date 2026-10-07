@@ -1,4 +1,5 @@
 import { normalizePhone } from '../domains/customers/normalization.js';
+import { createHash } from 'node:crypto';
 import type {
   AccessRequestStatus,
   BillingCycle,
@@ -11,6 +12,7 @@ import type {
 import { AppError } from '../utils/AppError.js';
 
 export interface CommercialOfferPricingRecord {
+  pricingMode?: 'fixed' | 'contact';
   id: string;
   currency: 'INR';
   monthlyPriceMinor: string | null;
@@ -35,15 +37,17 @@ export interface CommercialOfferRecord {
 }
 
 export interface PublicCommercialQuote {
+  contactRequired?: boolean;
+  quoteFingerprint?: string;
   billingCycle: BillingCycle;
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   calculatedAt: string;
   items: Array<{
     offerType: OfferType;
     key: string;
     name: string;
-    priceMinor: string;
+    priceMinor: string | null;
     pricingUpdatedAt: string;
   }>;
 }
@@ -59,13 +63,14 @@ export interface StoredAccessRequestInput {
   selectedPlanKey: string | null;
   selectedAddOnKeys: string[];
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   pricingSnapshot: PublicCommercialQuote;
   publicNote: string | null;
   phoneCooldownSince: Date;
 }
 
 export interface AccessRequestRecord {
+  publicReference?: string;
   id: string;
   businessName: string;
   businessType: string;
@@ -77,7 +82,7 @@ export interface AccessRequestRecord {
   selectedPlanKey: string | null;
   selectedAddOnKeys: string[];
   currency: 'INR';
-  subtotalMinor: string;
+  subtotalMinor: string | null;
   pricingSnapshot: PublicCommercialQuote;
   status: AccessRequestStatus;
   publicNote: string | null;
@@ -88,9 +93,10 @@ export interface AccessRequestRecord {
 
 export interface PublicCommercialRepository {
   loadOffers(): Promise<CommercialOfferRecord[]>;
-  createAccessRequest(input: StoredAccessRequestInput): Promise<{ id: string; createdAt: Date }>;
+  createAccessRequest(input: StoredAccessRequestInput): Promise<{ id: string; publicReference?: string; createdAt: Date }>;
   listAccessRequests(input: {
     status?: AccessRequestStatus;
+    search?: string;
     limit: number;
     offset: number;
   }): Promise<{ items: AccessRequestRecord[]; total: number }>;
@@ -112,11 +118,12 @@ const publicPricing = (pricing: CommercialOfferPricingRecord | null) => {
   if (!pricing?.published) return null;
   return {
     currency: pricing.currency,
+    pricingMode: pricing.pricingMode ?? 'fixed',
     monthlyPriceMinor: pricing.monthlyPriceMinor,
     yearlyPriceMinor: pricing.yearlyPriceMinor,
     billingCycles: [
-      ...(pricing.monthlyPriceMinor === null ? [] : ['monthly' as const]),
-      ...(pricing.yearlyPriceMinor === null ? [] : ['yearly' as const]),
+      ...(pricing.pricingMode==='contact'||pricing.monthlyPriceMinor !== null ? ['monthly' as const] : []),
+      ...(pricing.pricingMode==='contact'||pricing.yearlyPriceMinor !== null ? ['yearly' as const] : []),
     ],
   };
 };
@@ -158,7 +165,7 @@ const requireQuotedOffers = (
     const amount = input.billingCycle === 'monthly'
       ? offer.pricing.monthlyPriceMinor
       : offer.pricing.yearlyPriceMinor;
-    if (amount === null) throw new AppError('Selected billing cycle is unavailable', 400);
+    if (amount === null && offer.pricing.pricingMode !== 'contact') throw new AppError('Selected billing cycle is unavailable', 400);
     return offer;
   });
 
@@ -179,13 +186,14 @@ export const calculatePublicQuote = (
   input: PublicQuoteInput,
   now: Date,
 ): PublicCommercialQuote => {
+  if(new Set(input.addOnKeys).size!==input.addOnKeys.length)throw new AppError('Duplicate add-ons are not allowed',400);
   const selected = requireQuotedOffers(offers, input);
   const items = selected
     .map((offer) => {
       const pricing = offer.pricing!;
       const priceMinor = input.billingCycle === 'monthly'
-        ? pricing.monthlyPriceMinor!
-        : pricing.yearlyPriceMinor!;
+        ? pricing.monthlyPriceMinor
+        : pricing.yearlyPriceMinor;
       return {
         offerType: offer.offerType,
         key: offer.key,
@@ -195,15 +203,20 @@ export const calculatePublicQuote = (
       };
     })
     .sort((left, right) => left.offerType.localeCompare(right.offerType) || left.key.localeCompare(right.key));
-  const subtotalMinor = items.reduce((total, item) => total + BigInt(item.priceMinor), 0n);
-  return {
+  const contactRequired=selected.some(offer=>offer.pricing?.pricingMode==='contact');
+  const subtotalMinor = contactRequired?null:items.reduce((total, item) => total + BigInt(item.priceMinor!), 0n).toString();
+  const quote: PublicCommercialQuote = {
+    contactRequired,
     billingCycle: input.billingCycle,
     currency: 'INR',
-    subtotalMinor: subtotalMinor.toString(),
+    subtotalMinor,
     calculatedAt: now.toISOString(),
     items,
   };
+  return {...quote,quoteFingerprint:quoteFingerprint(quote)};
 };
+
+export const quoteFingerprint=(quote:PublicCommercialQuote):string=>createHash('sha256').update(JSON.stringify({billingCycle:quote.billingCycle,currency:quote.currency,subtotalMinor:quote.subtotalMinor,contactRequired:quote.contactRequired??false,items:quote.items})).digest('hex');
 
 export const createPublicCommercialService = (
   repository: PublicCommercialRepository,
@@ -215,7 +228,7 @@ export const createPublicCommercialService = (
   return {
     async getCatalogue() {
       const offers = (await repository.loadOffers())
-        .filter((offer) => offer.status === 'active' && offer.available)
+        .filter((offer) => offer.status === 'active' && offer.available && offer.pricing?.published)
         .sort(sortOffers);
       return {
         currency: 'INR' as const,
@@ -238,6 +251,7 @@ export const createPublicCommercialService = (
       if (!normalizedPhone) throw new AppError('Phone is required', 400);
       const submittedAt = now();
       const quote = calculatePublicQuote(await repository.loadOffers(), input, submittedAt);
+      if(input.quoteFingerprint && input.quoteFingerprint!==quote.quoteFingerprint)throw new AppError('Pricing changed. Review your setup again.',409);
       const receipt = await repository.createAccessRequest({
         businessName: input.businessName,
         businessType: input.businessType,
@@ -256,6 +270,8 @@ export const createPublicCommercialService = (
       });
       return {
         receiptId: receipt.id,
+        publicReference: receipt.publicReference,
+        contactRequired: quote.contactRequired ?? false,
         status: 'pending' as const,
         billingCycle: quote.billingCycle,
         currency: quote.currency,
@@ -272,8 +288,10 @@ export const createPublicCommercialService = (
         name: offer.name,
         status: offer.status,
         available: offer.available,
+        description:offer.description,moduleKeys:offer.moduleKeys,capabilities:offer.capabilities,category:offer.category,
         pricing: offer.pricing && {
           currency: offer.pricing.currency,
+          pricingMode:offer.pricing.pricingMode??'fixed',
           monthlyPriceMinor: offer.pricing.monthlyPriceMinor,
           yearlyPriceMinor: offer.pricing.yearlyPriceMinor,
           published: offer.pricing.published,
@@ -297,6 +315,7 @@ export const createPublicCommercialService = (
         name: offer.name,
         pricing: offer.pricing && {
           currency: offer.pricing.currency,
+          pricingMode: offer.pricing.pricingMode ?? 'fixed',
           monthlyPriceMinor: offer.pricing.monthlyPriceMinor,
           yearlyPriceMinor: offer.pricing.yearlyPriceMinor,
           published: offer.pricing.published,
@@ -307,9 +326,10 @@ export const createPublicCommercialService = (
       };
     },
 
-    listRequests(status: AccessRequestStatus | undefined, page: number, limit: number) {
+    listRequests(status: AccessRequestStatus | undefined, page: number, limit: number,search?:string) {
       return repository.listAccessRequests({
         ...(status ? { status } : {}),
+        ...(search?{search}:{}),
         limit,
         offset: (page - 1) * limit,
       });

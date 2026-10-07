@@ -14,10 +14,13 @@ import {
 import { CommercialActivationPanel } from './CommercialActivationPanel';
 import { rupeesToPaise, paiseToRupees } from '../../utils/money';
 import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
+import { OfferCard } from '../../components/commercial/OfferCard';
+import { CommercialStepper } from '../../components/commercial/CommercialStepper';
 
 const errorMessage = (error: unknown): string => {
-  if (axios.isAxiosError<{ message?: string }>(error)) {
-    return error.response?.data?.message ?? 'The operation could not be completed.';
+  if (axios.isAxiosError<{ message?: string; error?: { message?: string } }>(error)) {
+    if ((error.response?.status ?? 500) >= 500) return 'The operation could not be completed.';
+    return error.response?.data?.message ?? error.response?.data?.error?.message ?? 'The operation could not be completed.';
   }
   return 'The operation could not be completed.';
 };
@@ -25,6 +28,7 @@ const errorMessage = (error: unknown): string => {
 const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
   const queryClient = useQueryClient();
   const [monthly, setMonthly] = useState(paiseToRupees(offer.pricing?.monthlyPriceMinor));
+  const [pricingMode, setPricingMode] = useState<'fixed' | 'contact'>(offer.pricing?.pricingMode ?? 'fixed');
   const [yearly, setYearly] = useState(paiseToRupees(offer.pricing?.yearlyPriceMinor));
   const [published, setPublished] = useState(offer.pricing?.published ?? false);
   const [displayOrder, setDisplayOrder] = useState(String(offer.pricing?.displayOrder ?? 0));
@@ -33,8 +37,9 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
     mutationFn: async () => {
       await client.put(`/billing/operator/public-pricing/${offer.offerType}/${offer.key}`, {
         currency: 'INR',
-        monthlyPriceMinor: monthly ? rupeesToPaise(monthly) : null,
-        yearlyPriceMinor: yearly ? rupeesToPaise(yearly) : null,
+        pricingMode,
+        monthlyPriceMinor: pricingMode === 'contact' ? null : monthly ? rupeesToPaise(monthly) : null,
+        yearlyPriceMinor: pricingMode === 'contact' ? null : yearly ? rupeesToPaise(yearly) : null,
         published,
         displayOrder: Number(displayOrder),
         marketingLabel: marketingLabel.trim() || null,
@@ -43,10 +48,10 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['operator-public-pricing'] }),
   });
   const invalidAmount = (value: string) => value !== '' && rupeesToPaise(value) === null;
-  const invalid = invalidAmount(monthly) || invalidAmount(yearly)
+  const invalid = (pricingMode === 'fixed' && (invalidAmount(monthly) || invalidAmount(yearly)))
     || !/^\d{1,5}$/.test(displayOrder)
     || Number(displayOrder) > 10000
-    || (published && !monthly && !yearly);
+    || (pricingMode === 'fixed' && published && !monthly && !yearly);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
@@ -62,8 +67,9 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
         </label>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Input label="Monthly price ₹" inputMode="decimal" value={monthly} onChange={(event) => setMonthly(event.target.value)} />
-        <Input label="Yearly price ₹" inputMode="decimal" value={yearly} onChange={(event) => setYearly(event.target.value)} />
+        <label className="field">Pricing mode<select value={pricingMode} onChange={(event) => setPricingMode(event.target.value as typeof pricingMode)}><option value="fixed">Fixed published price</option><option value="contact">Contact for pricing</option></select></label>
+        <Input label="Monthly price ₹" disabled={pricingMode === 'contact'} inputMode="decimal" value={monthly} onChange={(event) => setMonthly(event.target.value)} />
+        <Input label="Yearly price ₹" disabled={pricingMode === 'contact'} inputMode="decimal" value={yearly} onChange={(event) => setYearly(event.target.value)} />
         <Input label="Display order" inputMode="numeric" value={displayOrder} onChange={(event) => setDisplayOrder(event.target.value)} />
         <Input label="Marketing label" maxLength={80} value={marketingLabel} onChange={(event) => setMarketingLabel(event.target.value)} />
       </div>
@@ -78,6 +84,7 @@ const PricingEditor: React.FC<{ offer: OperatorPricing }> = ({ offer }) => {
       >
         <Save className="h-4 w-4" /> Save pricing
       </Button>
+      <details className="mt-4"><summary>Public card preview</summary><p className="muted text-xs">Draft preview only. Unpublished offers stay hidden publicly.</p>{(['monthly', 'yearly'] as const).map((cycle) => <OfferCard key={cycle} cycle={cycle} offer={{ offerType: offer.offerType, key: offer.key, name: offer.name, description: offer.description ?? '', available: true, category: offer.category ?? '', moduleKeys: offer.moduleKeys ?? [], capabilities: offer.capabilities ?? [], marketingLabel: marketingLabel || null, pricing: { currency: 'INR', pricingMode, monthlyPriceMinor: pricingMode === 'contact' ? null : monthly ? rupeesToPaise(monthly) : null, yearlyPriceMinor: pricingMode === 'contact' ? null : yearly ? rupeesToPaise(yearly) : null, billingCycles: ['monthly', 'yearly'] } }} />)}</details>
     </div>
   );
 };
@@ -93,6 +100,8 @@ const statusStyle: Record<AccessRequestStatus, string> = {
 const CommercialRequestsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'' | AccessRequestStatus>('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [internalNote, setInternalNote] = useState('');
   const pricingQuery = useQuery({
@@ -103,12 +112,12 @@ const CommercialRequestsPage: React.FC = () => {
     },
   });
   const requestsQuery = useQuery({
-    queryKey: ['operator-access-requests', status],
+    queryKey: ['operator-access-requests', status, search, page],
     queryFn: async () => {
       const response = await client.get<{
         data: OperatorAccessRequest[];
         pagination: { total: number };
-      }>('/billing/operator/access-requests', { params: { ...(status ? { status } : {}), limit: 100 } });
+      }>('/billing/operator/access-requests', { params: { ...(status ? { status } : {}), ...(search.trim() ? { search: search.trim() } : {}), page, limit: 25 } });
       return response.data;
     },
   });
@@ -177,16 +186,19 @@ const CommercialRequestsPage: React.FC = () => {
             <p className="text-sm text-slate-400">{requestsQuery.data?.pagination.total ?? 0} matching requests</p>
           </div>
           <select
+            aria-label="Request status"
             value={status}
-            onChange={(event) => setStatus(event.target.value as typeof status)}
+            onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); setSelectedId(null); }}
             className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white"
           >
             <option value="">All statuses</option>
-            {(['pending', 'contacted', 'approved', 'rejected'] as const).map((value) => (
+            {(['pending', 'contacted', 'approved', 'rejected', 'activated'] as const).map((value) => (
               <option key={value} value={value}>{value}</option>
             ))}
           </select>
         </div>
+        <Input label="Search reference, business or contact" maxLength={120} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); setSelectedId(null); }} />
+        <div className="pagination mt-3"><Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => { setPage(page - 1); setSelectedId(null); }}>Previous</Button><span>Page {page}</span><Button size="sm" variant="secondary" disabled={page * 25 >= (requestsQuery.data?.pagination.total ?? 0)} onClick={() => { setPage(page + 1); setSelectedId(null); }}>Next</Button></div>
         {requestsQuery.isError && <p className="text-rose-300">{errorMessage(requestsQuery.error)}</p>}
         <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="max-h-[680px] space-y-3 overflow-y-auto pr-1">
@@ -203,7 +215,7 @@ const CommercialRequestsPage: React.FC = () => {
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-bold text-white">{request.businessName}</h3><p className="text-sm text-slate-400">{request.contactName}</p></div>
+                  <div><h3 className="font-bold text-white">{request.businessName}</h3><p className="text-sm text-slate-400">{request.contactName}</p><p className="text-xs break-all text-slate-500">{request.publicReference}</p></div>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle[request.status]}`}>{request.status}</span>
                 </div>
                 <div className="mt-3 flex justify-between text-xs text-slate-500">
@@ -224,9 +236,11 @@ const CommercialRequestsPage: React.FC = () => {
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyle[selected.status]}`}>{selected.status}</span>
                 </div>
                 <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <p className="public-reference sm:col-span-2">{selected.publicReference}</p>
                   <div className="rounded-xl bg-slate-900 p-4"><p className="text-xs text-slate-500">Contact</p><p className="mt-1 text-white">{selected.contactName}</p><p className="text-slate-400">{selected.contactPhone}</p><p className="text-slate-400">{selected.email ?? 'No email supplied'}</p></div>
                   <div className="rounded-xl bg-slate-900 p-4"><p className="text-xs text-slate-500">Submitted</p><p className="mt-1 text-white">{new Date(selected.createdAt).toLocaleString()}</p><p className="mt-2 capitalize text-slate-400">{selected.billingCycle} · {formatInrMinor(selected.subtotalMinor)}</p></div>
                 </div>
+                {selected.status !== 'approved' && selected.status !== 'activated' && <CommercialStepper steps={[{ label: 'Request', complete: true }, { label: selected.status === 'rejected' ? 'Rejected' : 'Contacted', complete: selected.status === 'contacted' || selected.status === 'rejected' }, { label: 'Approved', complete: false }, { label: 'Agreement', complete: false }, { label: 'Payment settled', complete: false }, { label: 'Onboarding', complete: false }, { label: 'Activated', complete: false }]} />}
                 <div>
                   <h4 className="text-sm font-semibold text-slate-300">Accepted list-price snapshot</h4>
                   <ul className="mt-2 space-y-2">

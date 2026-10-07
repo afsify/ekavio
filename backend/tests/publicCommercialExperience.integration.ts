@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { copyFile, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { PostgresDatabase } from '../src/postgres/database.js';
+import { migrate, getMigrationStatus } from '../src/postgres/migrations.js';
+import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
+import { PostgresPublicCommercialRepository } from '../src/postgres/publicCommercialRepository.js';
+import { PostgresManualCommercialRepository } from '../src/postgres/manualCommercialRepository.js';
+import { createPublicCommercialService } from '../src/services/publicCommercialService.js';
+import { createManualCommercialService } from '../src/services/manualCommercialService.js';
+import { publicPricingUpdateSchema } from '../src/schemas/publicCommercialSchemas.js';
+
+test('V2-08F public commercial schema, quotes and historical intent', async (t) => {
+  const url = new URL(process.env.POSTGRES_TEST_URL ?? '');
+  assert.ok(['localhost', '127.0.0.1', 'postgres'].includes(url.hostname));
+  assert.equal(url.pathname, '/postgres');
+  const admin = new PostgresDatabase(url.toString());
+  const name = `ekavio_v208f_${randomUUID().replaceAll('-', '')}`;
+  await admin.query(`CREATE DATABASE "${name}"`);
+  url.pathname = `/${name}`;
+  const db = new PostgresDatabase(url.toString());
+  const dir = await mkdtemp(path.join(tmpdir(), 'ekavio-v208f-'));
+  t.after(async () => { await db.close(); await admin.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1', [name]); await admin.query(`DROP DATABASE "${name}"`); await admin.close(); await rm(dir, { recursive: true }); });
+  const files = (await readdir('postgres/migrations')).filter((file) => file.endsWith('.sql') && Number(file.slice(0, 3)) <= 16);
+  for (const file of files) await copyFile(path.join('postgres/migrations', file), path.join(dir, file));
+  await migrate(db, dir);
+  await new PostgresCommercialRepository(db).reconcileCatalogue();
+  const operator = randomUUID(), customer = randomUUID(), oldRequest = randomUUID();
+  await db.query("INSERT INTO users(id,name,phone,platform_role,created_at,updated_at) VALUES($1,'QA operator','+919800000001','operator',NOW(),NOW()),($2,'QA owner','+919800000002',NULL,NOW(),NOW())", [operator, customer]);
+  await db.query("INSERT INTO public_offer_pricing(offer_type,plan_id,currency,monthly_price_minor,yearly_price_minor,published,display_order,updated_by_user_id) SELECT 'plan',id,'INR',10000,100000,TRUE,1,$1 FROM plans WHERE key='pilot-core'", [operator]);
+  await db.query("INSERT INTO commercial_access_requests(id,business_name,business_type,contact_name,contact_phone,normalized_phone,billing_cycle,selected_plan_key,selected_add_on_keys,currency,subtotal_minor,pricing_snapshot) VALUES($1,'Old staging business','Shop','QA owner','+919800000003','+919800000003','monthly','pilot-core','{}','INR',10000,$2)", [oldRequest, JSON.stringify({ billingCycle: 'monthly', currency: 'INR', subtotalMinor: '10000', calculatedAt: new Date().toISOString(), items: [] })]);
+  const history = (await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
+  await t.test('016 upgrade preserves prices, requests and historical checksums; repeat is idempotent', async () => {
+    await migrate(db); await migrate(db);
+    assert.equal((await getMigrationStatus(db)).length, 17);
+    assert.ok((await getMigrationStatus(db)).every((item) => item.state === 'applied'));
+    assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'017' ORDER BY name")).rows, history);
+    const old = (await db.query('SELECT subtotal_minor::text,pricing_mode,public_reference FROM commercial_access_requests WHERE id=$1', [oldRequest])).rows[0]!;
+    assert.equal(old.subtotal_minor, '10000'); assert.equal(old.pricing_mode, 'fixed'); assert.match(old.public_reference, /^EV-REQ-[A-F0-9]{32}$/);
+    assert.equal((await db.query('SELECT monthly_price_minor::text,pricing_mode FROM public_offer_pricing')).rows[0]?.pricing_mode, 'fixed');
+  });
+  const repo = new PostgresPublicCommercialRepository(db), service = createPublicCommercialService(repo);
+  const contact = publicPricingUpdateSchema.parse({ pricingMode: 'contact', currency: 'INR', monthlyPriceMinor: null, yearlyPriceMinor: null, published: true, displayOrder: 2, marketingLabel: null });
+  await t.test('contact pricing is operator-only, published and selectable with null complete quote', async () => {
+    await assert.rejects(repo.upsertPricing('add_on', 'module-inventory', customer, contact), /operator/);
+    await repo.upsertPricing('add_on', 'module-inventory', operator, contact);
+    assert.equal((await service.getCatalogue()).addOns.find((offer) => offer.key === 'module-inventory')?.pricing?.pricingMode, 'contact');
+    for (const billingCycle of ['monthly', 'yearly'] as const) { const quote = await service.previewQuote({ billingCycle, planKey: 'pilot-core', addOnKeys: ['module-inventory'] }); assert.equal(quote.subtotalMinor, null); assert.equal(quote.contactRequired, true); }
+    await assert.rejects(db.query("UPDATE public_offer_pricing SET monthly_price_minor=0 WHERE pricing_mode='contact'"));
+    await assert.rejects(db.query("UPDATE public_offer_pricing SET monthly_price_minor=NULL,yearly_price_minor=NULL WHERE pricing_mode='fixed'"));
+  });
+  let receiptId = '', reference = '';
+  await t.test('random unique reference, contact request, normalized phone and immutable original intent', async () => {
+    const quote = await service.previewQuote({ billingCycle: 'monthly', addOnKeys: ['module-inventory'] });
+    const receipt = await service.submitRequest({ businessName: 'STAGING F contact business', businessType: 'Office', contactName: 'QA contact', phone: '9800000004', billingCycle: 'monthly', addOnKeys: ['module-inventory'], quoteFingerprint: quote.quoteFingerprint });
+    receiptId = receipt.receiptId; reference = receipt.publicReference!;
+    assert.match(reference, /^EV-REQ-[A-F0-9]{32}$/); assert.equal(receipt.subtotalMinor, null);
+    const request = (await repo.getAccessRequest(receiptId))!;
+    assert.equal(request.normalizedPhone, '+919800000004'); assert.equal(request.publicReference, reference);
+    assert.equal((await repo.listAccessRequests({ search: reference, limit: 25, offset: 0 })).total, 1);
+    assert.equal((await repo.listAccessRequests({ search: "' OR TRUE --", limit: 25, offset: 0 })).total, 0);
+    assert.equal((await repo.listAccessRequests({ search: '9800000004', limit: 25, offset: 0 })).total, 1);
+    await assert.rejects(db.query('UPDATE commercial_access_requests SET public_reference=$1 WHERE id=$2', [reference, oldRequest]), /immutable/);
+    await assert.rejects(db.query("UPDATE commercial_access_requests SET pricing_snapshot='{}' WHERE id=$1", [receiptId]), /immutable/);
+    await assert.rejects(db.query('DELETE FROM commercial_access_requests WHERE id=$1', [receiptId]), /retained/);
+    await assert.rejects(db.query("INSERT INTO commercial_access_requests(business_name,business_type,contact_name,contact_phone,normalized_phone,billing_cycle,selected_plan_key,selected_add_on_keys,currency,subtotal_minor,pricing_snapshot,public_reference) SELECT business_name,business_type,contact_name,contact_phone,normalized_phone,billing_cycle,selected_plan_key,selected_add_on_keys,currency,subtotal_minor,pricing_snapshot,public_reference FROM commercial_access_requests WHERE id=$1", [oldRequest]), /unique/);
+  });
+  await t.test('contact agreement requires explicit negotiated amount/reason and cannot bypass settlement', async () => {
+    const manual = createManualCommercialService(new PostgresManualCommercialRepository(db), { normalizePhone: (phone) => phone });
+    const base = { billingCycle: 'monthly' as const, addOnKeys: ['module-inventory'], agreedTotalMinor: '50000', adjustmentReason: null, startsAt: new Date().toISOString(), currentPeriodEndsAt: new Date(Date.now() + 86400_000 * 30).toISOString(), billingProfile: { legalName: 'STAGING F contact business', contactName: 'QA contact', phone: '+919800000004' } };
+    await assert.rejects(manual.finalizeAgreement(receiptId, operator, base), /approved/);
+    await repo.updateAccessRequest(receiptId, operator, { status: 'approved' });
+    await assert.rejects(manual.finalizeAgreement(receiptId, operator, base), /reason/);
+    const agreement = await manual.finalizeAgreement(receiptId, operator, { ...base, adjustmentReason: 'Disposable staging negotiated terms' });
+    assert.equal(agreement.agreement.listSubtotalMinor, null); assert.equal(agreement.agreement.agreedTotalMinor, '50000'); assert.equal(agreement.settlementSatisfied, false);
+    assert.equal((await repo.getAccessRequest(receiptId))?.publicReference, reference);
+  });
+  await t.test('transaction revalidation rejects stale price snapshots, duplicate and overlap selections', async () => {
+    const quote = await service.previewQuote({ billingCycle: 'monthly', planKey: 'pilot-core', addOnKeys: [] });
+    await repo.upsertPricing('plan', 'pilot-core', operator, { currency: 'INR', monthlyPriceMinor: '12000', yearlyPriceMinor: '120000', published: true, displayOrder: 1, marketingLabel: null });
+    await assert.rejects(service.submitRequest({ businessName: 'STAGING stale', businessType: 'Shop', contactName: 'QA contact', phone: '+919800000005', billingCycle: 'monthly', planKey: 'pilot-core', addOnKeys: [], quoteFingerprint: quote.quoteFingerprint }), /Pricing changed/);
+    await assert.rejects(repo.createAccessRequest({ businessName: 'STAGING race', businessType: 'Shop', contactName: 'QA contact', contactPhone: '+919800000006', normalizedPhone: '+919800000006', email: null, billingCycle: 'monthly', selectedPlanKey: 'pilot-core', selectedAddOnKeys: [], currency: 'INR', subtotalMinor: quote.subtotalMinor, pricingSnapshot: quote, publicNote: null, phoneCooldownSince: new Date() }), /Pricing changed/);
+    await assert.rejects(service.previewQuote({ billingCycle: 'monthly', addOnKeys: ['module-inventory', 'module-inventory'] }), /Duplicate/);
+    await repo.upsertPricing('add_on', 'module-queue', operator, { ...contact, pricingMode: 'fixed', monthlyPriceMinor: '1000' });
+    await assert.rejects(service.previewQuote({ billingCycle: 'monthly', planKey: 'pilot-core', addOnKeys: ['module-queue'] }), /overlapping/);
+  });
+});

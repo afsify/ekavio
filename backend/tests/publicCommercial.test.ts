@@ -86,7 +86,7 @@ class MemoryRepository implements PublicCommercialRepository {
   public async loadOffers() { return offers(); }
   public async createAccessRequest(input: StoredAccessRequestInput) {
     this.created.push(input);
-    return { id: '4eb2a4f1-fd50-41e0-a18d-6332bf62eaa1', createdAt: at };
+    return { id: '4eb2a4f1-fd50-41e0-a18d-6332bf62eaa1', publicReference: 'EV-REQ-0123456789ABCDEF0123456789ABCDEF', createdAt: at };
   }
   public async listAccessRequests(_input: { status?: AccessRequestStatus; limit: number; offset: number }) {
     return { items: [] as AccessRequestRecord[], total: 0 };
@@ -111,8 +111,7 @@ test('public catalogue exposes safe sellable fields and hides draft pricing and 
   const catalogue = await createPublicCommercialService(new MemoryRepository()).getCatalogue();
   assert.equal(catalogue.plans.some(({ key }) => key === 'legacy-import'), false);
   const attendance = catalogue.addOns.find(({ key }) => key === 'module-attendance');
-  assert.equal(attendance?.pricing, null);
-  assert.equal(attendance?.marketingLabel, null);
+  assert.equal(attendance, undefined);
   const serialized = JSON.stringify(catalogue);
   for (const unsafe of ['pricing-private-id', 'operatorId', 'organizationId', 'legacyMongoId', 'entitlement']) {
     assert.equal(serialized.includes(unsafe), false);
@@ -129,6 +128,33 @@ test('server quote uses exact integer minor units for monthly and yearly calcula
   assert.equal(monthly.subtotalMinor, '12500');
   assert.equal(yearly.subtotalMinor, '125000');
   assert.equal(typeof monthly.subtotalMinor, 'string');
+});
+
+test('explicit contact pricing is selectable for both cycles and never a zero or partial total', () => {
+  const catalogue = offers();
+  catalogue.find((offer) => offer.key === 'module-inventory')!.pricing = pricing({ pricingMode: 'contact', monthlyPriceMinor: null, yearlyPriceMinor: null });
+  for (const billingCycle of ['monthly', 'yearly'] as const) {
+    const quote = calculatePublicQuote(catalogue, { billingCycle, planKey: 'pilot-core', addOnKeys: ['module-inventory'] }, at);
+    assert.equal(quote.subtotalMinor, null);
+    assert.equal(quote.contactRequired, true);
+    assert.equal(quote.items.find((item) => item.key === 'module-inventory')?.priceMinor, null);
+    assert.match(quote.quoteFingerprint!, /^[a-f0-9]{64}$/);
+  }
+});
+
+test('fixed/contact schema is explicit, closed and backward compatible', () => {
+  const fixed = { currency: 'INR', published: true, monthlyPriceMinor: '100', yearlyPriceMinor: null, displayOrder: 0, marketingLabel: null };
+  assert.equal(publicPricingUpdateSchema.parse(fixed).pricingMode, 'fixed');
+  assert.equal(publicPricingUpdateSchema.safeParse({ ...fixed, pricingMode: 'contact' }).success, false);
+  assert.equal(publicPricingUpdateSchema.safeParse({ ...fixed, pricingMode: 'contact', monthlyPriceMinor: null }).success, true);
+  assert.equal(publicPricingUpdateSchema.safeParse({ ...fixed, monthlyPriceMinor: null }).success, false);
+});
+
+test('stale review fingerprint rejects submission without persisting a request', async () => {
+  const repository = new MemoryRepository();
+  const service = createPublicCommercialService(repository, { now: () => at });
+  await assert.rejects(service.submitRequest({ businessName: 'Disposable business', businessType: 'Shop', contactName: 'QA owner', phone: '+919876543210', billingCycle: 'monthly', addOnKeys: ['module-inventory'], quoteFingerprint: '0'.repeat(64) }), /Pricing changed/);
+  assert.equal(repository.created.length, 0);
 });
 
 test('quote rejects duplicate, nonexistent, unpublished, unavailable, and incompatible selections', () => {
