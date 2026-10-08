@@ -80,6 +80,12 @@ dashboard visibility, required Customer fields/conversion, canonical Customer or
 second-conversion rejection, unentitled/read-only/tenant/branch negatives and
 360/390/768/1440 Light/Dark/System without document overflow or page errors.
 The final affected analytics suite was rerun 13/13 after preference changes.
+The first pushed CI run passed 14/15 CRM browser cases but timed out switching
+accounts: the test navigated to login before asynchronous sign-out finished.
+The test now requires the logout HTTP 200 and visible login form before the next
+login; no production code, timeout, authority assertion or artifact policy changed.
+Release still requires successful CI on the subsequent exact correction commit.
+The corrected full local CRM suite passed 15/15; frontend lint/typecheck also passed.
 
 The first concurrent foundation run had a loading/retry timeout; its focused check
 and full 19-test single-worker rerun passed without changing assertions. Early
