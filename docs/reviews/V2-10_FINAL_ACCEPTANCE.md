@@ -261,6 +261,8 @@ are isolated correctness observations, not supported pilot load estimates.
 See [strict decision/actions](V2-10_GO_NO_GO.md) and
 [release procedure](../runbooks/V2-10_RELEASE_ACCEPTANCE.md). Before any evidence
 tag, require coherent commit, push, exact successful CI and clean main equal to
-fresh remote. Installed Git Credential Manager currently requires interactive
-authentication; no credential or provider access was fabricated. Pending
-push/CI/tag is not a falsely closed release.
+fresh remote. An earlier credential-helper diagnostic was blocked; making the
+installed helper available through a command-scoped PATH resolved push with
+existing private authentication. No persistent Git configuration change,
+credential disclosure or new interactive login was needed. Exact final CI/tag
+remain post-commit gates; no provider access or release success is fabricated.
