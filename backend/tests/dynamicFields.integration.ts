@@ -21,7 +21,7 @@ test('dynamic fields and layouts in disposable PostgreSQL',async t=>{
  await t.test('014 to 015 preserves checksums and reruns idempotently',async()=>{
   const dir=await mkdtemp(path.join(tmpdir(),'v208d-'));
   try {for(const f of (await readdir('postgres/migrations')).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=14))await copyFile(path.join('postgres/migrations',f),path.join(dir,f));
-   await migrate(db,dir);const before=(await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;await migrate(db);await migrate(db);assert.equal((await getMigrationStatus(db)).length, 19);assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'015' ORDER BY name")).rows,before);
+   await migrate(db,dir);const before=(await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;await migrate(db);await migrate(db);assert.equal((await getMigrationStatus(db)).length, 20);assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'015' ORDER BY name")).rows,before);
   }finally{await rm(dir,{recursive:true});}
  });
  const accounts=new PostgresAccountRepository(db),a=await accounts.registerAdmin({orgName:'QA A',orgType:'shop',userName:'QA Owner',phone:'+919876540005',passwordHash:'fixture-only'}),b=await accounts.registerAdmin({orgName:'QA B',orgType:'shop',userName:'Other QA Owner',phone:'+919876540006',passwordHash:'fixture-only'});

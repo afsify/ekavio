@@ -35,7 +35,9 @@ export class ReportService {
    const params:unknown[]=[c.organizationId,c.branchId],where:string[]=[];
    const p=(v:unknown)=>{params.push(v);return '$'+params.length;};
    if(source.date) {
-    if(source.date==='attendance_date')where.push(`q.attendance_date BETWEEN ${p(from)}::date AND ${p(to)}::date`);
+    if(source.date==='leave_start_date')where.push(`q.start_date::date<=${p(to)}::date AND q.end_date::date>=${p(from)}::date`);
+    else if(source.date==='business_date')where.push(`q.business_date::date BETWEEN ${p(from)}::date AND ${p(to)}::date`);
+    else if(source.date==='attendance_date')where.push(`q.attendance_date BETWEEN ${p(from)}::date AND ${p(to)}::date`);
     else where.push(`q.${source.date}>=${p(branchLocalDateTimeToInstant(from+'T00:00:00',timezone))}::timestamptz AND q.${source.date}<${p(branchLocalDateTimeToInstant(nextBusinessDate(to)+'T00:00:00',timezone))}::timestamptz`);
    }
    if(f.search)where.push(`q.name ILIKE '%'||${p(f.search)}||'%'`);
@@ -86,12 +88,12 @@ export class ReportService {
     return [k,v];
    })));
    const choices:Record<string,{id:string;label:string}[]>={};
-   if(!exporting)for(const [filter,column,label] of [['customerId','customer_id','name'],['serviceId','service_id','service'],['staffId','staff_id',report.key==='attendance'?'name':'staff']] as const)if(source.filters.includes(filter))choices[filter]=(await client.query(`WITH q AS (${source.sql}) SELECT DISTINCT ${column} AS id,${label} AS label FROM q WHERE ${column} IS NOT NULL AND $2::uuid IS NOT NULL ORDER BY label,id LIMIT 100`,[c.organizationId,c.branchId])).rows;
+   if(!exporting)for(const [filter,column,label] of [['customerId','customer_id','name'],['serviceId','service_id','service'],['staffId','staff_id',report.key==='attendance'||report.key.startsWith('hr-')?'name':'staff']] as const)if(source.filters.includes(filter))choices[filter]=(await client.query(`WITH q AS (${source.sql}) SELECT DISTINCT ${column} AS id,${label} AS label FROM q WHERE ${column} IS NOT NULL AND $2::uuid IS NOT NULL ORDER BY label,id LIMIT 100`,[c.organizationId,c.branchId])).rows;
    const response={report:report.label,key:report.key,scope:source.scope,timezone,generatedAt:new Date().toISOString(),filters:{...f,...(source.date?{from,to}:{})},columns:columns.map(col=>({...col,selected:selected.includes(col.key)})),choices,rows,summary:totals,page:f.page,limit:f.limit,total:Number(totals.records)};
    if(!exporting){if(Buffer.byteLength(JSON.stringify(response),'utf8')>RESPONSE_BUDGET)throw new AppError('Report exceeds 5 MiB; narrow filters or select fewer columns',400);return response;}
    await client.query('INSERT INTO report_export_events(organization_id,actor_user_id,report_key,row_count) VALUES($1,$2,$3,$4)',[c.organizationId,c.userId,report.key,rows.length]);
    const headers=selected.map(k=>columns.find(col=>col.key===k)!.label);
-   const relationshipFilters=[['customerId','Customer filter','name'],['serviceId','Service filter','service'],['staffId','Staff filter',report.key==='attendance'?'name':'staff']].filter(([key])=>f[key as 'customerId'|'serviceId'|'staffId']).map(([,label,column])=>[label,String(raw[0]?.[column!]??'Selected resource (no matching records)')]);
+   const relationshipFilters=[['customerId','Customer filter','name'],['serviceId','Service filter','service'],['staffId','Staff filter',report.key==='attendance'||report.key.startsWith('hr-')?'name':'staff']].filter(([key])=>f[key as 'customerId'|'serviceId'|'staffId']).map(([,label,column])=>[label,String(raw[0]?.[column!]??'Selected resource (no matching records)')]);
    const metadata=[['Report',report.label],['Scope',source.scope==='organization'?'Organization-owned records':'Selected branch'],['Timezone',timezone],['Generated',response.generatedAt],...(source.date?[['From business date',from],['To business date',to]]:[]),...relationshipFilters,...Object.entries(f).filter(([k,v])=>v!==undefined&&v!==''&&['search','status','entryType','stockStatus','customKey','customValue','customOperator'].includes(k)).map(([k,v])=>[k,String(v)]),[]];
    const csv=[...metadata,headers,...rows.map(row=>selected.map(k=>row[k]!==null&&columns.find(col=>col.key===k)?.format==='money'?rupees(String(row[k])):row[k]))].map(row=>row.map(csvCell).join(',')).join('\r\n');
    if(Buffer.byteLength(csv,'utf8')>RESPONSE_BUDGET)throw new AppError('Export exceeds 5 MiB; narrow your filters',400);

@@ -35,6 +35,26 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-09C adds optional **HR Plus** (`hr_plus` / `module-hr-plus`): membership-scoped
+whole-day leave, separate authorized review, explicit branch work calendars/manual
+holidays, versioned shift templates, bounded atomic schedules and factual availability.
+Published schedules and approved leave remain distinct from actual Attendance;
+neither automatically writes attendance or grants its entitlement. Owner/admin/HR
+receive read/manage/approve; manager read/manage; staff own self-service. Custom
+roles replace defaults, and review covers every active branch assigned to the subject.
+Private reasons/decision notes never enter generic attention, reports or CSV.
+Four widgets and four curated reports reuse the existing authorized engines.
+The add-on starts unpublished and unpriced, without Pilot Core or existing grants.
+
+Apply additive **020** before deployment; migrations 001–019 are unchanged.
+Run backend `npm run test:hr` and frontend `npm run test:e2e:hr` against disposable
+PostgreSQL. See [ADR 0028](docs/adr/0028-hr-plus.md) and
+[HR Plus acceptance](docs/reviews/V2-09C_HR_PLUS.md) for evidence and limitations.
+Payroll, accrual/balances, half-day/hourly leave and legal-compliance claims are
+deferred. **NO-GO FOR REAL CUSTOMER DATA** remains; Render Free is staging-only,
+Atlas retained, and extended hosted recovery through 020 is OPEN. V2-10 is next
+only after separate authorization; it has not started.
+
 V2-09B adds optional **Suppliers & Purchasing** (`purchasing`): organization Suppliers,
 branch Purchase Orders with frozen canonical Inventory item snapshots, exact INR
 totals, partial/full goods receipts and canonical stock movement history. Receiving
@@ -50,8 +70,8 @@ Run backend `npm run test:purchasing` and frontend `npm run test:e2e:purchasing`
 against disposable PostgreSQL. See [ADR 0027](docs/adr/0027-suppliers-purchasing.md)
 and [Purchasing acceptance](docs/reviews/V2-09B_SUPPLIERS_PURCHASING.md).
 **NO-GO FOR REAL CUSTOMER DATA** remains. Render Free is staging-only, Atlas is
-retained, and extended recovery through 019 is OPEN. V2-09C HR Plus and V2-10 final
-acceptance remain separately authorized/deferred; neither starts automatically.
+retained, and extended recovery through 020 is OPEN. HR Plus is now separately
+implemented above; V2-10 final acceptance remains separately authorized/deferred.
 
 V2-09A adds optional **CRM & Follow-ups** (`crm`): organization pipeline stages,
 branch-scoped Leads, active staff assignments, manual follow-ups, retained activity
@@ -66,8 +86,8 @@ Run backend `npm run test:crm` and frontend `npm run test:e2e:crm` with disposab
 PostgreSQL. See [ADR 0026](docs/adr/0026-crm-followups.md) and
 [CRM acceptance](docs/reviews/V2-09A_CRM_FOLLOWUPS.md).
 **NO-GO FOR REAL CUSTOMER DATA** remains unchanged. Render Free is staging-only,
-Atlas is retained, and extended recovery through 019 is OPEN. V2-09C HR Plus and
-V2-10 final acceptance are deferred; neither starts automatically.
+Atlas is retained, and extended recovery through 020 is OPEN. HR Plus is now
+separately implemented above; V2-10 final acceptance remains deferred.
 
 V2-08F completes the public website and manual commercial experience: one original
 EkaVio mark/wordmark, Light/Dark/System navigation, factual module/CORE messaging,

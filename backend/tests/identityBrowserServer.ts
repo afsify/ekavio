@@ -26,11 +26,28 @@ const capture=new EmailCapture(); const identity=new IdentityAccountService(data
 let application=createApp({config,identityAccountService:identity});
 const root=express(); root.use(express.json());
 root.get('/__test/health',(_request,response) => response.json({ready:true}));
+// One independent local browser-client phase per actor. This emulates distinct
+// clients in a multi-actor walkthrough; deployed IP/auth thresholds stay intact.
+// Test-only root, disposable DB, loopback by default, excluded from runtime dist.
+root.post('/__test/client-phase',(_request,response)=>{
+  application=createApp({config,identityAccountService:identity});
+  response.setHeader('Cache-Control','no-store');response.json({ready:true});
+});
 root.post('/__test/fixture',async(request,response,next) => {
   try {
     const phone=`+919${Math.floor(100000000+Math.random()*899999999)}`,password=randomUUID(),email=`${randomUUID()}@example.invalid`;
     const created=await new PostgresAccountRepository(database).registerAdmin({orgName:'Disposable browser workspace',orgType:'shop',userName:'QA owner',phone,passwordHash:await bcrypt.hash(password,4)});
     const userId=String(created.user.id),organizationId=String(created.user.tenantId);
+    const hrPeople:Record<string,unknown>={};
+    if(request.body?.hrFixture===true){
+      for(const [key,role,status] of [['employee','staff','active'],['colleague','staff','active'],['reviewer','hr','active'],['inactive','staff','inactive']] as const){
+        const memberPhone=`+919${Math.floor(100000000+Math.random()*899999999)}`,memberPassword=randomUUID();
+        const memberUser=(await database.query('INSERT INTO users(name,phone,password_hash,created_at,updated_at) VALUES($1,$2,$3,now(),now()) RETURNING id',['QA '+key,memberPhone,await bcrypt.hash(memberPassword,4)])).rows[0]!.id;
+        const membership=(await database.query('INSERT INTO memberships(user_id,organization_id,role,status,created_at,updated_at) VALUES($1,$2,$3,$4,now(),now()) RETURNING id',[memberUser,organizationId,role,status])).rows[0]!.id;
+        await database.query('INSERT INTO membership_branch_assignments(membership_id,organization_id,branch_id) VALUES($1,$2,$3)',[membership,organizationId,(created.branch as {id:string}).id]);
+        hrPeople[key]={phone:memberPhone,password:memberPassword,membershipId:membership,organizationId,branchId:(created.branch as {id:string}).id};
+      }
+    }
     if(request.body?.seedCustomerField===true) {
       const membership=(await database.query('SELECT id FROM memberships WHERE organization_id=$1 AND user_id=$2',[organizationId,userId])).rows[0]!.id;
       await new DynamicFieldsService(database).saveDefinition({userId,organizationId,membershipId:membership,sessionId:'local-fixture',branchId:String((created.branch as {id:string}).id),role:'admin',permissions:permissionsForRole('admin'),platformOperator:false},'customer',{key:'local_note',label:'QA ordinary note',help:'Local fixture only',fieldType:'text',status:'active',required:true,searchable:true,filterable:true,reportable:false,defaultValue:null,options:[]});
@@ -39,7 +56,7 @@ root.post('/__test/fixture',async(request,response,next) => {
     if(Array.isArray(request.body?.modules)) {
       const commercial=new PostgresCommercialRepository(database);await commercial.reconcileCatalogue();
       for(const module of request.body.modules) {
-        if(!['queue','inventory','attendance','ledger','crm','purchasing'].includes(module))throw new Error('Unsupported disposable QA module');
+        if(!['queue','inventory','attendance','ledger','crm','purchasing','hr_plus'].includes(module))throw new Error('Unsupported disposable QA module');
         await commercial.upsertEntitlement(organizationId,userId,module,{effect:'grant',status:'active',source:'pilot',reason:'Disposable local dynamic forms QA'});
       }
     }
@@ -54,7 +71,7 @@ root.post('/__test/fixture',async(request,response,next) => {
     // Independent tests get independent middleware/limiter state. Ordinary
     // deployed thresholds and real PostgreSQL requests are unchanged within tests.
     application=createApp({config,identityAccountService:identity});
-    response.setHeader('Cache-Control','no-store'); response.json({phone,email,password,userId:String(created.user.id),organizationId:String(created.user.tenantId),branchId:(created.branch as {id:string}).id});
+    response.setHeader('Cache-Control','no-store'); response.json({phone,email,password,userId:String(created.user.id),organizationId:String(created.user.tenantId),branchId:(created.branch as {id:string}).id,...(request.body?.hrFixture===true?{people:hrPeople}:{})});
   } catch(error) { next(error); }
 });
 root.get('/__test/mail',(_request,response) => { response.setHeader('Cache-Control','no-store'); response.json(capture.messages.map(({purpose,url}) => ({purpose,url}))); });

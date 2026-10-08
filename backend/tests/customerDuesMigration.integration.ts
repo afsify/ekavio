@@ -58,7 +58,7 @@ test('V2-06D Customer Dues migration transforms, reconciles, and blocks unsafe g
   });
 
   await migrate(database);
-  assert.equal((await getMigrationStatus(database)).length, 19);
+  assert.equal((await getMigrationStatus(database)).length, 20);
   const migrationDirectory = path.resolve(process.cwd(), 'postgres', 'migrations');
   const accepted = (await readdir(migrationDirectory)).filter((name) => /^00[1-9]_.*\.sql$/.test(name));
   for (const name of accepted) {
@@ -67,7 +67,7 @@ test('V2-06D Customer Dues migration transforms, reconciles, and blocks unsafe g
   await migrate(upgrade, temporaryMigrations);
   assert.equal((await getMigrationStatus(upgrade, temporaryMigrations)).length, 9);
   await migrate(upgrade);
-  assert.equal((await getMigrationStatus(upgrade)).length, 19);
+  assert.equal((await getMigrationStatus(upgrade)).length, 20);
 
   const now = new Date('2026-10-02T00:00:00.000Z');
   const organizationId = randomUUID();

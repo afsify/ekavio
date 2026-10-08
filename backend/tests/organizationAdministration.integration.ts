@@ -33,7 +33,7 @@ test('organization administration and RBAC against disposable PostgreSQL',async 
     const directory=await mkdtemp(path.join(tmpdir(),'ekavio-v208c-'));
     try{for(const file of (await readdir('postgres/migrations')).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=13))await copyFile(path.join('postgres/migrations',file),path.join(directory,file));
       await migrate(db,directory);const before=(await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
-      await migrate(db);await migrate(db);assert.equal((await getMigrationStatus(db)).length, 19);
+      await migrate(db);await migrate(db);assert.equal((await getMigrationStatus(db)).length, 20);
       assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'014' ORDER BY name")).rows,before);
     }finally{await rm(directory,{recursive:true});}
   });

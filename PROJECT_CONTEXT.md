@@ -1,6 +1,70 @@
 # EkaVio Project Context
 
-## Latest optional module: V2-09B Suppliers & Purchasing (2026-10-08)
+## Latest optional module: V2-09C HR Plus (2026-10-08)
+
+Additive 020 introduces native HR data referencing canonical organization memberships,
+not duplicate employees/authentication/branch memberships. Historical 001–019 remain
+unchanged. `hr_plus` / HR Plus and `module-hr-plus` start unpublished and unpriced,
+with no Pilot Core inclusion or existing grant. Attendance remains independent.
+Owner/admin/HR: read/manage/approve; manager: read/manage; staff: own self-service.
+Live replacement custom roles, active assignments and separate entitlement checks
+remain authoritative; archived roles/revoked memberships and operator bypass are denied.
+
+Whole-day membership leave covers all assigned branches. Requests freeze type/policy,
+counted days and branch-calendar/timezone context. Pending/approved overlaps are
+database-excluded. Review requires another active authorized member covering ALL
+active assigned branches. Requesters cancel pending only; a different reviewer may
+cancel approved leave before its start date. Started corrections, accrual/quotas,
+half-day/hourly leave and payroll/legal compliance are explicitly deferred.
+
+Explicit branch calendars provide editable weekly working patterns and versioned
+manual DATE overrides. Shift templates define local times/overnight/breaks; assignments
+snapshot timezone/template, UTC instants and business DATE. Canonical conversion
+rejects ambiguous/nonexistent DST. Draft/published overlaps across branches are
+database-excluded. Approved leave blocks conflicting new/edit/publish work; approval
+rejects already published conflicts, requiring explicit cancellation, never silent
+rewrite. Publication is immutable except cancellation/replacement. Repeats are one
+employee, at most 31 calendar days/31 assignments, all atomic and fingerprinted.
+
+One ALS-scoped transaction owns facts, append-only history, private decisions,
+idempotency results and exact-recipient generic attention. Organization row locks
+serialize RBAC and leave/publication races, including database triggers. Private
+reasons are own/full-coverage-approver only; internal notes full approver only.
+Neither appears in generic history/audit, availability, widgets, reports or CSV.
+Four factual widgets/four closed bounded reports extend existing analytics; CSV
+retains formula safety/export evidence. No paid provider, scheduler or dependency.
+
+The shared HR workspace offers My Work plus permission-gated overview/leave/shifts/
+calendar/availability, existing controls, confirmations, safe retry and scoped caches.
+The shared live-authority cache now includes user identity, preventing previous-client
+permissions from rendering after a role switch. Staff dynamic fields remain canonical;
+Leave/Shift custom fields are deferred. See [ADR 0028](docs/adr/0028-hr-plus.md) and
+[V2-09C acceptance](docs/reviews/V2-09C_HR_PLUS.md) for the final evidence register.
+
+Clean installs and final quality/build gates pass: backend 195 unit/source tests,
+frontend 94 components, all 32 database integration files/295 tests (including HR
+29 and Attendance 21), additional preflight 17/Mongo source 4 and backup contracts
+15. Four full/production audits report zero vulnerabilities. Local Chromium HR
+15 plus prior foundation/identity/admin/fields/analytics/commercial/CRM/Purchasing
+132 pass; HR covers 360/390/768/1440 in Light/Dark/System, no overflow/page errors.
+Managed browser metadata was unavailable; authorized local Chromium required no
+manual operator loop. Role-switch cache and shared-control issues were corrected,
+with assertions retained and affected final acceptance rerun.
+
+Normal Compose config/build/startup passes, three services healthy, local live/
+ready/home/login/HR HTTP 200, bounded startup logs clear. After all local gates,
+hosted 001–019 matched before only pending 020 was applied by the locked runner;
+001–020 now match, btree_gist installed, live/ready HTTP 200. Credentials stayed
+ignored/in memory and TLS unchanged. This is schema/public health only, not hosted
+authenticated HR or exact deployment. Release requires exact-commit CI and an
+annotated completion tag pointing to that accepted commit.
+
+**NO-GO FOR REAL CUSTOMER DATA** remains. Extended hosted recovery through 020,
+hosted authenticated/exact-deployment acceptance and always-on hosting remain OPEN.
+Render Free is staging-only; Atlas retained untouched. V2-10 final acceptance is next
+only with separate authorization and has not started.
+
+## Previous optional module: V2-09B Suppliers & Purchasing (2026-10-08)
 
 Additive migration 019 supplies organization Suppliers, selected-branch Purchase
 Orders/lines, immutable goods receipts/lines and append-only activity. Composite
@@ -52,8 +116,8 @@ not authenticated Purchasing or exact deployed-build proof.
 
 **NO-GO FOR REAL CUSTOMER DATA** remains. Extended hosted recovery through 019 and
 hosted authenticated/exact-deployment acceptance remain OPEN. Render Free is staging
-only; Atlas is retained untouched. V2-09C HR Plus and V2-10 remain separately
-authorized/deferred, not automatically started.
+only; Atlas is retained untouched. HR Plus was deferred at this historical checkpoint
+and is now separately implemented above; V2-10 remains deferred/not started.
 
 ## Previous optional module: V2-09A CRM & Follow-ups (2026-10-07)
 

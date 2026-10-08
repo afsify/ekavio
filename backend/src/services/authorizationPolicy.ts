@@ -1,6 +1,9 @@
 import type { MembershipRole } from '../models/Membership.js';
 
 export const permissions = {
+  HR_PLUS_READ: 'hr_plus.read',
+  HR_PLUS_MANAGE: 'hr_plus.manage',
+  HR_PLUS_APPROVE: 'hr_plus.approve',
   PURCHASING_READ: 'purchasing.read',
   PURCHASING_MANAGE: 'purchasing.manage',
   CRM_READ: 'crm.read',
@@ -54,6 +57,7 @@ const operationalPermissions: readonly Permission[] = [
 ];
 
 const administratorPermissions: readonly Permission[] = [
+  permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE, permissions.HR_PLUS_APPROVE,
   permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE,
   permissions.CRM_READ, permissions.CRM_MANAGE,
   permissions.FIELDS_READ, permissions.FIELDS_MANAGE,
@@ -69,8 +73,9 @@ const administratorPermissions: readonly Permission[] = [
 const rolePermissions: Record<MembershipRole, readonly Permission[]> = {
   owner: administratorPermissions,
   admin: administratorPermissions,
-  manager: [...operationalPermissions, permissions.CRM_READ, permissions.CRM_MANAGE, permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE],
+  manager: [...operationalPermissions, permissions.CRM_READ, permissions.CRM_MANAGE, permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE, permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE],
   hr: [
+    permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE, permissions.HR_PLUS_APPROVE,
     permissions.ORGANIZATION_READ, permissions.BRANCHES_READ,
     permissions.STAFF_READ,
     permissions.ATTENDANCE_READ,
@@ -92,6 +97,6 @@ export const hasPermission = (
 // The sole tenant catalogue. Platform/provider authority is deliberately absent.
 export const permissionCatalogue = Object.values(permissions).map((key) => {
   const [category, operation] = key.split('.');
-  const subject = category === 'ledger' ? 'Customer dues' : category![0]!.toUpperCase() + category!.slice(1);
-  return { key, category: subject, label: `${operation === 'read' ? 'View' : 'Manage'} ${subject.toLowerCase()}`, description: `${operation === 'read' ? 'Read' : 'Change'} organization-scoped ${subject.toLowerCase()} records. ${category==='customers'||category==='services'?'Core capability; no Queue subscription required.':'Commercial capabilities, where applicable, remain independent.'}` };
+  const subject = category === 'hr_plus' ? 'HR Plus' : category === 'ledger' ? 'Customer dues' : category![0]!.toUpperCase() + category!.slice(1);
+  return { key, category: subject, label: `${operation === 'read' ? 'View' : operation==='approve'?'Review leave in':'Manage'} ${subject.toLowerCase()}`, description: `${operation === 'read' ? 'Read' : operation==='approve'?'Approve/reject with full assigned-branch coverage; no self review.':'Change'} organization-scoped ${subject.toLowerCase()} records. ${category==='customers'||category==='services'?'Core capability; no Queue subscription required.':'Commercial capabilities, where applicable, remain independent.'}` };
 });

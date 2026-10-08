@@ -1,4 +1,5 @@
 export const MODULES = {
+  HR_PLUS: 'hr_plus',
   LEDGER: 'ledger',
   INVENTORY: 'inventory',
   ATTENDANCE: 'attendance',

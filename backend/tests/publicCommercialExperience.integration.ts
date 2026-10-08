@@ -35,7 +35,7 @@ test('V2-08F public commercial schema, quotes and historical intent', async (t) 
   const history = (await db.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
   await t.test('016 upgrade preserves prices, requests and historical checksums; repeat is idempotent', async () => {
     await migrate(db); await migrate(db);
-    assert.equal((await getMigrationStatus(db)).length, 19);
+    assert.equal((await getMigrationStatus(db)).length, 20);
     assert.ok((await getMigrationStatus(db)).every((item) => item.state === 'applied'));
     assert.deepEqual((await db.query("SELECT name,checksum FROM schema_migrations WHERE name<'017' ORDER BY name")).rows, history);
     const old = (await db.query('SELECT subtotal_minor::text,pricing_mode,public_reference FROM commercial_access_requests WHERE id=$1', [oldRequest])).rows[0]!;

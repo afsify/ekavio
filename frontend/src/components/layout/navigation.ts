@@ -7,6 +7,7 @@ export const destinations: Destination[] = [
   { name: 'Queue', path: '/queue', group: 'Operations', permission: 'queue.read', module: 'queue' },
   { name: 'Appointments', path: '/appointments', group: 'Operations', permission: 'queue.read', module: 'queue' },
   { name: 'Attendance', path: '/attendance', group: 'Operations', permission: 'attendance.read', module: 'attendance' },
+  { name: 'HR Plus / My Work', path: '/hr', group: 'Operations', module: 'hr_plus' },
   { name: 'Customer Dues', path: '/ledger', group: 'Operations', permission: 'ledger.read', module: 'ledger' },
   { name: 'CRM & Follow-ups', path: '/crm', group: 'Operations', permission: 'crm.read', module: 'crm' },
   { name: 'Inventory', path: '/inventory', group: 'Operations', permission: 'inventory.read', module: 'inventory' },

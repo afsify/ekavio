@@ -272,7 +272,16 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:purchasing
 
+      - name: Test PostgreSQL HR leave calendars and scheduling
+        working-directory: backend
+        run: npm run test:hr
+
+      - name: Test PostgreSQL-backed HR workflows in browser
+        working-directory: frontend
+        run: npm run test:e2e:hr
+
       - name: Upload frontend QA evidence
+        # HR acceptance uses disposable private fixtures and no uploaded traces.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
         uses: actions/upload-artifact@v4
@@ -287,6 +296,7 @@ jobs:
             !frontend/test-results/commercial/**
             !frontend/test-results/crm/**
             !frontend/test-results/purchasing/**
+            !frontend/test-results/hr/**
           retention-days: 7
 
       - name: Validate Docker Compose

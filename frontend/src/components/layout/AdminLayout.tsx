@@ -12,7 +12,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const closeNavigation = useCallback(() => setOpen(false), []);
   const { user, entitlements, activeTenantId, activeBranchId, isPlatformOperator } = useAppStore();
-  const authority=useQuery({queryKey:['live-authority',activeTenantId,activeBranchId],retry:false,refetchOnWindowFocus:'always',refetchInterval:30_000,queryFn:async()=>(await client.get<{data:{permissions:string[];role:string}}>('/organization/context')).data.data});
+  const authority=useQuery({queryKey:['live-authority',user?.id,activeTenantId,activeBranchId],retry:false,refetchOnWindowFocus:'always',refetchInterval:30_000,queryFn:async()=>(await client.get<{data:{permissions:string[];role:string}}>('/organization/context')).data.data});
   useEffect(()=>{
     if(!authority.data) return;
     useAppStore.setState(state=>({user:state.user?{...state.user,permissions:authority.data.permissions,role:authority.data.role}:null}));
