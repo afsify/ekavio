@@ -39,8 +39,11 @@ Local clean installs/lint/typecheck/build pass: 190 backend unit/source tests,
 86 components, 31 distinct database files/266 tests, additional preflight 17 and
 Mongo source 4, plus 15 backup/tooling/watchdog contracts. All four full/production
 audits report zero vulnerabilities. Chromium foundation 19, identity 11,
-administration 18, fields 14, analytics 13, commercial 24, CRM 15 and Purchasing 17
-pass (131 total), including four widths in all three themes. Normal Compose has
+administration 18, fields 14, analytics 13, commercial 24, CRM 15 and Purchasing 18
+pass (132 total), including four widths in all three themes and a wider-font
+regression for reference controls. The first CI run caught mobile reference-button
+overflow; a bounded wrapping correction and affected gates were rerun, without
+weakening assertions. Final release requires exact correction-commit CI. Normal Compose has
 three healthy services, local live/ready/root/login/Suppliers/Purchasing are 200,
 and bounded runtime logs are clear. Owned disposable QA infrastructure was stopped.
 Hosted 001–018 matched before only accepted 019 was applied after local acceptance;

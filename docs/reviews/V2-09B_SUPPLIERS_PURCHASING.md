@@ -107,7 +107,7 @@ gateway is introduced. Correctness needs no always-running scheduler.
   Mongo retirement and source suites also pass.
 - Backup envelope/tooling/watchdog contracts **15/15**; no crypto/key/TLS policy changed.
 - All four full/production dependency audits: **0 vulnerabilities**.
-- Dedicated Purchasing Chromium **17/17** and foundation **19/19** pass. Purchasing
+- Dedicated Purchasing Chromium **18/18** and foundation **19/19** pass. Purchasing
   covers empty states, optional Supplier contacts/lifecycle, two-line exact draft,
   internal ordering, partial/full receiving, stock/history/price preservation,
   replay/conflict/over-receipt/reversal, module/role/tenant/branch negatives,
@@ -116,7 +116,7 @@ gateway is introduced. Correctness needs no always-running scheduler.
   and remains an ignored QA artifact, not repository content.
 - Prior Chromium foundation **19/19**, identity **11/11**, administration **18/18**,
   dynamic fields **14/14**, analytics **13/13**, commercial **24/24** and CRM **15/15**
-  pass: prior suites 114 tests; with Purchasing, **131 browser tests**. Administration/
+  pass: prior suites 114 tests; with Purchasing, **132 browser tests**. Administration/
   fields/analytics were recovered from this
   run's timestamped passing Playwright result files after the orchestration output
   expired; commercial/CRM were not inferred from older artifacts.
@@ -161,6 +161,20 @@ hang-up before assertions). Readiness was then explicitly confirmed HTTP 200 and
 the complete suite rerun, without weakening its sign-out/session/authority tests.
 Managed browser connection failed before navigation due to missing sandbox metadata;
 authorized local Chromium provides automated evidence, with no operator test loop.
+
+The first exact-commit CI run (`37753396271`, implementation commit `e8557dea`)
+passed all preceding gates but caught real Purchase Order mobile overflow in six
+360/390px theme cases. The reference-bearing View button lacked a bounded width
+and wrapping policy. A wider 18px monospace regression reproduced 383px document
+width at a 360px viewport. The narrow button correction adds maximum width,
+minimum-width reset and normal/break-all wrapping; the reproduction and complete
+18-case Purchasing suite pass without relaxing any overflow assertion. Affected
+frontend lint/typecheck/86 components and Docker frontend build pass again. The
+direct build first rejected missing required Vite URLs; it was rerun with explicit
+non-secret loopback build URLs, not by weakening configuration validation.
+Unchanged backend/database gates were not needlessly repeated; hosted migration
+019 was not reapplied. The failing implementation SHA is never completion-tagged;
+release requires successful CI on the subsequent exact correction commit.
 
 ## Release and operating limits
 
