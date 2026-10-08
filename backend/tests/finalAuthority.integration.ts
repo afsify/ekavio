@@ -77,9 +77,11 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
       });
     }
     await t.test('suspended subscription cannot be bypassed by explicit active pilot grants', async () => {
-      await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'suspended',source:'manual',
-        startsAt:new Date(Date.now()-60_000).toISOString(),billingCycle:'monthly'});
-      for (const [,path] of modules) assert.equal((await request(path)).status,403);
+      for (const offset of [-60_000, 86_400_000]) {
+        await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'suspended',source:'manual',
+          startsAt:new Date(Date.now()+offset).toISOString(),billingCycle:'monthly'});
+        for (const [,path] of modules) assert.equal((await request(path)).status,403);
+      }
       await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'active',source:'manual',
         startsAt:new Date(Date.now()-60_000).toISOString(),billingCycle:'monthly'});
       for (const [,path] of modules) assert.equal((await request(path)).status,200);

@@ -61,6 +61,9 @@ This is an explicit commercial stop, not absence of a subscription: independent
 grants without a suspended subscription remain supported. CORE, permissions,
 expiry/revoke precedence and catalogue prices are unchanged. Clearing suspension
 does not invent a grant; the existing sources must still authorize access.
+The raw explicit suspension also wins when a future subscription start would
+otherwise present an effective `pending` status; unit and live HTTP regressions
+cover both past and future start dates.
 
 The `public.commercial_runtime_authority` singleton is a durable **offline
 shadow-write safety latch**, not the runtime repository selector. Later

@@ -66,7 +66,7 @@
       "status": "PASS",
       "pilotMandatory": true,
       "evidence": [
-        "All seven modules independently test missing entitlement, missing permission, allowed, explicit revoke, archived role; suspended subscription with active grants denies all. Purchasing retains Inventory read/manage dependency; HR self-service does not require Attendance."
+        "All seven modules independently test missing entitlement, missing permission, allowed, explicit revoke, archived role; suspended subscription with active grants denies all, including future starts whose derived display status is pending. Purchasing retains Inventory read/manage dependency; HR self-service does not require Attendance."
       ]
     },
     {

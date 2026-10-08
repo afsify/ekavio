@@ -213,7 +213,7 @@ export const calculateEffectiveEntitlements = (
     // A deliberate subscription suspension is an organization-wide commercial
     // stop, not a missing subscription. Independent pilot/support grants must
     // not silently reopen optional modules while that stop remains in force.
-    const enabled = status !== 'suspended' && definition?.status === 'active'
+    const enabled = subscription?.status !== 'suspended' && definition?.status === 'active'
       && sources.length > 0 && !revokedModules.has(key);
     return {
       key,

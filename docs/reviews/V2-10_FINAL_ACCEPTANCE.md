@@ -22,6 +22,9 @@ kept optional modules enabled after subscription suspension. The pure regression
 and actual HTTP matrix reproduced it before correction. Suspension now denies
 all seven optional modules at request time; independent grants absent a
 suspended subscription, CORE and existing permission/dependency gates remain.
+Final review also reproduced a future-start suspension being presented as
+`pending`; the guard now reads the explicit raw suspension, with past/future
+unit and actual HTTP checks. Effective-period display semantics are unchanged.
 See the clarification in [ADR 0009](../adr/0009-postgresql-commercial-runtime-authority.md).
 
 ## Inventory and evidence registers
