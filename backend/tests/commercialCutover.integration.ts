@@ -79,7 +79,7 @@ const fixture = (): SharedCoreSnapshot => ({
       branchLegacyMongoIds: [legacy.branchB], createdAt: at, updatedAt: at },
   ],
   // Historical Mongo fixture stays the original four modules; CRM is native 018.
-  moduleDefinitions: initialModuleCatalogue.filter(module=>module.key!=='crm').map((module, index) => ({
+  moduleDefinitions: initialModuleCatalogue.filter(module=>!['crm','purchasing'].includes(module.key)).map((module, index) => ({
     legacyMongoId: moduleLegacyId(index + 1), key: module.key,
     displayName: module.displayName, description: module.description, category: module.category,
     commercialType: module.commercialType, status: module.status, version: module.version,
@@ -302,7 +302,7 @@ test('V2-05D PostgreSQL commercial parity, authority, and two-organization isola
       'SELECT id, organization_id FROM subscriptions ORDER BY organization_id',
     );
     // Current native catalogue grows; the historical source above remains four modules.
-    assert.deepEqual(first, { modules: 5, plans: 2, addOns: 5 });
+    assert.deepEqual(first, { modules: 6, plans: 2, addOns: 6 });
     assert.deepEqual(second, first);
     assert.deepEqual(afterSubscriptions.rows, beforeSubscriptions.rows);
   });

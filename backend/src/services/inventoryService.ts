@@ -77,6 +77,7 @@ const serializeMovement = (movement: StockMovementProjection) => ({
     : movement.quantityDelta,
   reason: movement.reason,
   reference: movement.reference,
+  purchaseReceiptLineId: movement.purchaseReceiptLineId ?? null,
   reversesMovementId: movement.reversesMovementId,
   reversedByMovementId: movement.reversedByMovementId,
   actorMembershipId: movement.actorMembershipId,

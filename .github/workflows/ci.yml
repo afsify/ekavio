@@ -264,6 +264,14 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:crm
 
+      - name: Test PostgreSQL purchasing and canonical Inventory receiving
+        working-directory: backend
+        run: npm run test:purchasing
+
+      - name: Test PostgreSQL-backed purchasing in browser
+        working-directory: frontend
+        run: npm run test:e2e:purchasing
+
       - name: Upload frontend QA evidence
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
@@ -278,6 +286,7 @@ jobs:
             !frontend/test-results/analytics/**
             !frontend/test-results/commercial/**
             !frontend/test-results/crm/**
+            !frontend/test-results/purchasing/**
           retention-days: 7
 
       - name: Validate Docker Compose

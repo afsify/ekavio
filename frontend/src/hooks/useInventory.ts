@@ -49,6 +49,7 @@ export interface StockMovement {
   quantity: string;
   reason: string | null;
   reference: string | null;
+  purchaseReceiptLineId?: string | null;
   reversesMovementId: string | null;
   reversedByMovementId: string | null;
   actorMembershipId: string | null;

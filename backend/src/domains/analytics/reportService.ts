@@ -14,7 +14,7 @@ export class ReportService {
  async catalogue(c:AuthorizationContext){
   const modules=await this.enabled(c.organizationId);
   if(!c.permissions.includes('reports.read'))throw new AppError('Report access denied',403);
-  return reports.filter(r=>canRead(c,r.permission,r.module,modules)).map(r=>({...r,scope:sources[r.key].scope,filters:sources[r.key].filters,statuses:sources[r.key].statuses,dateRange:Boolean(sources[r.key].date)}));
+  return reports.filter(r=>canRead(c,r.permission,r.module,modules)&&(r.key!=='goods-received'||canRead(c,'inventory.read','inventory',modules))).map(r=>({...r,scope:sources[r.key].scope,filters:sources[r.key].filters,statuses:sources[r.key].statuses,dateRange:Boolean(sources[r.key].date)}));
  }
  async run(c:AuthorizationContext,key:string,input:unknown,exporting=false){
   const report=authorizeReport(c,key,await this.enabled(c.organizationId)),source=sources[report.key];

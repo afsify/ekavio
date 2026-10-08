@@ -15,9 +15,12 @@ export const reports = [
  {key:'staff',label:'Staff directory',permission:'staff.read',entity:'membership',module:null},
  {key:'crm-leads',label:'CRM Leads',permission:'crm.read',entity:'lead',module:'crm'},
  {key:'crm-followups',label:'CRM Follow-ups',permission:'crm.read',entity:null,module:'crm'},
+ {key:'purchase-orders',label:'Purchase Orders',permission:'purchasing.read',entity:null,module:'purchasing'},
+ {key:'goods-received',label:'Goods Received',permission:'purchasing.read',entity:null,module:'purchasing'},
+ {key:'supplier-purchases',label:'Supplier Purchase Summary (daily)',permission:'purchasing.read',entity:null,module:'purchasing'},
 ] as const;
 export type ReportKey=typeof reports[number]['key'];
-export const widgetKeys=['customers','services','queue','appointments','attendance','dues','inventory','staff','branches','roles','invitations','crm-active','crm-today','crm-overdue','crm-unassigned'] as const;
+export const widgetKeys=['customers','services','queue','appointments','attendance','dues','inventory','staff','branches','roles','invitations','crm-active','crm-today','crm-overdue','crm-unassigned','purchasing-open','purchasing-partial','purchasing-awaiting','purchasing-recent'] as const;
 export const layoutSchema=z.object({order:z.array(z.enum(widgetKeys)).max(20),hidden:z.array(z.enum(widgetKeys)).max(20),version:z.number().int().nonnegative()}).strict().refine(v=>new Set(v.order).size===v.order.length&&new Set(v.hidden).size===v.hidden.length,'Duplicate widgets');
 const date=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>Number(v.slice(0,4))>=1900&&Number(v.slice(0,4))<=9998&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,'Invalid calendar date');
 export const filterSchema=z.object({from:date.optional(),to:date.optional(),branchId:z.uuid().optional(),search:z.string().trim().max(200).default(''),status:z.string().max(32).optional(),customerId:z.uuid().optional(),serviceId:z.uuid().optional(),staffId:z.uuid().optional(),entryType:z.string().max(32).optional(),stockStatus:z.enum(['low','out','normal']).optional(),customKey:z.string().max(64).optional(),customValue:z.string().max(1000).optional(),customOperator:z.enum(['eq','gte','lte']).default('eq'),columns:z.string().max(3000).optional(),page:z.coerce.number().int().min(1).max(200).default(1),limit:z.coerce.number().int().min(1).max(100).default(25)}).strict();
@@ -28,7 +31,7 @@ export function canRead(c:AuthorizationContext,permission:string,module:string|n
 export function authorizeReport(c:AuthorizationContext,key:string,enabled:ReadonlySet<string>) {
  const report=reports.find(r=>r.key===key);
  if(!report)throw new AppError('Report not found',404);
- if(!c.permissions.includes('reports.read')||!canRead(c,report.permission,report.module,enabled))throw new AppError('Report access denied',403);
+ if(!c.permissions.includes('reports.read')||!canRead(c,report.permission,report.module,enabled)||(key==='goods-received'&&!canRead(c,'inventory.read','inventory',enabled)))throw new AppError('Report access denied',403);
  return report;
 }
 export function validateRange(from:string,to:string) {

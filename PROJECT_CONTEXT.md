@@ -1,6 +1,58 @@
 # EkaVio Project Context
 
-## Latest optional module: V2-09A CRM & Follow-ups (2026-10-07)
+## Latest optional module: V2-09B Suppliers & Purchasing (2026-10-08)
+
+Additive migration 019 supplies organization Suppliers, selected-branch Purchase
+Orders/lines, immutable goods receipts/lines and append-only activity. Composite
+foreign keys and deferred consistency guards bind receipts to canonical Inventory
+movements. Historical 001–018 remain unchanged. Random EV-PO/EV-GR references are
+human labels, never authorization. Drafts are versioned; ordered snapshots freeze.
+Only successful actual receiving changes stock. Partial receipts cannot exceed
+remaining quantities; independent Purchasing movement reversal is denied on server
+and database. Returns/corrections and ordered amendments remain deferred.
+
+Purchasing reuses canonical Inventory.changeStock on the SAME ALS-scoped PoolClient
+under one PostgresDatabase.atomic boundary: all lines, stock, receipt, progress and
+activity commit together or all roll back. Identical fingerprinted retries return
+one receipt; altered keys conflict and concurrent duplicates increase stock once.
+Quantities are exact milli-units, prices integer INR paise, line multiplication rounds
+half-paise up with BIGINT overflow protection. No item reference-price overwrite,
+payment, AP, invoicing, tax ledger, supplier email, profit or COGS claim is introduced.
+
+Commercial purchasing / Suppliers & Purchasing and module-purchasing are unpublished
+with no price, Pilot Core inclusion or existing-subscription grant. Live role,
+membership, branch and entitlement checks are independent. Suppliers need Purchasing
+alone; item-backed orders need Inventory read and both modules; receiving additionally
+needs independent Inventory manage and Purchasing manage. Owner/admin/manager receive
+read/manage, staff/HR do not automatically, custom roles replace built-ins.
+
+Guarded Suppliers/Purchasing pages provide bounded searches, filters and histories,
+exact draft editor, blank actual-quantity entry, review/confirmation and safe retries.
+Canonical Inventory links and factual widgets reuse the existing shell. Three curated
+branch-safe reports reuse bounded formula-safe CSV; Goods Received independently
+requires Inventory read. Notifications and Supplier fields are explicitly deferred
+rather than guessing recipients or creating a parallel engine. No paid dependency or
+scheduler is needed. See [ADR 0027](docs/adr/0027-suppliers-purchasing.md) and
+[V2-09B acceptance](docs/reviews/V2-09B_SUPPLIERS_PURCHASING.md) for final evidence.
+
+Local clean installs/lint/typecheck/build pass: 190 backend unit/source tests,
+86 components, 31 distinct database files/266 tests, additional preflight 17 and
+Mongo source 4, plus 15 backup/tooling/watchdog contracts. All four full/production
+audits report zero vulnerabilities. Chromium foundation 19, identity 11,
+administration 18, fields 14, analytics 13, commercial 24, CRM 15 and Purchasing 17
+pass (131 total), including four widths in all three themes. Normal Compose has
+three healthy services, local live/ready/root/login/Suppliers/Purchasing are 200,
+and bounded runtime logs are clear. Owned disposable QA infrastructure was stopped.
+Hosted 001–018 matched before only accepted 019 was applied after local acceptance;
+001–019 now match, and hosted live/ready are 200. This is schema/public health,
+not authenticated Purchasing or exact deployed-build proof.
+
+**NO-GO FOR REAL CUSTOMER DATA** remains. Extended hosted recovery through 019 and
+hosted authenticated/exact-deployment acceptance remain OPEN. Render Free is staging
+only; Atlas is retained untouched. V2-09C HR Plus and V2-10 remain separately
+authorized/deferred, not automatically started.
+
+## Previous optional module: V2-09A CRM & Follow-ups (2026-10-07)
 
 Migration 018 adds native PostgreSQL organization pipeline stages, selected-branch
 Leads/follow-ups and append-only CRM activity, with composite relationships and
@@ -35,7 +87,7 @@ not inferred authenticated CRM or exact deployed-build evidence. See
 [V2-09A acceptance](docs/reviews/V2-09A_CRM_FOLLOWUPS.md) for evidence and release scope.
 Extended recovery 013–018 and hosted authenticated/exact-deployment acceptance remain
 OPEN. **NO-GO FOR REAL CUSTOMER DATA**, Free Render staging-only choice and retained
-untouched Atlas remain unchanged. V2-09B, V2-09C and V2-10 are deferred/not started.
+untouched Atlas remain unchanged. V2-09C and V2-10 are deferred/not started.
 
 ## Previous product experience: V2-08F (2026-10-07)
 

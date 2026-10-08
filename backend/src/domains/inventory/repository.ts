@@ -46,6 +46,7 @@ export interface StockMovementProjection {
   quantityDelta: string;
   reason: string | null;
   reference: string | null;
+  purchaseReceiptLineId?: string | null;
   reversesMovementId: string | null;
   reversedByMovementId: string | null;
   actorMembershipId: string | null;
@@ -96,6 +97,7 @@ interface StockMovementRow extends QueryResultRow {
   occurred_at: Date;
   created_at: Date;
   command_fingerprint: string | null;
+  purchase_receipt_line_id?: string | null;
 }
 
 export const itemSelect = `
@@ -125,7 +127,7 @@ const movementSelect = `
   m.quantity_delta::text, m.reason, m.source_type, m.source_id,
   m.reverses_movement_id, reversed.id AS reversed_by_movement_id,
   m.created_by_membership_id, u.name AS actor_name, m.occurred_at, m.created_at,
-  m.command_fingerprint
+  m.command_fingerprint, to_jsonb(m)->>'purchase_receipt_line_id' AS purchase_receipt_line_id
 `;
 
 const movementJoins = `
@@ -172,6 +174,7 @@ const projectMovement = (row: StockMovementRow): StockMovementProjection => ({
   quantityDelta: row.quantity_delta,
   reason: row.reason,
   reference: row.source_type === 'manual_reference' ? row.source_id : null,
+  purchaseReceiptLineId: row.purchase_receipt_line_id ?? null,
   reversesMovementId: row.reverses_movement_id,
   reversedByMovementId: row.reversed_by_movement_id,
   actorMembershipId: row.created_by_membership_id,
@@ -461,6 +464,8 @@ export class PostgresInventoryRepository {
     idempotencyKey: string;
     commandFingerprint: string;
     occurredAt: Date;
+    purchaseReceiptLineId?: string;
+    expectedUnitCode?: string;
   }): Promise<StockMovementProjection> {
     return this.database.transaction(async (client) => {
       await lockCommand(client, input.organizationId, `movement:${input.idempotencyKey}`);
@@ -472,8 +477,8 @@ export class PostgresInventoryRepository {
         return projectMovement(retry);
       }
       const location = await defaultLocation(client, input.organizationId, input.branchId);
-      const item = await client.query<{ status: InventoryItemStatus }>(`
-        SELECT status FROM inventory_items
+      const item = await client.query<{ status: InventoryItemStatus; unit_code: string }>(`
+        SELECT status,unit_code FROM inventory_items
         WHERE id = $1 AND organization_id = $2
         FOR UPDATE
       `, [input.itemId, input.organizationId]);
@@ -481,6 +486,7 @@ export class PostgresInventoryRepository {
       if (item.rows[0].status !== 'active') {
         throw new AppError('Inactive inventory items cannot receive new stock movements', 409);
       }
+      if (input.expectedUnitCode && item.rows[0].unit_code !== input.expectedUnitCode) throw new AppError('Ordered unit no longer matches the canonical item',409);
       const balanceInput = {
         organizationId: input.organizationId,
         branchId: input.branchId,
@@ -495,16 +501,16 @@ export class PostgresInventoryRepository {
         INSERT INTO stock_movements (
           organization_id, branch_id, item_id, location_id, movement_type,
           quantity_delta, source_type, source_id, created_by_membership_id,
-          reason, idempotency_key, command_fingerprint, occurred_at
+          reason, idempotency_key, command_fingerprint, occurred_at, purchase_receipt_line_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6,
           CASE WHEN $7::text IS NULL THEN NULL ELSE 'manual_reference' END,
-          $7, $8, $9, $10, $11, $12
+          $7, $8, $9, $10, $11, $12, $13
         )
       `, [
         input.organizationId, input.branchId, input.itemId, location.id,
         input.movementType, delta, input.reference, input.actorMembershipId,
-        input.reason, input.idempotencyKey, input.commandFingerprint, input.occurredAt,
+        input.reason, input.idempotencyKey, input.commandFingerprint, input.occurredAt, input.purchaseReceiptLineId ?? null,
       ]);
       await client.query(`
         UPDATE stock_balances
@@ -547,6 +553,9 @@ export class PostgresInventoryRepository {
       `, [input.targetMovementId, input.organizationId, input.branchId]);
       const target = targetResult.rows[0];
       if (!target) throw new AppError('Stock movement not found in the selected branch', 404);
+      if ((await client.query('SELECT 1 FROM stock_movements WHERE id=$1 AND purchase_receipt_line_id IS NOT NULL',[target.id])).rowCount) {
+        throw new AppError('Purchasing receipt cannot be independently reversed; purchasing returns are deferred',409);
+      }
       if (target.movement_type === 'reversal') {
         throw new AppError('A stock reversal cannot reverse another reversal', 409);
       }

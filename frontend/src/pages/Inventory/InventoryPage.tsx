@@ -1,5 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { Link,useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { client } from '../../api/client';
+import { hasEntitlement } from '../../commercial/catalogue';
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -94,7 +98,8 @@ export const InventoryPage: React.FC = () => {
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [selectedMovement, setSelectedMovement] = useState<StockMovement | null>(null);
-  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+  const [chosenHistoryItem, setHistoryItem] = useState<InventoryItem | null | undefined>(undefined);
+  const [linkParams,setLinkParams] = useSearchParams();
   const [historyPage, setHistoryPage] = useState(1);
   const [commandKey, setCommandKey] = useState(newCommandKey);
   const [form, setForm] = useState<InventoryFormState>(emptyForm);
@@ -104,6 +109,9 @@ export const InventoryPage: React.FC = () => {
   const user = useAppStore((state) => state.user);
   const activeTenantId = useAppStore((state) => state.activeTenantId);
   const activeBranchId = useAppStore((state) => state.activeBranchId);
+  const entitlements = useAppStore((state) => state.entitlements);
+  const linkedItem = useQuery({queryKey:['inventory',activeTenantId,activeBranchId,'linked-item',linkParams.get('item')],enabled:Boolean(linkParams.get('item')),queryFn:async()=>(await client.get<{data:InventoryItem}>('/inventory/'+linkParams.get('item'))).data.data});
+  const historyItem = chosenHistoryItem===undefined ? linkedItem.data??null : chosenHistoryItem;
   const canManage = user?.permissions?.includes('inventory.manage') ?? false;
   const activeMembership = user?.memberships?.find(
     (membership) => membership.organizationId === activeTenantId,
@@ -273,6 +281,7 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {hasEntitlement(entitlements,'purchasing')&&user?.permissions?.includes('purchasing.read')&&<Link className="quiet-button" to="/purchasing">View Purchasing</Link>}
           <Button
             variant="secondary"
             onClick={() => exportToCSV(items.map((item) => ({
@@ -475,7 +484,7 @@ export const InventoryPage: React.FC = () => {
             </div>
             <button
               type="button"
-              onClick={() => setHistoryItem(null)}
+              onClick={() => {setHistoryItem(null);setLinkParams({});}}
               aria-label="Close movement history"
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
             >
@@ -517,11 +526,12 @@ export const InventoryPage: React.FC = () => {
                 </div>
                 {canManage
                   && movement.movementType !== 'reversal'
-                  && !movement.reversedByMovementId && (
+                  && !movement.reversedByMovementId && !movement.purchaseReceiptLineId && (
                   <Button size="sm" variant="ghost" onClick={() => openModal('reverse', historyItem, movement)}>
                     <RotateCcw className="h-4 w-4" /> Reverse
                   </Button>
                 )}
+                {movement.purchaseReceiptLineId&&<p className="text-sm text-slate-400">Purchasing receipt — independent reversal blocked; returns/corrections deferred.</p>}
               </div>
             ))}
           </div>
@@ -548,6 +558,7 @@ export const InventoryPage: React.FC = () => {
 
   return (
     <>
+      {linkedItem.isError&&<p role="alert" className="error-text">{getErrorMessage(linkedItem.error,'Linked Inventory item is unavailable in this branch.')} <button className="quiet-button" onClick={()=>void linkedItem.refetch()}>Retry linked item</button></p>}
       <DetailViewLayout header={header} mainContent={mainContent} />
       <AdvancedModal
         isOpen={modalMode !== null}

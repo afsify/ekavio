@@ -20,6 +20,7 @@ import dynamicFieldRoutes from './dynamicFieldRoutes.js';
 import reportRoutes from './reportRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import crmRoutes from './crmRoutes.js';
+import purchasingRoutes,{supplierRoutes} from './purchasingRoutes.js';
 
 export const createRoutes = (identityService = getIdentityAccountService) => {
 const router = Router();
@@ -37,6 +38,8 @@ router.use('/analytics', analyticsRoutes);
 router.use('/reports',reportRoutes);
 router.use('/notifications',notificationRoutes);
 router.use('/crm',crmRoutes);
+router.use('/suppliers',supplierRoutes);
+router.use('/purchasing',purchasingRoutes);
 router.use('/corporate', corporateRoutes);
 router.use('/staff', staffRoutes);
 router.use('/billing', billingRoutes);

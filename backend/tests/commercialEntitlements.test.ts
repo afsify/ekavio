@@ -80,7 +80,7 @@ const isEnabled = (
 ) => result.modules.find((module) => module.key === moduleKey)?.enabled === true;
 
 test('canonical module catalogue contains unique operational IDs', () => {
-  assert.deepEqual(moduleKeys, ['ledger', 'inventory', 'attendance', 'queue', 'crm']);
+  assert.deepEqual(moduleKeys, ['ledger', 'inventory', 'attendance', 'queue', 'crm', 'purchasing']);
   assert.equal(new Set(moduleKeys).size, moduleKeys.length);
   assert.equal(new Set(initialModuleCatalogue.map((module) => module.key)).size, moduleKeys.length);
 });

@@ -5,7 +5,7 @@ import { preferenceSchema,notificationFilter,notificationActions } from '../src/
 import type { AuthorizationContext } from '../src/services/requestContextService.js';
 const c:AuthorizationContext={userId:'test',sessionId:'test',organizationId:'test',membershipId:'test',role:'staff',platformOperator:false,permissions:['reports.read']};
 test('report authority is reports AND domain AND commercial, independently',()=>{
- for(const r of reports){assert.throws(()=>authorizeReport(c,r.key,new Set(['queue','inventory','ledger','attendance','crm'])));assert.throws(()=>authorizeReport({...c,permissions:[r.permission]},r.key,new Set(['queue','inventory','ledger','attendance','crm'])));if(r.module)assert.throws(()=>authorizeReport({...c,permissions:['reports.read',r.permission]},r.key,new Set()));assert.equal(authorizeReport({...c,permissions:['reports.read',r.permission]},r.key,new Set(['queue','inventory','ledger','attendance','crm'])).key,r.key);}
+ for(const r of reports){assert.throws(()=>authorizeReport(c,r.key,new Set(['queue','inventory','ledger','attendance','crm','purchasing'])));assert.throws(()=>authorizeReport({...c,permissions:[r.permission]},r.key,new Set(['queue','inventory','ledger','attendance','crm','purchasing'])));if(r.module)assert.throws(()=>authorizeReport({...c,permissions:['reports.read',r.permission]},r.key,new Set()));assert.equal(authorizeReport({...c,permissions:['reports.read',r.permission,...(r.key==='goods-received'?['inventory.read']:[])]},r.key,new Set(['queue','inventory','ledger','attendance','crm','purchasing'])).key,r.key);}
  assert.equal(canRead({...c,permissions:['customers.read']},'customers.read',null,new Set()),true);
  assert.equal(canRead(c,'customers.read',null,new Set()),false);
 });

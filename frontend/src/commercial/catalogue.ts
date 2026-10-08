@@ -4,6 +4,7 @@ export const MODULES = {
   ATTENDANCE: 'attendance',
   QUEUE: 'queue',
   CRM: 'crm',
+  PURCHASING: 'purchasing',
 } as const;
 
 export type ModuleKey = (typeof MODULES)[keyof typeof MODULES];

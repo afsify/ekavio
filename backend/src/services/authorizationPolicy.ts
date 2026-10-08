@@ -1,6 +1,8 @@
 import type { MembershipRole } from '../models/Membership.js';
 
 export const permissions = {
+  PURCHASING_READ: 'purchasing.read',
+  PURCHASING_MANAGE: 'purchasing.manage',
   CRM_READ: 'crm.read',
   CRM_MANAGE: 'crm.manage',
   FIELDS_READ: 'fields.read',
@@ -52,6 +54,7 @@ const operationalPermissions: readonly Permission[] = [
 ];
 
 const administratorPermissions: readonly Permission[] = [
+  permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE,
   permissions.CRM_READ, permissions.CRM_MANAGE,
   permissions.FIELDS_READ, permissions.FIELDS_MANAGE,
   permissions.BRANCHES_MANAGE, permissions.ROLES_READ, permissions.ROLES_MANAGE, permissions.AUDIT_READ,
@@ -66,7 +69,7 @@ const administratorPermissions: readonly Permission[] = [
 const rolePermissions: Record<MembershipRole, readonly Permission[]> = {
   owner: administratorPermissions,
   admin: administratorPermissions,
-  manager: [...operationalPermissions, permissions.CRM_READ, permissions.CRM_MANAGE],
+  manager: [...operationalPermissions, permissions.CRM_READ, permissions.CRM_MANAGE, permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE],
   hr: [
     permissions.ORGANIZATION_READ, permissions.BRANCHES_READ,
     permissions.STAFF_READ,

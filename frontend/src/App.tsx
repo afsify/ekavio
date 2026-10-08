@@ -16,6 +16,8 @@ import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue'
 import { PageMetadata } from './components/brand/PageMetadata';
 
 const CrmPage = React.lazy(()=>import('./pages/CRM/CrmPage'));
+const SuppliersPage = React.lazy(()=>import('./pages/Purchasing/SuppliersPage'));
+const PurchasingPage = React.lazy(()=>import('./pages/Purchasing/PurchasingPage'));
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const ReportsPage=React.lazy(()=>import('./pages/Reports/ReportsPage'));
 const NotificationsPage=React.lazy(()=>import('./pages/Notifications/NotificationsPage'));
@@ -84,7 +86,7 @@ const ModuleGuard: React.FC<ModuleGuardProps> = ({ module, children }) => {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Upgrade Required</h2>
           <p className="text-slate-400 mb-6">
-            Your organization does not currently have access to <span className="text-indigo-400 font-semibold capitalize">{module === 'crm' ? 'CRM & Follow-ups' : module === 'ledger' ? 'Customer Dues' : module === 'queue' ? 'Queue & Appointments' : module}</span>.
+            Your organization does not currently have access to <span className="text-indigo-400 font-semibold capitalize">{module === 'purchasing' ? 'Suppliers & Purchasing' : module === 'crm' ? 'CRM & Follow-ups' : module === 'ledger' ? 'Customer Dues' : module === 'queue' ? 'Queue & Appointments' : module}</span>.
           </p>
           <a
             href="/billing"
@@ -177,6 +179,8 @@ export const App: React.FC = () => {
             <Route path="/audit" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="audit.read"><OrganizationPage section="audit" /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/platform" element={<ProtectedRoute><AdminLayout><PlatformOperatorGuard><OrganizationPage section="platform" /></PlatformOperatorGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/crm" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.CRM}><PermissionGuard permission="crm.read"><CrmPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/suppliers" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.PURCHASING}><PermissionGuard permission="purchasing.read"><SuppliersPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/purchasing" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.PURCHASING}><PermissionGuard permission="purchasing.read"><PurchasingPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><ReportsPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><AdminLayout><NotificationsPage /></AdminLayout></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><AdminLayout><FoundationPage name="Help & Support" /></AdminLayout></ProtectedRoute>} />

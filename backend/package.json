@@ -12,6 +12,7 @@
     "test:organization-admin": "tsx --test tests/organizationAdministration.integration.ts",
     "test:dynamic-fields": "tsx --test tests/dynamicFields.integration.ts",
     "test:crm": "tsx --test tests/crm.integration.ts",
+    "test:purchasing": "tsx --test tests/purchasing.integration.ts",
     "test:analytics-notifications": "tsx --test tests/analyticsNotifications.integration.ts",
     "notifications:prune": "node dist/scripts/notificationPrune.js",
     "test:postgres": "tsx --test tests/postgres.integration.ts",

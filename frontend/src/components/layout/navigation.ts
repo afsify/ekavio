@@ -10,6 +10,8 @@ export const destinations: Destination[] = [
   { name: 'Customer Dues', path: '/ledger', group: 'Operations', permission: 'ledger.read', module: 'ledger' },
   { name: 'CRM & Follow-ups', path: '/crm', group: 'Operations', permission: 'crm.read', module: 'crm' },
   { name: 'Inventory', path: '/inventory', group: 'Operations', permission: 'inventory.read', module: 'inventory' },
+  { name: 'Suppliers', path: '/suppliers', group: 'Operations', permission: 'purchasing.read', module: 'purchasing' },
+  { name: 'Purchasing', path: '/purchasing', group: 'Operations', permission: 'purchasing.read', module: 'purchasing' },
   { name: 'Staff', path: '/staff', group: 'Administration', permission: 'staff.read' },
   { name: 'Organization', path: '/admin', group: 'Administration', permission: 'organization.read' },
   { name: 'Branches', path: '/branches', group: 'Administration', permission: 'branches.read' },

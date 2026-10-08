@@ -1,0 +1,5 @@
+import { getErrorMessage } from '../../api/errors';
+import { label,time,type Activity } from './contracts';
+export function LoadError({error,retry}:{error:unknown;retry:()=>void}){return <p role="alert" className="error-text">{getErrorMessage(error,'Purchasing could not be loaded or saved.')} <button type="button" className="quiet-button" onClick={retry}>Retry</button></p>;}
+export function Pager({page,total,onChange}:{page:number;total:number;onChange:(n:number)=>void}){return <div className="pagination"><button type="button" className="quiet-button" disabled={page===1} onClick={()=>onChange(page-1)}>Previous</button><span>Page {page} of {Math.max(1,Math.ceil(total/20))}</span><button type="button" className="quiet-button" disabled={page*20>=total||page>=200} onClick={()=>onChange(page+1)}>Next</button></div>;}
+export function History({events}:{events:Activity[]}){return <section className="page-stack"><h3>Recent activity</h3>{!events.length&&<p>No recorded activity.</p>}{events.map(e=><p key={e.id}>{label(e.action)} · {e.actor_name} · <time dateTime={e.occurred_at}>{time(e.occurred_at)}</time></p>)}</section>;}

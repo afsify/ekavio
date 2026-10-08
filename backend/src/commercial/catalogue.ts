@@ -4,6 +4,7 @@ export const MODULES = {
   ATTENDANCE: 'attendance',
   QUEUE: 'queue',
   CRM: 'crm',
+  PURCHASING: 'purchasing',
 } as const;
 
 export type ModuleKey = (typeof MODULES)[keyof typeof MODULES];
@@ -51,6 +52,7 @@ export const PLAN_KEYS = {
 
 export const ADD_ON_KEYS = {
   CRM: 'module-crm',
+  PURCHASING: 'module-purchasing',
   LEDGER: 'module-ledger',
   INVENTORY: 'module-inventory',
   ATTENDANCE: 'module-attendance',
@@ -59,6 +61,7 @@ export const ADD_ON_KEYS = {
 
 export const addOnKeyByModule: Readonly<Record<ModuleKey, string>> = {
   crm: ADD_ON_KEYS.CRM,
+  purchasing: ADD_ON_KEYS.PURCHASING,
   ledger: ADD_ON_KEYS.LEDGER,
   inventory: ADD_ON_KEYS.INVENTORY,
   attendance: ADD_ON_KEYS.ATTENDANCE,
@@ -76,6 +79,7 @@ export interface CatalogueModuleSeed {
 }
 
 export const initialModuleCatalogue: readonly CatalogueModuleSeed[] = [
+  { key: MODULES.PURCHASING, displayName: 'Suppliers & Purchasing', description: 'Supplier directory, purchase orders and partial goods receiving. Inventory access is independently required for item orders and receiving.', category: 'operations', commercialType: 'purchasable', status: 'active', version: 1 },
   { key: MODULES.CRM, displayName: 'CRM & Follow-ups', description: 'Manage leads, pipeline stages, staff assignments, manual follow-ups, Customer conversion and CRM reports.', category: 'customer-experience', commercialType: 'purchasable', status: 'active', version: 1 },
   {
     key: MODULES.LEDGER,

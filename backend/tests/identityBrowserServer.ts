@@ -39,7 +39,7 @@ root.post('/__test/fixture',async(request,response,next) => {
     if(Array.isArray(request.body?.modules)) {
       const commercial=new PostgresCommercialRepository(database);await commercial.reconcileCatalogue();
       for(const module of request.body.modules) {
-        if(!['queue','inventory','attendance','ledger','crm'].includes(module))throw new Error('Unsupported disposable QA module');
+        if(!['queue','inventory','attendance','ledger','crm','purchasing'].includes(module))throw new Error('Unsupported disposable QA module');
         await commercial.upsertEntitlement(organizationId,userId,module,{effect:'grant',status:'active',source:'pilot',reason:'Disposable local dynamic forms QA'});
       }
     }
