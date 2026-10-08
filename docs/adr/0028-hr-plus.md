@@ -89,7 +89,11 @@ Reasons are restricted to the requester and full-coverage approvers. Decision no
 are restricted to full-coverage approvers, not copied to staff notifications, reports,
 CSV, dashboard or generic history. Availability uses batched bounded active roster
 queries and four factual states: Scheduled, Approved leave, Non-working calendar day,
-No published shift. It exposes no reason/type/decision notes, absence inference,
+No published shift. Published overnight coverage includes each snapshot-local date
+touched by the half-open interval, including carryover from before the read window;
+an exact midnight end excludes the next day. Shift lists/widgets/daily assignment
+reports separately select starting business dates. Availability exposes no
+reason/type/decision notes, absence inference,
 staffing score or invented count of hours actually worked.
 
 Four independently gated domain widgets show pending requests, approved leave today,

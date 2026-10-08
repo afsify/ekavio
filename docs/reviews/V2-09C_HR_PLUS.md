@@ -21,7 +21,7 @@ invented as legacy Mongo source authority.
 
 ## Evidence register
 
-- HR PostgreSQL: final **29/29** passed (28 subtests plus parent), including
+- HR PostgreSQL: final **30/30** passed (29 subtests plus parent), including
   started-approved-cancellation denial, same-global-user organization isolation,
   live archived-role self denial, actual PostgreSQL DST inputs and direct-SQL races.
 - Backend clean install/lint/typecheck/build and **195/195** unit/source tests pass;
@@ -30,7 +30,7 @@ invented as legacy Mongo source authority.
 - Frontend clean install, final lint/typecheck, **94/94** component tests (eight HR),
   production/PWA build pass. Existing ineffective-dynamic-import warnings are
   non-failing and unrelated; no dependency or lockfile changes.
-- All **32 distinct database integration files / 295 tests** pass across the current
+- All **32 distinct database integration files / 296 tests** pass across the current
   run and affected reruns. Attendance runtime 9, migration 6 and cutover 6 pass
   (**21/21**); no Attendance writes/status/history/entitlement changes. Additional
   preflight **17/17** and Mongo source contracts **4/4** pass. A historical commercial
@@ -86,6 +86,20 @@ rather than changing production thresholds. Startup under concurrent host build
 load exceeded the helper window; explicitly ready, separately managed QA servers
 were used. A final check called a nonexistent `test:components` script; repository
 `npm test` then passed. These are not skipped acceptance checks.
+
+Final edge-case review after the initial implementation push found that availability
+ignored the following day of a published overnight shift. A new PostgreSQL test
+reproduced `No published shift` instead of `Scheduled`. The bounded roster query now
+includes the previous starting date and classifies every snapshot-local date touched
+by the half-open interval; an exact midnight end does not mark the next day. The
+expanded 30/30 HR suite passes. Shift lists/widgets/daily coverage reports still
+describe starting business dates, rather than inferred hours actually worked.
+Affected final backend lint/typecheck/195 tests/build, HR browser 15/15 and
+backend-only cached Docker rebuild/healthy startup all pass. Local health remains
+HTTP 200 with clear backend startup logs; hosted 001–020 checksums still match,
+without reapplying any migration. The temporary correction QA services/container
+were stopped after testing. Release requires CI on the NEW final commit; success
+of the earlier candidate cannot authorize its tag.
 
 Leave caps are 90 calendar days, reads 366, availability/repeats 31; repeat batches
 are one employee/at most 31 rows. Pages cap at 100 rows/200 pages, UI 20 rows; search

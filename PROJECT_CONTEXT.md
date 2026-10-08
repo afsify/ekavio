@@ -42,14 +42,17 @@ Leave/Shift custom fields are deferred. See [ADR 0028](docs/adr/0028-hr-plus.md)
 [V2-09C acceptance](docs/reviews/V2-09C_HR_PLUS.md) for the final evidence register.
 
 Clean installs and final quality/build gates pass: backend 195 unit/source tests,
-frontend 94 components, all 32 database integration files/295 tests (including HR
-29 and Attendance 21), additional preflight 17/Mongo source 4 and backup contracts
+frontend 94 components, all 32 database integration files/296 tests (including HR
+30 and Attendance 21), additional preflight 17/Mongo source 4 and backup contracts
 15. Four full/production audits report zero vulnerabilities. Local Chromium HR
 15 plus prior foundation/identity/admin/fields/analytics/commercial/CRM/Purchasing
 132 pass; HR covers 360/390/768/1440 in Light/Dark/System, no overflow/page errors.
 Managed browser metadata was unavailable; authorized local Chromium required no
 manual operator loop. Role-switch cache and shared-control issues were corrected,
 with assertions retained and affected final acceptance rerun.
+Final availability coverage also includes a previous-day overnight shift, while
+excluding a half-open exact midnight end; the added test reproduced the omission
+before correction. Shift lists/widgets/coverage reports remain starting-date facts.
 
 Normal Compose config/build/startup passes, three services healthy, local live/
 ready/home/login/HR HTTP 200, bounded startup logs clear. After all local gates,
