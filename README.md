@@ -35,6 +35,19 @@ business capabilities, and maintainable backend architecture.
 
 🚧 Active development
 
+V2-10 final acceptance is implemented as an engineering evidence candidate,
+**not a pilot GO**. See [final evidence](docs/reviews/V2-10_FINAL_ACCEPTANCE.md),
+[strict NO-GO/actions](docs/reviews/V2-10_GO_NO_GO.md) and
+[release acceptance](docs/runbooks/V2-10_RELEASE_ACCEPTANCE.md). Local unit,
+database, Chromium, Docker and audit gates pass. Hosted public checks pass except
+manifest MIME; authenticated/provider/operations gates remain explicitly blocked.
+Five scheduled encrypted backups and the watchdog pass. The actual Oct8 archive
+restored safely on isolated PostgreSQL 18.6 but predates migration 020; local
+verifier coverage through 020 is not genuine extended hosted recovery proof.
+Render Free is staging-only by choice, Atlas is retained, and real customer data
+is **not allowed**. Exact final CI and neutral evidence tagging are separate
+post-commit requirements, never inferred from local tests.
+
 V2-09C adds optional **HR Plus** (`hr_plus` / `module-hr-plus`): membership-scoped
 whole-day leave, separate authorized review, explicit branch work calendars/manual
 holidays, versioned shift templates, bounded atomic schedules and factual availability.
@@ -52,8 +65,8 @@ PostgreSQL. See [ADR 0028](docs/adr/0028-hr-plus.md) and
 [HR Plus acceptance](docs/reviews/V2-09C_HR_PLUS.md) for evidence and limitations.
 Payroll, accrual/balances, half-day/hourly leave and legal-compliance claims are
 deferred. **NO-GO FOR REAL CUSTOMER DATA** remains; Render Free is staging-only,
-Atlas retained, and extended hosted recovery through 020 is OPEN. V2-10 is next
-only after separate authorization; it has not started.
+Atlas retained, and extended hosted recovery through 020 is OPEN. Current V2-10
+acceptance and remaining mandatory blockers are recorded above.
 
 V2-09B adds optional **Suppliers & Purchasing** (`purchasing`): organization Suppliers,
 branch Purchase Orders with frozen canonical Inventory item snapshots, exact INR
@@ -71,7 +84,7 @@ against disposable PostgreSQL. See [ADR 0027](docs/adr/0027-suppliers-purchasing
 and [Purchasing acceptance](docs/reviews/V2-09B_SUPPLIERS_PURCHASING.md).
 **NO-GO FOR REAL CUSTOMER DATA** remains. Render Free is staging-only, Atlas is
 retained, and extended recovery through 020 is OPEN. HR Plus is now separately
-implemented above; V2-10 final acceptance remains separately authorized/deferred.
+implemented above; current V2-10 acceptance is recorded above, without pilot GO.
 
 V2-09A adds optional **CRM & Follow-ups** (`crm`): organization pipeline stages,
 branch-scoped Leads, active staff assignments, manual follow-ups, retained activity
@@ -87,7 +100,7 @@ PostgreSQL. See [ADR 0026](docs/adr/0026-crm-followups.md) and
 [CRM acceptance](docs/reviews/V2-09A_CRM_FOLLOWUPS.md).
 **NO-GO FOR REAL CUSTOMER DATA** remains unchanged. Render Free is staging-only,
 Atlas is retained, and extended recovery through 020 is OPEN. HR Plus is now
-separately implemented above; V2-10 final acceptance remains deferred.
+separately implemented above; current V2-10 acceptance is recorded above.
 
 V2-08F completes the public website and manual commercial experience: one original
 EkaVio mark/wordmark, Light/Dark/System navigation, factual module/CORE messaging,

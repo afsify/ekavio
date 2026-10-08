@@ -52,6 +52,25 @@ Migration `003_commercial_runtime_authority.sql` adds a durable, initially empty
 
 ## Consequences
 
+### V2-10 suspension clarification (2026-10-08)
+
+The final acceptance HTTP matrix reproduced explicit pilot/support grants
+remaining enabled during a deliberate subscription suspension. Suspension now
+denies every optional module, including independent grants, at request time.
+This is an explicit commercial stop, not absence of a subscription: independent
+grants without a suspended subscription remain supported. CORE, permissions,
+expiry/revoke precedence and catalogue prices are unchanged. Clearing suspension
+does not invent a grant; the existing sources must still authorize access.
+
+The `public.commercial_runtime_authority` singleton is a durable **offline
+shadow-write safety latch**, not the runtime repository selector. Later
+migrations do not replace it. An absent hosted row does not prove commercial
+record corruption or Mongo fallback, but leaves that migration guard unclosed.
+Do not insert it merely to satisfy acceptance. Use the approved V2-05D
+read-only source reconciliation/preflight and explicit activation procedure only
+with separate operator authorization; never copy legacy data into live state
+to manufacture parity.
+
 - PostgreSQL availability is required for login/bootstrap entitlement hydration, billing, commercial administration, and module gates.
 - MongoDB remains required for operational domains and readiness therefore still requires both databases.
 - New organizations can receive commercial state using canonical UUIDs without a Mongo Organization mirror.

@@ -210,7 +210,11 @@ export const calculateEffectiveEntitlements = (
   const modules = moduleKeys.map((key): EffectiveModule => {
     const definition = definitions.get(key);
     const sources = [...(moduleSources.get(key) ?? [])].sort();
-    const enabled = definition?.status === 'active' && sources.length > 0 && !revokedModules.has(key);
+    // A deliberate subscription suspension is an organization-wide commercial
+    // stop, not a missing subscription. Independent pilot/support grants must
+    // not silently reopen optional modules while that stop remains in force.
+    const enabled = status !== 'suspended' && definition?.status === 'active'
+      && sources.length > 0 && !revokedModules.has(key);
     return {
       key,
       displayName: definition?.displayName ?? key,

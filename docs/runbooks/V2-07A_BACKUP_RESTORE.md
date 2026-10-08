@@ -1,5 +1,26 @@
 # V2-07A PostgreSQL Backup and Restore Runbook
 
+## Current V2-10 scope (2026-10-08)
+
+The historical V2-07A local 001–012 proof below is retained as dated evidence,
+not current acceptance. Current `recovery:verify` uses explicit contract
+`v2-10-recovery-integrity-v1`, reviewed through `020_hr_plus.sql`: discovered
+migrations/checksums, all public table counts, present FK/CHECK row invariants,
+required history/exclusion guards and stock/Dues/CRM/Purchasing/HR consistency.
+Future applied migrations are reported separately, not silently certified for
+new business invariants. Ten corruption/future-schema integration tests pass.
+
+Five scheduled encrypted backups and the watchdog pass. The genuine Oct8 archive
+was authenticated/decrypted and restored into new isolated PG18.6, but contains
+only 001–019; the extended verifier correctly refused pending 020. This run's
+plaintext and owned target were removed; encrypted originals/key preserved.
+Do not migrate this archive to claim genuine 020 recovery. A qualifying newer
+archive and approved isolated proof are required. PostgreSQL18.6 tooling does
+not upgrade normal PG17 Compose or prove PG18 dumps restorable into PG17.
+Provider recovery/alert custody/owner/rollback gates remain OPEN; no RPO/RTO or
+real-customer GO. See [current evidence](../reviews/V2-10_FINAL_ACCEPTANCE.md)
+and [release procedure](V2-10_RELEASE_ACCEPTANCE.md).
+
 PostgreSQL is EkaVio's sole normal runtime authority. This runbook defines the minimum recovery procedure for the current low-cost staging topology and a future limited pilot. It does not authorize a production incident restore, a pilot-readiness decision, or deletion of Atlas.
 
 ## Recovery model and evidence boundary

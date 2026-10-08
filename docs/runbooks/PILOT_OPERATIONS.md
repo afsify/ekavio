@@ -1,6 +1,20 @@
 # Pilot Operations Runbook
 
-**Status: proposed procedure; V2-07C remains NO-GO FOR REAL CUSTOMER DATA.** This runbook is actionable only after the [V2-07C blocker record](../reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md) and prior [acceptance blockers](../reviews/V2-07B_FINAL_PILOT_ACCEPTANCE.md) are closed and a new explicit GO decision is recorded. It does not authorize customer onboarding, service purchase, or provider resource deletion.
+**Current status (2026-10-08): V2-10 NO-GO FOR REAL CUSTOMER DATA.** This procedure
+does not authorize onboarding, service purchase or resource deletion. All
+mandatory [V2-10 gates](../reviews/V2-10_ACCEPTANCE_MATRIX.json) and human approval
+must pass before activation. Historical V2-07B/C evidence below remains dated;
+use the [V2-10 release procedure](V2-10_RELEASE_ACCEPTANCE.md) for current scope.
+
+Five consecutive scheduled encrypted backups (Oct4–8) and the 30h watchdog now
+pass, superseding the Oct4 failed-schedule observation below. Six hosted headers
+pass; manifest MIME remains FAIL. The real Oct8 archive restored on isolated
+PG18.6 but contains only 001–019: it does not close recovery through 020. This
+run's plaintext/owned restore target were removed; originals/key retained.
+Require 001–020 checksums and versioned count/invariant coverage for a new current
+archive; never migrate an old restore merely to claim current recovery proof.
+Provider recovery, delivered alerts, private owners, authenticated hosted QA,
+exact deployments and always-on capacity remain open. Render Free stays staging-only.
 
 ## Scope and ownership
 
@@ -48,7 +62,7 @@ The read-only hosted checker is `node scripts/check-hosted-acceptance.mjs`. Supp
 
 The current static frontend is on Render. `frontend/vercel.json` is an alternative-host config, **not** the active Render header configuration. In the Render static-site dashboard, set headers for path `/*`: `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.ekavio.afsify.com wss://api.ekavio.afsify.com; worker-src 'self'; manifest-src 'self'`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy: camera=(), microphone=(), geolocation=()`. Deploy and run `node scripts/check-hosted-headers.mjs`, then check PWA assets, login, API and Socket.IO. [Render's static-site header documentation](https://render.com/docs/static-site-headers) describes dashboard configuration; a repo Vercel file alone does not configure Render.
 
-Once each month, retrieve a stored copy and restore to a newly created isolated target. Require migration 001–012 checksum status, count-only integrity, zero core orphans, app health, and measured total time. Destroy only the reviewed disposable target after evidence capture. Provider history/branch restore settings are a second independent layer; record the actual project controls and rehearse a new-branch restore. Never rehearse over staging or a real database. V2-07A's 12.379-second proof was local only; no hosted RTO or RPO has been established.
+Once each month, retrieve a stored copy and restore to a newly created isolated target. Require current migration 001–020 checksum status, versioned count-only/domain integrity, zero orphans, app health, and measured total time. Destroy only the reviewed disposable target after evidence capture. Provider history/branch restore settings are a second independent layer; record the actual project controls and rehearse a new-branch restore. Never rehearse over staging or a real database. V2-07A's 12.379-second proof was local only; no hosted RTO or RPO has been established.
 
 ## Release and rollback
 

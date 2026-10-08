@@ -1,5 +1,44 @@
 # EkaVio Project Context
 
+## Current acceptance: V2-10 (2026-10-08)
+
+**NO-GO FOR REAL CUSTOMER DATA.** V2-10 resumes the preserved working tree from
+`5e78ef16536e7b9062303394f6345907666af9f0`; the existing
+`pre-v2-10-final-acceptance` checkpoint was not recreated. Local engineering
+acceptance is separate from hosted/operations acceptance and exact final CI.
+See [final evidence](docs/reviews/V2-10_FINAL_ACCEPTANCE.md),
+[45-gate matrix](docs/reviews/V2-10_ACCEPTANCE_MATRIX.json),
+[strict decision](docs/reviews/V2-10_GO_NO_GO.md) and
+[release procedure](docs/runbooks/V2-10_RELEASE_ACCEPTANCE.md).
+
+Local evidence: backend 196 unit tests, frontend 94 component tests, 325 database
+tests across 34 integration files, 159 local Chromium cases, 23 operational
+contracts and four zero-vulnerability audits. Twelve anonymous hosted Chromium
+cases and six security headers pass. A reproduced suspension defect is corrected:
+active pilot/support grants no longer enable optional modules for a suspended
+subscription. No product features or historical migrations changed.
+
+Hosted metadata confirms checksums 001–020. The versioned recovery verifier now
+reviews through 020, discovers future migrations without a stale fixed total,
+and checks all public counts/referential/CHECK/history plus stock, Dues, CRM,
+Purchasing and HR invariants in a read-only snapshot. Local corruption/future
+migration tests pass. The genuine Oct8 scheduled encrypted archive authenticated
+and restored into an isolated PostgreSQL 18.6 target, but contains only 001–019;
+020 is pending. It is NOT extended recovery proof. This run's plaintext/owned
+target were removed; encrypted originals/key were preserved. A new sensitive
+encrypted transfer needs the requested explicit approval; no rejected dispatch
+was bypassed. Five consecutive scheduled backups and watchdog policy pass;
+recipient acknowledgement, independent monitoring and Neon account recovery do not.
+
+Hosted manifest MIME is FAIL (`binary/octet-stream`); the missing commercial
+authority latch is an unclosed offline shadow-write guard, not proof of Mongo
+runtime fallback or corruption. No latch was inserted/activated. Exact deployed
+frontend/backend SHAs, authenticated two-tenant/session/Socket.IO/SMTP/log evidence,
+provider recovery/capacity/cost/rollback and private ownership remain BLOCKED.
+Render Free remains deliberately staging-only; no purchase or GO is authorized.
+Atlas remains retained. Final push/exact CI/neutral evidence tag must be verified
+after committing; unavailable Git authentication must not be reported as success.
+
 ## Latest optional module: V2-09C HR Plus (2026-10-08)
 
 Additive 020 introduces native HR data referencing canonical organization memberships,

@@ -1,0 +1,558 @@
+{
+  "schemaVersion": 1,
+  "acceptanceId": "V2-10",
+  "date": "2026-10-08",
+  "baseline": "5e78ef16536e7b9062303394f6345907666af9f0",
+  "checkpoint": "pre-v2-10-final-acceptance",
+  "decision": "NO-GO FOR REAL CUSTOMER DATA",
+  "realCustomerDataPermitted": false,
+  "operatorPilotApproval": false,
+  "candidateIdentity": "Commit containing this register; exact CI closure is a separate post-commit handoff, never inferred here.",
+  "gates": [
+    {
+      "id": "backend_quality",
+      "category": "Functional",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Fresh npm ci; final lint/typecheck/build; 196/196 unit/source tests on 2026-10-08."
+      ]
+    },
+    {
+      "id": "frontend_quality",
+      "category": "Functional",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Fresh npm ci; lint/typecheck; 94/94 component tests; production/PWA build with explicit non-secret API/socket origins."
+      ]
+    },
+    {
+      "id": "database_regressions",
+      "category": "Database",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "All 32 existing integration files: 296 tests; affected commercial/migration 45 rerun after suspension fix; finalAuthority 19 and recoveryAcceptance 10: total 325 distinct integration tests in 34 files. Additional preflight 17 and Mongo source 4 pass."
+      ]
+    },
+    {
+      "id": "browser_regressions",
+      "category": "Functional",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Nine original Chromium suites: 147 distinct tests; added shell four-width/three-theme 12: 159 total. Affected commercial 24 rerun after suspension fix. Foundation contract fixtures distinguished from PostgreSQL-backed suites."
+      ]
+    },
+    {
+      "id": "role_tenant_matrix",
+      "category": "Tenancy",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "finalAuthority.integration.ts 19/19: seven modules, live built-ins/custom/archived roles, inactive/revoked memberships, valid positive tenant/branch controls. Existing domain suites cover resource IDs, multi-membership and same-user isolation."
+      ]
+    },
+    {
+      "id": "optional_entitlements",
+      "category": "Commercial",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "All seven modules independently test missing entitlement, missing permission, allowed, explicit revoke, archived role; suspended subscription with active grants denies all. Purchasing retains Inventory read/manage dependency; HR self-service does not require Attendance."
+      ]
+    },
+    {
+      "id": "money_stock",
+      "category": "Commercial",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Dues, Inventory and Purchasing suites: exact integer minor units/milli-quantities, customer-separated balances, journal/movement reversal, idempotency/concurrency, receipt linkage and over-receive rejection. Dues collections are not Revenue."
+      ]
+    },
+    {
+      "id": "identity_security",
+      "category": "Security",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Identity/account 22, identity cutover 15, browser identity 11 plus session/authorization unit contracts: rotation/replay, revocation, one-time challenges/invitations, email capture, account linking and enumeration boundaries."
+      ]
+    },
+    {
+      "id": "socket_local",
+      "category": "Security",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Actual polling and WebSocket tests in finalAuthority: authorized synthetic event delivery, foreign positive controls/isolation, forged room attempts, disallowed origin/context, reconnect, real HTTP logout disconnect and publisher-time session/membership revocation."
+      ]
+    },
+    {
+      "id": "security_privacy",
+      "category": "Security",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Targeted auth/RBAC/session, strict dynamic fields, parameterized bounded queries, formula-safe CSV, exact arithmetic, minimised HR/audit/notification projections and staging-only QA reviewed; no new unresolved reproduced code defect after suspension fix."
+      ]
+    },
+    {
+      "id": "audits",
+      "category": "Security",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Backend full/omit=dev and frontend full/omit=dev npm audits: each zero vulnerabilities."
+      ]
+    },
+    {
+      "id": "docker_runtime",
+      "category": "Deployment",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Compose config/build/start passed; affected backend rebuilt; three normal services healthy. Live/ready/root/login HTTP 200. PG17 server unchanged; PG18.6 tooling/recovery isolated."
+      ]
+    },
+    {
+      "id": "local_logs",
+      "category": "Security",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Bounded backend/frontend log review: 150 lines, zero runtime-error pattern matches and zero sensitive-value pattern matches. This is not hosted log proof."
+      ]
+    },
+    {
+      "id": "public_ui",
+      "category": "Functional",
+      "scope": "HOSTED_PUBLIC",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Read-only anonymous Chromium 12/12 across 360/390/768/1440 and Light/Dark/System: home, pricing/request section, onboarding, privacy/login, brand/title, no document overflow/page errors. Non-read API requests blocked."
+      ]
+    },
+    {
+      "id": "public_headers",
+      "category": "Security",
+      "scope": "HOSTED_PUBLIC",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Hosted six-header checker on / and /login passed; CSP retains exact HTTPS/WSS API origins. Approved CORS preflight 204; foreign origin 403 with no allow-origin credentials."
+      ]
+    },
+    {
+      "id": "public_health",
+      "category": "Deployment",
+      "scope": "HOSTED_PUBLIC",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Hosted live/ready/root/login probes HTTP 200; first live 22973ms, subsequent ready 269ms. Limited smoke only; not exact build, uptime or capacity proof."
+      ]
+    },
+    {
+      "id": "hosted_migrations",
+      "category": "Database",
+      "scope": "HOSTED_PROVIDER",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Bounded read-only hosted PostgreSQL metadata: server 18.6, accepted checksums 001-020, zero pending; 359 CHECK/225 FK/3 exclusion catalogue entries, four accepted legacy NOT VALID checks. Counts/metadata only, no repair."
+      ]
+    },
+    {
+      "id": "normal_pg_authority",
+      "category": "Database",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Runtime composition explicitly PostgreSQL identity/session/commercial/all domains; Mongo retirement/source contracts 4 pass. Atlas retained; no normal Mongo connection or fallback."
+      ]
+    },
+    {
+      "id": "scheduled_backups",
+      "category": "Recovery",
+      "scope": "BACKUP",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Actual schedule successes 37753178575 (Oct8), 37595004518 (Oct7), 37439620172 (Oct6), 37287329616 (Oct5), 37188886071 (Oct4); manually dispatched history not counted. Latest retained artifact 11538871700 expires Nov12."
+      ]
+    },
+    {
+      "id": "encrypted_artifact",
+      "category": "Recovery",
+      "scope": "BACKUP",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Latest genuine artifact ZIP: two members only (.evb and .evb.json), 439765 bytes; encrypted envelope 438717 bytes SHA256 2f313c11a1f4846dc5c01c655b16799310d3778a3521caad648ea1be803ea935 matches manifest. No plaintext/key/credentials in ZIP."
+      ]
+    },
+    {
+      "id": "decrypt_restore_019",
+      "category": "Recovery",
+      "scope": "RECOVERY",
+      "status": "PASS",
+      "pilotMandatory": false,
+      "evidence": [
+        "Approved outside-Git key authenticated AES/RSA decryption (437791 bytes, SHA256 e247e770ddabd0cfe0c85dfb57e8e16b33018dac7c2c3dcc059cadc442df1175). pg_restore18.6: 761 TOC entries. New isolated PG18.6 restore succeeded 2026-10-08 15:35:10.353-15:35:17.745 UTC; checksums 001-019 applied, 020 pending. NOT extended recovery acceptance."
+      ]
+    },
+    {
+      "id": "recovery_verifier",
+      "category": "Recovery",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Versioned v2-10-recovery-integrity-v1 through 020, dynamic discovered migration count and explicit additional-migration scope; all public table counts, every present FK/CHECK, required history guards/HR exclusions and domain invariants; 10 corruption/future-schema regressions pass."
+      ]
+    },
+    {
+      "id": "recovery_cleanup",
+      "category": "Recovery",
+      "scope": "RECOVERY",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Removed only owned label/image-verified --rm restore container and exact checksum-verified v210 plaintext; confirmed absences. Encrypted ZIP/envelope/manifest and approved key retained. Unrelated historical files/volumes untouched."
+      ]
+    },
+    {
+      "id": "backup_watchdog",
+      "category": "Monitoring",
+      "scope": "BACKUP",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "Read-only scheduled-backup watchdog PASS at 30h policy for actual run 37753178575. Backup 15/15 contracts include failed/latest schedule, age, missing/expired/wrong artifact and API-failure fail-closed cases. Actual watchdog 37753291824 success; scheduled watchdog 37738557700 success."
+      ]
+    },
+    {
+      "id": "checker_safety",
+      "category": "Tenancy",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": true,
+      "evidence": [
+        "scripts/hosted-acceptance.test.mjs 3/3: missing credentials refuse, arbitrary destinations refuse, non-staging tenant prevents domain enumeration, missing foreign fixtures BLOCKED. Synthetic HTTP contract fixtures only."
+      ]
+    },
+    {
+      "id": "bundle_bounds",
+      "category": "Operational readiness",
+      "scope": "LOCAL",
+      "status": "PASS",
+      "pilotMandatory": false,
+      "evidence": [
+        "Final entry392.19kB/~125.83gzip; CSS63.62/~12.09; PWA79 entries1064.24KiB. Lazy CRM29.49/7.56, Purchasing21.59/5.99, HR24.83/7.03, Reports8.63/2.88. Existing dynamic-import warnings retained; bounded query/lock/batching review, no throughput certification."
+      ]
+    },
+    {
+      "id": "hosted_frontend_revision",
+      "category": "Deployment",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Exact deployed frontend SHA unavailable; public title/200 not revision proof.",
+      "missingPrerequisite": "Read-only Render deployment metadata or deployed immutable build metadata.",
+      "responsibleRole": "Release operator",
+      "nextAction": "Compare exact successful frontend deployed SHA with accepted final commit; record provider deployment ID/time.",
+      "blockerClass": "DEPLOYMENT",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_backend_revision",
+      "category": "Deployment",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Exact deployed backend SHA unavailable.",
+      "missingPrerequisite": "Read-only Render deployment metadata or deployed immutable build metadata.",
+      "responsibleRole": "Release operator",
+      "nextAction": "Compare exact successful backend deployed SHA with accepted final commit; keep independent from frontend.",
+      "blockerClass": "DEPLOYMENT",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_two_tenant",
+      "category": "Tenancy",
+      "scope": "HOSTED_AUTHENTICATED",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Two approved disposable account credentials unavailable; no authenticated V2-10 proof invented.",
+      "missingPrerequisite": "Both STAGING V207C/V210 accounts, privately supplied through ignored env; server-confirmed distinct tenants and fixtures.",
+      "responsibleRole": "Staging test operator",
+      "nextAction": "Run default read-only checker and complete all required foreign resource/report/export/membership positive controls. Missing fixtures stay BLOCKED.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_role_entitlement",
+      "category": "Commercial",
+      "scope": "HOSTED_AUTHENTICATED",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Local live authority tests do not prove deployed authenticated roles/entitlements.",
+      "missingPrerequisite": "Exact accepted deployed build and disposable role/module fixtures.",
+      "responsibleRole": "Staging test operator",
+      "nextAction": "Automate hosted permission/entitlement/branch/resource matrix on approved disposable fixtures only.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_session",
+      "category": "Security",
+      "scope": "HOSTED_AUTHENTICATED",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "No approved hosted credentials/session browser evidence for this acceptance.",
+      "missingPrerequisite": "Private staging account credentials.",
+      "responsibleRole": "Staging test operator",
+      "nextAction": "Automate hosted cookie/storage/refresh/logout/challenge/invitation checks; never upload authenticated traces.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_socket",
+      "category": "Security",
+      "scope": "HOSTED_AUTHENTICATED",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "No hosted authenticated two-tenant event proof; local actual transports are separate.",
+      "missingPrerequisite": "Private disposable staging accounts plus approved synthetic event fixtures.",
+      "responsibleRole": "Staging test operator",
+      "nextAction": "Verify hosted actual event delivery/isolation/reconnect/logout/session and membership revocation over polling/WebSocket; handshake alone insufficient.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_smtp",
+      "category": "Security",
+      "scope": "HOSTED_AUTHENTICATED",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Approved SMTP and disposable test mailbox access unavailable; capture transport is not delivery.",
+      "missingPrerequisite": "Secure SMTP configuration and disposable verification/recovery mailboxes.",
+      "responsibleRole": "Identity/recovery operator",
+      "nextAction": "Prove actual hosted verification/reset delivery, expiry, one-time use and generic unknown-account response.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "hosted_logs_config",
+      "category": "Deployment",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Render read-only provider/log access unavailable; local .env is not hosted configuration.",
+      "missingPrerequisite": "Read-only Render service/deploy/environment and bounded logs access.",
+      "responsibleRole": "Release operator",
+      "nextAction": "Verify build/image commands, production/origins/proxy/TLS/live-ready config and sanitized logs around deploy/auth/rejection/realtime/onboarding.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": false
+    },
+    {
+      "id": "manifest_mime",
+      "category": "Deployment",
+      "scope": "HOSTED_PUBLIC",
+      "status": "FAIL",
+      "pilotMandatory": true,
+      "evidence": ["Hosted GET /manifest.webmanifest on 2026-10-08: HTTP200, binary/octet-stream; local normal nginx response application/manifest+json."],
+      "reason": "Hosted /manifest.webmanifest returns binary/octet-stream despite HTTP200/valid JSON; local nginx returns application/manifest+json.",
+      "missingPrerequisite": "Render Static Site header editor and deploy permission.",
+      "responsibleRole": "Release operator",
+      "nextAction": "Set path /manifest.webmanifest, Content-Type application/manifest+json; preserve all six /* security rules; verify actual hosted GET/HEAD and PWA behavior.",
+      "blockerClass": "DEPLOYMENT",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "commercial_latch",
+      "category": "Database",
+      "scope": "HOSTED_PROVIDER",
+      "status": "FAIL",
+      "pilotMandatory": true,
+      "evidence": ["2026-10-08 bounded read-only public.commercial_runtime_authority singleton query: zero rows; operational four/final two valid markers; migrations001-020 checksum matched. ADR0009/migration003/current shadow guards reviewed."],
+      "reason": "Correct public.commercial_runtime_authority singleton has zero rows. Runtime remains source-selected PostgreSQL, but the offline shadow-write latch is not closed; no later replacement found.",
+      "missingPrerequisite": "Approved historical/source reconciliation, reviewed zero-blocker preflight, separate explicit activation authority.",
+      "responsibleRole": "Database migration owner",
+      "nextAction": "Follow V2-05D approved read-only reconciliation and preflight; identify why hosted latch was never recorded. Do not insert/activate merely to pass or overwrite current commercial state.",
+      "blockerClass": "DATABASE",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "restore_through_020",
+      "category": "Recovery",
+      "scope": "RECOVERY",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Genuine latest scheduled archive contains001-019; current verifier correctly rejects020 pending. Key now accessible, so this is NOT key-unavailable.",
+      "missingPrerequisite": "New genuinely hosted encrypted archive captured after020; explicit approval for any fresh GitHub artifact transfer.",
+      "responsibleRole": "Database/recovery owner",
+      "nextAction": "Authorize one existing encrypted-backup dispatch or retrieve the next qualifying schedule; restore into a newly isolated PG18-compatible target, prove020 counts/invariants, distinguish empty domains, then scoped cleanup. Dispatch was blocked by security reviewer; do not bypass.",
+      "blockerClass": "BACKUP",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "provider_recovery",
+      "category": "Recovery",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Neon plan/PITR/window/quotas/recovery-target privilege and cost controls unavailable.",
+      "missingPrerequisite": "Read-only authenticated Neon account access and authorized isolated recovery drill.",
+      "responsibleRole": "Database/recovery owner",
+      "nextAction": "Record actual account limits and approved recovery strategy; no public-doc/PITR inference or guaranteed RPO/RTO.",
+      "blockerClass": "DATABASE",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "alert_delivery",
+      "category": "Monitoring",
+      "scope": "OPERATIONS",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "No approved primary/backup recipient acknowledgement for actual alert routes.",
+      "missingPrerequisite": "Private assigned recipients and safe documented notification test permission.",
+      "responsibleRole": "Incident response owner",
+      "nextAction": "Prove acknowledged backup failure/overdue, deploy, unavailable and ready failure notifications without corrupting backups or taking down services.",
+      "blockerClass": "MONITORING",
+      "codexCanAutomateAfterAccess": false,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "independent_monitoring",
+      "category": "Monitoring",
+      "scope": "OPERATIONS",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "No verified independent external monitors/daily review covering GitHub common-mode outage.",
+      "missingPrerequisite": "Independent frontend/live/ready/backup-age monitor, approved recipient and daily review owner.",
+      "responsibleRole": "Monitoring owner",
+      "nextAction": "Provide bounded probe/notification evidence and independently scheduled review; do not use keepalive to hide sleeping Free service.",
+      "blockerClass": "MONITORING",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "operational_owners",
+      "category": "Operational readiness",
+      "scope": "OPERATIONS",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Private assignments/support/escalation register not supplied.",
+      "missingPrerequisite": "Primary/backup, database/recovery, backup review, support hours and privacy escalation register.",
+      "responsibleRole": "Accountable operator",
+      "nextAction": "Assign and acknowledge roles privately; report register version/date only, not contacts.",
+      "blockerClass": "OPERATIONS",
+      "codexCanAutomateAfterAccess": false,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "hosting_class",
+      "category": "Operational readiness",
+      "scope": "OPERATIONS",
+      "status": "FAIL",
+      "pilotMandatory": true,
+      "evidence": ["Operator explicitly retained Render Free staging; suitable always-on pilot hosting is not approved/proved. No upgrade or purchase performed."],
+      "reason": "Operator deliberately remains on Render Free staging; accepted pilot policy requires approved suitable always-on capacity.",
+      "missingPrerequisite": "Explicit human-approved hosting class/capacity and stop conditions.",
+      "responsibleRole": "Accountable operator",
+      "nextAction": "Remain synthetic staging-only, or separately approve suitable capacity and re-verify actual provider/runtime/cost evidence; no automatic upgrade/purchase.",
+      "blockerClass": "HOSTING",
+      "codexCanAutomateAfterAccess": false,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "capacity_cost",
+      "category": "Operational readiness",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Limited cold/warm health probes are not load certification; actual Render/Neon bill/CPU/memory/connections/quota unavailable.",
+      "missingPrerequisite": "Provider read-only plan/metrics/billing evidence and bounded workload approval.",
+      "responsibleRole": "Operations/budget owner",
+      "nextAction": "Record verified current plans vs estimates/unknowns; choose explicit pilot org/staff/modules/data/support bounds; approve spending separately.",
+      "blockerClass": "HOSTING",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "rollback",
+      "category": "Deployment",
+      "scope": "HOSTED_PROVIDER",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Source baseline known, but exact hosted last-good frontend/backend artifact and rollback rehearsal unavailable.",
+      "missingPrerequisite": "Verified provider deployment/artifact IDs and database-compatible rollback plan.",
+      "responsibleRole": "Release/incident owner",
+      "nextAction": "Pin actual last-good artifacts, rehearse only isolated application rollback; never downgrade schemas, erase current journals or re-enable Mongo authority.",
+      "blockerClass": "DEPLOYMENT",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    },
+    {
+      "id": "final_ci",
+      "category": "Deployment",
+      "scope": "CI",
+      "status": "BLOCKED",
+      "pilotMandatory": true,
+      "evidence": [],
+      "reason": "Candidate has not yet been committed/pushed; installed credential manager currently requires interactive authentication.",
+      "missingPrerequisite": "Private normal GitHub authentication, final commit and exact successful CI run.",
+      "responsibleRole": "Release operator",
+      "nextAction": "Push coherent accepted candidate; verify head SHA equals final commit and all CI jobs pass. Only then tag neutral evidence. Post-commit handoff/tag supersedes this pre-commit gate.",
+      "blockerClass": "EXTERNAL ACCESS",
+      "codexCanAutomateAfterAccess": true,
+      "operatorApprovalRequired": true
+    }
+  ]
+}

@@ -13,7 +13,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-09A | Implemented optional CRM & Follow-ups: additive 018, guarded branch-scoped Leads/stages/assignments/manual actions, atomic canonical Customer conversion, shared fields/widgets/reports/notifications and automated local acceptance; no pilot GO |
 | V2-09B | Implemented optional Suppliers & Purchasing: additive 019, versioned organization Suppliers/branch orders, exact frozen item lines, atomic idempotent partial/full canonical Inventory receiving, reversal protection, factual widgets/reports and automated local acceptance; no pilot GO |
 | V2-09C | Implemented optional HR Plus: additive 020, canonical membership whole-day leave/review, explicit branch calendars/holidays, atomic versioned UTC schedules, privacy-minimized availability/widgets/reports/attention and automatic local acceptance; no pilot GO |
-| V2-10 | Automated final acceptance, hosted tenancy/realtime, recovery/operations evidence and separate strict GO/NO-GO review |
+| V2-10 | Engineering acceptance candidate implemented: 325 database/159 local browser tests, versioned recovery coverage through 020, actual encrypted archive restore only through 019, hosted public/security checks and 45-gate evidence register; strict NO-GO, hosted authenticated/provider/operations gates open; exact final CI remains a post-commit gate |
 
 ## Core foundation versus commercial modules
 
@@ -41,7 +41,12 @@ amendments, Supplier custom fields, notifications and full accounting are deferr
 V2-09C HR Plus is implemented; see [HR acceptance](../reviews/V2-09C_HR_PLUS.md) and
 apply additive 020 before deployment. Payroll, leave balances/accrual, half-day/hourly
 leave, started approved-leave corrections and Leave/Shift custom fields are deferred.
-V2-10 final acceptance is next but requires separate authorization and has not started.
+V2-10 final acceptance now records separate LOCAL/CI/HOSTED/BACKUP/RECOVERY/
+OPERATIONS evidence and a strict **NO-GO FOR REAL CUSTOMER DATA**. See
+[final acceptance](../reviews/V2-10_FINAL_ACCEPTANCE.md),
+[mandatory actions](../reviews/V2-10_GO_NO_GO.md) and
+[release runbook](../runbooks/V2-10_RELEASE_ACCEPTANCE.md). No new milestone or
+real-customer pilot is authorized by this engineering acceptance candidate.
 
 V2-08C implements authenticated existing-identity linking, custom tenant roles and
 organization-local staff lifecycle. Owner transfer/support bypass remain deferred.

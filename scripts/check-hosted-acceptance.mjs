@@ -1,6 +1,18 @@
 // Read-only hosted acceptance. Requires two distinct disposable staging tenants.
 // Never log response bodies, identifiers, credentials, cookies, or tokens.
-const origin = 'https://api.ekavio.afsify.com';
+let origin = 'https://api.ekavio.afsify.com';
+let clientOrigin = 'https://ekavio.afsify.com';
+// Contract tests may target ONLY explicit loopback fixtures. Credentials can
+// never be redirected to an arbitrary hosted endpoint through configuration.
+if (process.env.EKAVIO_ACCEPTANCE_LOCAL_QA === '1') {
+  const local = new URL(process.env.EKAVIO_ACCEPTANCE_LOCAL_ORIGIN ?? '');
+  if (local.protocol !== 'http:' || local.hostname !== '127.0.0.1' || !local.port ||
+    local.username || local.password || local.pathname !== '/' || local.search || local.hash) {
+    throw new Error('Acceptance contract fixtures require an explicit loopback-only origin');
+  }
+  origin = local.origin;
+  clientOrigin = local.origin;
+}
 const names = [
   'EKAVIO_STAGING_PRIMARY_PHONE',
   'EKAVIO_STAGING_PRIMARY_PASSWORD',
@@ -17,7 +29,7 @@ if (missing.length) {
     results.push({ name, status: passed ? 'PASS' : 'FAIL', ...(detail ? { detail } : {}) });
   };
   const request = async (path, { method = 'GET', token, tenant, branch, cookie, body } = {}) => {
-    const headers = { origin: 'https://ekavio.afsify.com' };
+    const headers = { origin: clientOrigin };
     if (token) headers.authorization = `Bearer ${token}`;
     if (tenant) headers['x-tenant-id'] = tenant;
     if (branch) headers['x-branch-id'] = branch;
@@ -49,7 +61,16 @@ if (missing.length) {
   try {
     primary = await login(process.env.EKAVIO_STAGING_PRIMARY_PHONE, process.env.EKAVIO_STAGING_PRIMARY_PASSWORD);
     foreign = await login(process.env.EKAVIO_STAGING_FOREIGN_PHONE, process.env.EKAVIO_STAGING_FOREIGN_PASSWORD);
-    record('two staging logins', primary.organizationId !== foreign.organizationId);
+    // Credentials alone never authorize fixture access to a real customer tenant.
+    // Confirm actual server-returned organization names before domain enumeration.
+    for (const actor of [primary, foreign]) {
+      const organization = await request('/api/organization', scoped(actor));
+      if (organization.status !== 200 || !/^STAGING (?:V207C|V210)\b/.test(organization.data?.data?.name ?? '')) {
+        throw new Error('disposable staging organization not confirmed');
+      }
+    }
+    if (primary.organizationId === foreign.organizationId) throw new Error('distinct staging organizations not confirmed');
+    record('two staging logins', true);
     record('organization and branch membership',
       [primary, foreign].every((actor) => actor.memberships?.some((membership) =>
         membership.organizationId === actor.organizationId && membership.branchIds?.includes(actor.branchId))));
@@ -78,9 +99,23 @@ if (missing.length) {
       ['Customer Dues', '/api/customer-dues/entries?limit=1'],
       ['Inventory', '/api/inventory?limit=1'],
       ['Billing/subscription', '/api/billing/subscription'],
+      ['Organization', '/api/organization'],
+      ['Branches', '/api/branches'],
+      ['Staff', '/api/members'],
+      ['Custom roles', '/api/roles'],
+      ['Customer form schema', '/api/forms/customer/schema'],
+      ['Dashboard', '/api/analytics/dashboard'],
+      ['Report catalogue', '/api/reports'],
+      ['Notifications', '/api/notifications'],
+      ['CRM', '/api/crm/leads?limit=1'],
+      ['Suppliers', '/api/suppliers?limit=1'],
+      ['Purchasing', '/api/purchasing/orders?limit=1'],
+      ['HR self schedule', `/api/hr/me/schedule?from=${date}&to=${date}&limit=1`],
     ];
+    const positiveControls = new Map();
     for (const [label, path] of paths) {
       const result = await request(path, scoped(primary));
+      positiveControls.set(path, result.status);
       record(label, result.status === 200, `HTTP ${result.status}`);
     }
     const protectedPath = '/api/customers?limit=1';
@@ -88,6 +123,19 @@ if (missing.length) {
     record('foreign organization rejected', wrongOrg.status === 403, `HTTP ${wrongOrg.status}`);
     const wrongBranch = await request(protectedPath, { ...scoped(primary), branch: foreign.branchId });
     record('foreign branch rejected', wrongBranch.status === 403, `HTTP ${wrongBranch.status}`);
+    // Repeat forged context rejection across every accepted domain, not merely
+    // Customers. Domain entitlements/positive controls must pass first.
+    for (const [label, path] of paths) {
+      if (positiveControls.get(path) !== 200) {
+        results.push({ name: `${label} foreign context`, status: 'BLOCKED',
+          detail: 'authorized positive control unavailable; no negative PASS inferred' });
+        continue;
+      }
+      const org = await request(path, { ...scoped(primary), tenant: foreign.organizationId });
+      const branch = await request(path, { ...scoped(primary), branch: foreign.branchId });
+      record(`${label} foreign context`, org.status === 403 && branch.status === 403,
+        `organization HTTP ${org.status}; branch HTTP ${branch.status}`);
+    }
     for (const [label, listPath, resourcePath] of [
       ['foreign Customer', '/api/customers?limit=1', (id) => `/api/customers/${id}`],
       ['foreign financial resource', '/api/customer-dues/entries?limit=1',
@@ -97,7 +145,8 @@ if (missing.length) {
       const source = await request(listPath, scoped(foreign));
       const row = dataRows(source)[0];
       if (source.status !== 200 || !row?.id || (label === 'foreign financial resource' && !row.customerId)) {
-        record(`${label} rejected`, false, 'foreign positive fixture unavailable; use STAGING V207C data');
+        results.push({ name: `${label} rejected`, status: 'BLOCKED',
+          detail: 'foreign positive fixture unavailable; use confirmed disposable staging data' });
         continue;
       }
       const path = resourcePath(row.id, row);

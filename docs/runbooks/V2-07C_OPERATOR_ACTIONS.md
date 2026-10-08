@@ -1,5 +1,20 @@
 # V2-07C Remaining Operator Actions
 
+## Current V2-10 superseding evidence (2026-10-08)
+
+**NO-GO FOR REAL CUSTOMER DATA.** Historical dated actions below are preserved.
+Five scheduled backups (Oct4–8), latest ZIP/envelope/checksum and watchdog now
+pass. Actual Oct8 archive authenticated/restored on isolated PG18.6 but has
+001–019, not 020; new current-archive recovery remains OPEN. This run's
+plaintext/owned target were removed; encrypted/key originals retained. Separate
+historical plaintext custody, Neon account recovery and alert/owner proof remain
+open. Do not repeat legacy activation: current read-only diagnostics separately
+found the commercial latch empty, an unclosed offline shadow-write guard; no
+marker was inserted. Six headers pass, hosted manifest MIME fails. Render Free
+remains staging-only by choice. Use the current [mandatory actions](../reviews/V2-10_GO_NO_GO.md)
+and [release procedure](V2-10_RELEASE_ACCEPTANCE.md); no Atlas deletion or new
+milestone is authorized.
+
 Status on 2026-10-03: **NO-GO FOR REAL CUSTOMER DATA**. The real hosted encrypted archive has now passed authenticated decryption and isolated local PostgreSQL 18.6 restore, migrations/integrity and this-run cleanup. Do not repeat those proved steps. Original ZIP inspection, an earlier plaintext copy's cleanup, Neon account recovery, recurring schedule, alerting and other hard gates remain open. See the [execution evidence](../reviews/V2-07C_PILOT_BLOCKER_RESOLUTION.md). Preserve accepted code and working keys. Do not delete Atlas or start V2-07D automatically.
 
 Step 1 below is the reusable procedure, not a request to redo the recorded successful logical restore. The remaining recovery actions are original ZIP-member inspection (if retained), approved removal of the earlier `hosted-backup-restored.dump`, and authenticated Neon account/new-branch recovery evidence. Keep local PG18 logical recovery distinct from a Neon provider or restored application rehearsal.

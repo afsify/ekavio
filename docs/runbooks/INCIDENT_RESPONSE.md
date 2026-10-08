@@ -1,6 +1,19 @@
 # Incident Response for a Controlled Pilot
 
-**Status: procedure drafted; V2-07C remains NO-GO FOR REAL CUSTOMER DATA.** The pilot incident primary, backup, support window, and contact route are not yet assigned. Record them privately and test alert delivery before any GO decision. This runbook is an engineering response aid, not a promise of 24/7 coverage.
+**Current status (2026-10-08): V2-10 NO-GO FOR REAL CUSTOMER DATA.** The pilot
+incident primary, backup, support window and contact route are not privately
+evidenced. Record them privately and test acknowledged alert delivery before GO.
+Use the [current release procedure](V2-10_RELEASE_ACCEPTANCE.md) and
+[mandatory blockers](../reviews/V2-10_GO_NO_GO.md). This is an engineering aid,
+not a promise of 24/7 coverage.
+
+Five consecutive scheduled encrypted backups (Oct4–8) and watchdog now pass,
+superseding the older schedule observation below. This run's genuine Oct8
+archive authenticated and restored into isolated PG18.6, but contains 001–019,
+not 020. Its plaintext/owned target were removed. Current recovery requires a
+qualifying archive with 001–020 checksums and versioned domain invariants; no
+migration of an old restore may be presented as current recovery proof. Provider
+recovery, human alert receipt and independent monitoring remain unproved.
 
 Hosted manual backup `37124573922` and its isolated local PG18 recovery remain accepted dated evidence. The 2026-10-04 metadata review still found latest scheduled run `37108471538` failed and zero consecutive scheduled successes. New watchdog tooling detects scheduled failures/age/artifact metadata, not delivered notifications or independent GitHub outage detection. Use the [monitoring operator checklist](V2-07C_OPERATOR_ACTIONS.md#monitoring-and-backup-alert-operator-actions-2026-10-04); recurring backups, both recipients and tested delivery remain open.
 
@@ -35,6 +48,6 @@ Use watchdog manual `notification_test=true` only for a controlled monitoring de
 
 ## Restore invocation and closeout
 
-Use the [backup/restore procedure](V2-07A_BACKUP_RESTORE.md) and [pilot release procedure](PILOT_OPERATIONS.md). The database operator confirms source and newly isolated target identifiers out of band, injects credentials through the secret store, validates the archive, restores without `--clean`, verifies migrations 001–012 and count-only integrity, and measures elapsed time. The incident primary approves any later production traffic switch only after reconciling writes that occurred after the backup and validating authentication, tenancy, commercial entitlements, and core domains. Preserve the pre-incident target for a defined review window; remove only specifically approved temporary resources.
+Use the [backup/restore procedure](V2-07A_BACKUP_RESTORE.md) and [current release procedure](V2-10_RELEASE_ACCEPTANCE.md). The database operator confirms source and newly isolated target identifiers out of band, injects credentials through the secret store, validates the archive, restores without `--clean`, verifies current migrations 001–020 and versioned count-only/domain integrity, and measures elapsed time. The incident primary approves any later production traffic switch only after reconciling writes that occurred after the backup and validating authentication, tenancy, commercial entitlements, and core domains. Preserve the pre-incident target for a defined review window; remove only specifically approved temporary resources.
 
 Close an incident with a timeline, impact, sanitized evidence, root cause, recovery source/time, affected customer communication, and follow-up owner. Review alert delivery and backup/recovery gaps. Never claim a recovery objective from the V2-07A local 12.379-second drill or public provider documentation alone.

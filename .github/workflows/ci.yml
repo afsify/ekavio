@@ -53,6 +53,12 @@ jobs:
       - name: Test backup watchdog policy and workflow boundary
         run: node --test scripts/backup-watchdog.test.mjs
 
+      - name: Test read-only hosted acceptance safety contracts
+        run: node --test scripts/hosted-acceptance.test.mjs
+
+      - name: Validate final acceptance evidence without weakening NO-GO
+        run: node --test scripts/final-acceptance.test.mjs
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
@@ -275,6 +281,14 @@ jobs:
       - name: Test PostgreSQL HR leave calendars and scheduling
         working-directory: backend
         run: npm run test:hr
+
+      - name: Test current-schema count-only recovery acceptance
+        working-directory: backend
+        run: npx tsx --test tests/recoveryAcceptance.integration.ts
+
+      - name: Test seven-module live HTTP authority matrix
+        working-directory: backend
+        run: npx tsx --test tests/finalAuthority.integration.ts
 
       - name: Test PostgreSQL-backed HR workflows in browser
         working-directory: frontend
