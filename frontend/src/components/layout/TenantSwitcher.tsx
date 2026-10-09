@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../../store/useAppStore';
 
-export const TenantSwitcher: React.FC = () => {
+export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }> = ({ onSwitching }) => {
   const queryClient = useQueryClient();
   const { user, activeTenantId, activeBranchId, setActiveTenant, setActiveBranch } =
     useAppStore();
   const [switching, setSwitching] = useState(false);
+  const mutations = useIsMutating();
   const memberships = user?.memberships ?? [];
   const activeMembership = memberships.find(
     (membership) => membership.organizationId === activeTenantId,
@@ -15,39 +16,35 @@ export const TenantSwitcher: React.FC = () => {
 
   if (memberships.length === 0) return null;
 
-  const switchTenant = async (organizationId: string) => {
+  const switchContext = async (change: () => Promise<boolean>, label: string) => {
+    if (switching || mutations > 0) return;
     setSwitching(true);
-    const changed = await setActiveTenant(organizationId);
-    setSwitching(false);
-    if (!changed) {
-      toast.error('You no longer have access to that workspace');
-      return;
+    onSwitching?.(true);
+    try {
+      // Unmount old workspace content; cancel/clear old data before and after
+      // the server-authoritative refresh. Late old requests cannot populate UI.
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      const changed = await change();
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      if (!changed) toast.error(`You no longer have access to that ${label}`);
+      await queryClient.resetQueries();
+    } finally {
+      setSwitching(false);
+      onSwitching?.(false);
     }
-    await queryClient.invalidateQueries();
-  };
-
-  const switchBranch = async (branchId: string) => {
-    setSwitching(true);
-    const changed = await setActiveBranch(branchId);
-    setSwitching(false);
-    if (!changed) {
-      toast.error('You no longer have access to that branch');
-      return;
-    }
-    await queryClient.invalidateQueries();
   };
 
   return (
-    <div className="flex flex-col space-y-2">
-      {memberships.length > 1 && (
-        <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-          Active Workspace
+    <div className="context-selectors" aria-busy={switching || undefined}>
+        <label className="context-control">
+          <span>Workspace</span>
           <select
             aria-label="Active workspace"
             value={activeTenantId ?? user?.tenantId}
-            disabled={switching}
-            onChange={(event) => void switchTenant(event.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-white"
+            disabled={switching || mutations > 0 || memberships.length < 2}
+            onChange={(event) => { const value = event.target.value; void switchContext(() => setActiveTenant(value), 'workspace'); }}
           >
             {memberships.map((membership) => (
               <option key={membership.id} value={membership.organizationId}>
@@ -56,23 +53,19 @@ export const TenantSwitcher: React.FC = () => {
             ))}
           </select>
         </label>
-      )}
-      {(activeMembership?.branches.length ?? 0) > 1 && (
-        <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-          Active Branch
+        <label className="context-control">
+          <span>Branch</span>
           <select
             aria-label="Active branch"
             value={activeBranchId ?? ''}
-            disabled={switching}
-            onChange={(event) => void switchBranch(event.target.value)}
-            className="mt-1 block w-full rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-white"
+            disabled={switching || mutations > 0 || (activeMembership?.branches.length ?? 0) < 2}
+            onChange={(event) => { const value = event.target.value; void switchContext(() => setActiveBranch(value), 'branch'); }}
           >
             {activeMembership?.branches.map((branch) => (
               <option key={branch.id} value={branch.id}>{branch.name}</option>
             ))}
           </select>
         </label>
-      )}
     </div>
   );
 };

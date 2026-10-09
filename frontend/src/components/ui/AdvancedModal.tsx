@@ -18,6 +18,7 @@ export interface AdvancedModalProps {
   closeOnBackdropClick?: boolean;
   closeOnEscape?: boolean;
   className?: string;
+  presentation?: 'modal' | 'drawer';
 }
 
 export const AdvancedModal: React.FC<AdvancedModalProps> = ({
@@ -31,6 +32,7 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
   closeOnBackdropClick = true,
   closeOnEscape = true,
   className,
+  presentation = 'modal',
 }) => {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -82,10 +84,10 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto">
+    <div className={`dialog-layer ${presentation === 'drawer' ? 'drawer-layer' : ''}`}>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+        className="dialog-overlay"
         onClick={closeOnBackdropClick ? onClose : undefined}
         aria-hidden="true"
       />
@@ -98,22 +100,21 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative w-full max-h-[90vh] flex flex-col bg-slate-900 shadow-2xl border-t sm:border border-slate-800",
-          "rounded-t-3xl sm:rounded-2xl transition-all duration-300",
-          "animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in sm:zoom-in-95",
+          'workspace-dialog',
+          presentation === 'drawer' && 'details-drawer',
           sizeClasses[size],
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800/80 shrink-0">
-          <div id={titleId} className="text-lg font-semibold text-white truncate pr-4">
+        <div className="dialog-heading">
+          <h2 id={titleId}>
             {title}
-          </div>
+          </h2>
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="p-2 -mr-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="icon-button"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
@@ -122,15 +123,15 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto overscroll-contain">
-          <div className="text-slate-300">
+        <div className="dialog-body">
+          <div>
             {children}
           </div>
         </div>
 
         {/* Footer */}
         {actions && (
-          <div className="flex flex-wrap items-center justify-end gap-3 px-6 py-4 border-t border-slate-800/80 bg-slate-900/50 rounded-b-2xl shrink-0">
+          <div className="dialog-actions">
             {actions}
           </div>
         )}

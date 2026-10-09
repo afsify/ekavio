@@ -33,6 +33,17 @@ business capabilities, and maintainable backend architecture.
 
 ## Project Status
 
+V2-11A adds an original semantic design system, grouped responsive application
+shell, authoritative context switching, factual Dashboard and Customers exemplar.
+References remain read-only under ignored `reference/`; no reference code or
+integration is imported. See [experience acceptance](docs/reviews/V2-11A_EXPERIENCE_FOUNDATION.md),
+[source comparison](docs/reviews/V2-11A_REFERENCE_UX_ANALYSIS.md),
+[ADR 0029](docs/adr/0029-ekavio-design-system.md) and
+[remaining V2-11 phases](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+**NO-GO FOR REAL CUSTOMER DATA is unchanged.** Render Free is staging only;
+V2-10 hosted/recovery/provider/operations requirements remain independent.
+V2-11B does not start automatically.
+
 🚧 Active development
 
 V2-10 final acceptance is implemented as an engineering evidence candidate,

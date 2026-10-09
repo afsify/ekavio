@@ -294,6 +294,10 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:hr
 
+      - name: Test PostgreSQL-backed V2-11A module shell and context
+        working-directory: frontend
+        run: npm run test:e2e:experience
+
       - name: Upload frontend QA evidence
         # HR acceptance uses disposable private fixtures and no uploaded traces.
         # Authenticated fixtures never enter uploaded traces/screenshots.
@@ -311,6 +315,7 @@ jobs:
             !frontend/test-results/crm/**
             !frontend/test-results/purchasing/**
             !frontend/test-results/hr/**
+            !frontend/test-results/experience/**
           retention-days: 7
 
       - name: Validate Docker Compose

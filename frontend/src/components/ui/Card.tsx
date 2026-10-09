@@ -17,9 +17,9 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-6 shadow-xl transition-all duration-200 ${
+      className={`panel transition-colors ${
         interactive
-          ? 'hover:border-slate-700 hover:bg-slate-900/80 active:scale-[0.99] cursor-pointer'
+          ? 'interactive-card'
           : ''
       } ${className}`}
       {...props}

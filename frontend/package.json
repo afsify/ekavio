@@ -18,7 +18,8 @@
     "test:e2e:crm": "playwright test --config playwright.crm.config.ts",
     "test:e2e:purchasing": "playwright test --config playwright.purchasing.config.ts",
     "test:e2e:hr": "playwright test --config playwright.hr.config.ts",
-    "test:e2e:commercial": "playwright test --config playwright.commercial.config.ts"
+    "test:e2e:commercial": "playwright test --config playwright.commercial.config.ts",
+    "test:e2e:experience": "playwright test --config playwright.experience.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

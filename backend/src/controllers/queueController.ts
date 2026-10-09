@@ -43,7 +43,7 @@ export const createToken = async (
     const queueEntry = await operationalRuntimeService.createQueueToken(context, req.body);
     if (queueEntry.created) {
       await recordSecurityAudit(context, 'queue.token.created', {
-        tokenId: queueEntry.id,
+        queueRecordId: queueEntry.id,
         branchId: queueEntry.branch_id,
         serviceId: queueEntry.service_id,
       }, req.ip);
@@ -96,7 +96,7 @@ export const updateTokenStatus = async (
       req.body,
     );
     await recordSecurityAudit(context, 'queue.token.status_changed', {
-      tokenId: updatedToken.id,
+      queueRecordId: updatedToken.id,
       branchId: updatedToken.branch_id,
       status: updatedToken.status,
       version: updatedToken.version,

@@ -1,180 +1,45 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, Check, X } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Check } from 'lucide-react';
+import { SearchField } from './WorkspacePrimitives';
 
 export interface AdvancedSearchSelectProps<T> {
-  options: T[];
-  value: T | T[] | null;
-  onChange: (value: T | T[] | null) => void;
-  displayKey: keyof T;
-  valueKey?: keyof T;
-  label?: string;
-  placeholder?: string;
-  required?: boolean;
-  multiple?: boolean;
-  disabled?: boolean;
-  className?: string;
-  error?: string;
+  options: T[]; value: T | T[] | null; onChange: (value: T | T[] | null) => void;
+  displayKey: keyof T; valueKey?: keyof T; label?: string; placeholder?: string;
+  required?: boolean; multiple?: boolean; disabled?: boolean; className?: string; error?: string;
 }
-
-export const AdvancedSearchSelect = <T extends Record<string, unknown>>({
-  options,
-  value,
-  onChange,
-  displayKey,
-  valueKey = 'id' as keyof T,
-  label,
-  placeholder = 'Select an option',
-  required,
-  multiple,
-  disabled,
-  className,
-  error,
-}: AdvancedSearchSelectProps<T>) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
-
+/** A bounded received-options selector, not a server-wide search contract. */
+export function AdvancedSearchSelect<T extends Record<string, unknown>>({ options, value, onChange, displayKey, valueKey = 'id' as keyof T, label, placeholder = 'Select an option', required, multiple, disabled, className = '', error }: AdvancedSearchSelectProps<T>) {
+  const id = useId(), trigger = useRef<HTMLButtonElement>(null), container = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false), [search, setSearch] = useState('');
+  const filtered = useMemo(() => options.filter(option => String(option[displayKey]).toLowerCase().includes(search.toLowerCase())), [options, displayKey, search]);
+  const selected = (option: T) => (Array.isArray(value) ? value : value ? [value] : []).some(v => v[valueKey] === option[valueKey]);
+  const close = () => { setOpen(false); trigger.current?.focus(); };
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filteredOptions = useMemo(() => {
-    return options.filter((opt) =>
-      String(opt[displayKey]).toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [options, searchTerm, displayKey]);
-
-  const isSelected = (opt: T) => {
-    if (multiple && Array.isArray(value)) {
-      return value.some((v) => v[valueKey] === opt[valueKey]);
+    if (!open) return;
+    const outside = (event: MouseEvent) => { if (!container.current?.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', outside);
+    return () => document.removeEventListener('mousedown', outside);
+  }, [open]);
+  const choose = (option: T) => {
+    if (multiple) { const current = Array.isArray(value) ? value : []; onChange(selected(option) ? current.filter(v => v[valueKey] !== option[valueKey]) : [...current, option]); }
+    else { onChange(option); close(); setSearch(''); }
+  };
+  const display = (Array.isArray(value) ? value : value ? [value] : []).map(option => String(option[displayKey])).join(', ');
+  return <div ref={container} className={`search-select ${className}`} onKeyDown={event => {
+    if (event.key === 'Escape' && open) { event.stopPropagation(); close(); }
+    if (open && ['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+      const choices = Array.from(container.current?.querySelectorAll<HTMLButtonElement>('[role=option]') ?? []);
+      if (!choices.length) return;
+      event.preventDefault();
+      const index = choices.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? choices.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + choices.length) % choices.length;
+      choices[next]?.focus();
     }
-    return value && (value as T)[valueKey] === opt[valueKey];
-  };
-
-  const handleSelect = (opt: T) => {
-    if (multiple) {
-      const currentValues = Array.isArray(value) ? value : [];
-      if (isSelected(opt)) {
-        onChange(currentValues.filter((v) => v[valueKey] !== opt[valueKey]));
-      } else {
-        onChange([...currentValues, opt]);
-      }
-    } else {
-      onChange(opt);
-      setIsOpen(false);
-      setSearchTerm('');
-    }
-  };
-
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange(multiple ? [] : null);
-  };
-
-  return (
-    <div ref={containerRef} className={cn("relative w-full space-y-1.5", className)}>
-      {label && (
-        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-          {label} {required && <span className="text-rose-500">*</span>}
-        </label>
-      )}
-
-      <div
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={cn(
-          "relative flex min-h-[44px] items-center justify-between w-full rounded-2xl border bg-slate-900/70 px-4 py-2 cursor-pointer transition-all duration-200",
-          disabled ? "opacity-50 cursor-not-allowed border-slate-800" : "border-slate-700/80 hover:border-slate-600",
-          isOpen && "border-indigo-500 ring-2 ring-indigo-500/20",
-          error && "border-rose-500 ring-2 ring-rose-500/20"
-        )}
-      >
-        <div className="flex-1 flex flex-wrap gap-1 pr-4 overflow-hidden">
-          {multiple && Array.isArray(value) && value.length > 0 ? (
-            value.map((v, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md text-xs font-medium">
-                {String(v[displayKey])}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(value.filter((val) => val[valueKey] !== v[valueKey]));
-                  }}
-                  className="hover:text-indigo-200"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))
-          ) : !multiple && value ? (
-            <span className="text-sm text-white truncate">{String((value as T)[displayKey])}</span>
-          ) : (
-            <span className="text-sm text-slate-500 truncate">{placeholder}</span>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2 shrink-0 text-slate-400">
-          {(multiple ? Array.isArray(value) && value.length > 0 : value) && !disabled && (
-            <button type="button" onClick={handleClear} className="hover:text-rose-400 transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          )}
-          <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isOpen && "rotate-180")} />
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
-          <div className="p-2 border-b border-slate-700">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
-          
-          <div className="max-h-60 overflow-y-auto">
-            {filteredOptions.length === 0 ? (
-              <div className="p-4 text-center text-sm text-slate-500">No results found</div>
-            ) : (
-              filteredOptions.map((opt, i) => (
-                <div
-                  key={i}
-                  onClick={() => handleSelect(opt)}
-                  className={cn(
-                    "flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer transition-colors",
-                    isSelected(opt) ? "bg-indigo-500/10 text-indigo-300 font-medium" : "text-slate-300 hover:bg-slate-700/50"
-                  )}
-                >
-                  <span className="truncate">{String(opt[displayKey])}</span>
-                  {isSelected(opt) && <Check className="w-4 h-4 shrink-0" />}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-      
-      {error && <p className="text-xs font-medium text-rose-400 mt-1">{error}</p>}
-    </div>
-  );
-};
-
+  }}>
+    {label && <div className="form-label"><label htmlFor={id}>{label}</label>{required && <span aria-hidden="true"> (required)</span>}</div>}
+    <button ref={trigger} id={id} className="quiet-button search-select-trigger" type="button" aria-label={label ?? placeholder} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-options` : undefined} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} disabled={disabled} onClick={() => setOpen(value => !value)}><span>{display || placeholder}</span><ChevronDown size={18} aria-hidden="true" /></button>
+    {open && <div className="search-select-popover panel"><SearchField aria-label="Search received options" autoFocus value={search} onChange={e => setSearch(e.target.value)} /><div id={`${id}-options`} role="listbox" aria-label={label ?? 'Options'} aria-multiselectable={multiple || undefined}>{filtered.map(option => <button type="button" role="option" aria-selected={selected(option)} key={String(option[valueKey])} onClick={() => choose(option)}>{String(option[displayKey])}{selected(option) && <Check size={18} aria-hidden="true" />}</button>)}</div>{filtered.length === 0 && <p role="status">No matching options</p>}<button type="button" className="quiet-button" onClick={() => { onChange(multiple ? [] : null); close(); }}>Clear selection</button><p className="muted form-helper">Search applies to the supplied options only.</p></div>}
+    {error && <p className="error-text" id={`${id}-error`} role="alert">{error}</p>}
+  </div>;
+}
 export default AdvancedSearchSelect;

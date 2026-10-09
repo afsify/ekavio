@@ -2,7 +2,7 @@
  * Mobile-First Input UI Component
  * Strictly functional React form input component supporting labels, icons, and error states.
  */
-import React from 'react';
+import React, { useId } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,21 +15,23 @@ export interface InputProps
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  helper?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, id, className, ...props }, ref) => {
-    const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  ({ label, error, icon, helper, id, className, 'aria-describedby': describedBy, ...props }, ref) => {
+    const generatedId = useId();
+    const inputId = id || generatedId;
 
     return (
       <div className="w-full space-y-1.5">
         {label && (
-          <label
+          <div className="form-label"><label
             htmlFor={inputId}
-            className="block text-xs font-semibold uppercase tracking-wider text-slate-300 dark:text-slate-300"
+            className="form-label"
           >
             {label}
-          </label>
+          </label>{props.required && <span className="muted" aria-hidden="true"> (required)</span>}</div>
         )}
 
         <div className="relative">
@@ -42,9 +44,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             aria-invalid={Boolean(error)}
-            aria-describedby={error ? `${inputId}-error` : undefined}
+            aria-describedby={[describedBy, error ? `${inputId}-error` : null, helper ? `${inputId}-help` : null].filter(Boolean).join(' ') || undefined}
             className={cn(
-              "block w-full rounded-2xl border bg-slate-900/70 py-3 text-sm text-white placeholder-slate-500 shadow-inner focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 min-h-[44px]",
+              "workspace-input block w-full py-3 text-sm disabled:opacity-50 min-h-[44px]",
               icon ? "pl-10 pr-4" : "px-4",
               error
                 ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20"
@@ -55,6 +57,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           />
         </div>
 
+        {helper && <p id={`${inputId}-help`} className="form-helper muted">{helper}</p>}
         {error && (
           <p id={`${inputId}-error`} role="alert" className="text-xs font-medium text-rose-400">
             {error}

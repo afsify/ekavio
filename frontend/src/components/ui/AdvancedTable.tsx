@@ -1,203 +1,85 @@
-import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, AlertCircle, Plus, Search } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { useMemo, useState, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { Button } from './Button';
-import { Input } from './Input';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { EmptyState } from './EmptyState';
+import { ErrorState, Pagination, SearchField, Skeleton } from './WorkspacePrimitives';
 
 export interface Column<T> {
   header: string;
   accessor: keyof T | string;
   sortable?: boolean;
-  cell?: (props: { value: unknown; row: T; index: number }) => React.ReactNode;
+  align?: 'left' | 'right' | 'center';
+  cell?: (props: { value: unknown; row: T; index: number }) => ReactNode;
 }
-
-export interface AdvancedTableProps<T> {
+export type TableSort = { key: string; direction: 'asc' | 'desc' } | null;
+export interface ServerTableState {
+  search: string;
+  onSearch?: (value: string) => void;
+  sort?: TableSort;
+  onSort?: (sort: TableSort) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  onPage: (page: number) => void;
+  onPageSize?: (size: number) => void;
+}
+interface TablePresentation<T> {
   columns: Column<T>[];
   data: T[];
   loading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
+  retryLabel?: string;
   title?: string;
   description?: string;
   onRowClick?: (row: T) => void;
   onAdd?: () => void;
-  emptyState?: React.ReactNode;
+  emptyState?: ReactNode;
   searchPlaceholder?: string;
   className?: string;
+  rowKey?: (row: T) => string;
+  rowLabel?: (row: T) => string;
+  mobileCard?: (row: T) => ReactNode;
+  filters?: ReactNode;
 }
+// Server mode cannot accidentally run local operations over a paginated subset.
+export type AdvancedTableProps<T> = TablePresentation<T> & (
+  { mode: 'server'; server: ServerTableState } | { mode?: 'local'; server?: never }
+);
+const cellValue = <T extends object>(row: T, key: keyof T | string) => (row as Record<string, unknown>)[String(key)];
+const compare = (a: unknown, b: unknown) => typeof a === 'number' && typeof b === 'number' ? a - b : typeof a === 'string' && typeof b === 'string' ? a.localeCompare(b) : 0;
 
-const getCellValue = <T extends object>(row: T, accessor: keyof T | string): unknown =>
-  (row as Record<string, unknown>)[String(accessor)];
-
-const compareValues = (left: unknown, right: unknown): number => {
-  if (typeof left === 'number' && typeof right === 'number') {
-    return left - right;
-  }
-  if (typeof left === 'string' && typeof right === 'string') {
-    return left < right ? -1 : left > right ? 1 : 0;
-  }
-  return 0;
-};
-
-export const AdvancedTable = <T extends object>({
-  columns,
-  data,
-  loading = false,
-  error,
-  title,
-  description,
-  onRowClick,
-  onAdd,
-  emptyState,
-  searchPlaceholder = 'Search...',
-  className,
-}: AdvancedTableProps<T>) => {
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-  const [searchValue, setSearchValue] = useState('');
-
-  const handleSort = (accessor: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === accessor && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key: accessor, direction });
+export function AdvancedTable<T extends object>(props: AdvancedTableProps<T>) {
+  const { columns, data, loading, error, title, description, onRowClick, onAdd, emptyState, className = '', rowKey, rowLabel, mobileCard, filters } = props;
+  const [localSort, setLocalSort] = useState<TableSort>(null);
+  const [localSearch, setLocalSearch] = useState('');
+  const server = props.mode === 'server' ? props.server : undefined;
+  const sort = server ? server.sort : localSort;
+  const rows = useMemo(() => {
+    if (server) return data;
+    const matching = localSearch ? data.filter(row => columns.some(column => String(cellValue(row, column.accessor) ?? '').toLowerCase().includes(localSearch.toLowerCase()))) : [...data];
+    if (localSort) matching.sort((a, b) => compare(cellValue(a, localSort.key), cellValue(b, localSort.key)) * (localSort.direction === 'asc' ? 1 : -1));
+    return matching;
+  }, [server, data, localSearch, localSort, columns]);
+  const handleSort = (key: string) => {
+    const next: TableSort = { key, direction: sort?.key === key && sort.direction === 'asc' ? 'desc' : 'asc' };
+    if (server) server.onSort?.(next); else setLocalSort(next);
   };
-
-  const sortedAndFilteredData = useMemo(() => {
-    let result = [...data];
-
-    if (searchValue) {
-      const lowerSearch = searchValue.toLowerCase();
-      result = result.filter((item) =>
-        Object.values(item).some((val) => String(val).toLowerCase().includes(lowerSearch))
-      );
-    }
-
-    if (sortConfig) {
-      result.sort((a, b) => {
-        const comparison = compareValues(
-          getCellValue(a, sortConfig.key),
-          getCellValue(b, sortConfig.key),
-        );
-        return sortConfig.direction === 'asc' ? comparison : -comparison;
-      });
-    }
-    return result;
-  }, [data, sortConfig, searchValue]);
-
-  return (
-    <div className={cn("w-full bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden", className)}>
-      {/* Header section */}
-      {(title || description || onAdd || searchPlaceholder) && (
-        <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            {title && <h2 className="text-xl font-bold text-white truncate">{title}</h2>}
-            {description && <p className="text-sm text-slate-400 mt-1">{description}</p>}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-            <Input
-              placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              icon={<Search className="w-4 h-4" />}
-              className="min-w-[240px]"
-            />
-            {onAdd && (
-              <Button onClick={onAdd} className="shrink-0">
-                <Plus className="w-4 h-4" />
-                <span>Add New</span>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div className="p-4 m-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-rose-400">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <span className="text-sm font-medium">{error}</span>
-        </div>
-      )}
-
-      {/* Table Content */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
-            <tr className="bg-slate-800/50">
-              {columns.map((col, idx) => (
-                <th
-                  key={idx}
-                  onClick={() => col.sortable && handleSort(col.accessor as string)}
-                  className={cn(
-                    "px-6 py-4 text-xs font-semibold tracking-wider text-slate-300 uppercase whitespace-nowrap sticky top-0",
-                    col.sortable && "cursor-pointer hover:bg-slate-800/80 transition-colors"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    {col.header}
-                    {col.sortable && (
-                      <div className="flex flex-col opacity-50">
-                        <ChevronUp className={cn("w-3 h-3 -mb-1", sortConfig?.key === col.accessor && sortConfig.direction === 'asc' && "text-indigo-400 opacity-100")} />
-                        <ChevronDown className={cn("w-3 h-3", sortConfig?.key === col.accessor && sortConfig.direction === 'desc' && "text-indigo-400 opacity-100")} />
-                      </div>
-                    )}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {loading ? (
-              <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center text-slate-400">
-                  <div className="flex justify-center items-center gap-3">
-                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                    <span>Loading data...</span>
-                  </div>
-                </td>
-              </tr>
-            ) : sortedAndFilteredData.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length} className="px-6 py-16 text-center">
-                  {emptyState || (
-                    <div className="flex flex-col items-center justify-center text-slate-400">
-                      <AlertCircle className="w-10 h-10 mb-4 opacity-50" />
-                      <p className="text-sm font-medium">No results found</p>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ) : (
-              sortedAndFilteredData.map((row, rowIdx) => (
-                <tr
-                  key={rowIdx}
-                  onClick={() => onRowClick && onRowClick(row)}
-                  className={cn(
-                    "transition-colors duration-150",
-                    onRowClick ? "cursor-pointer hover:bg-slate-800/50" : "hover:bg-slate-800/30"
-                  )}
-                >
-                  {columns.map((col, colIdx) => (
-                    <td key={colIdx} className="px-6 py-4 text-sm text-slate-300 whitespace-nowrap">
-                      {col.cell
-                        ? col.cell({ value: getCellValue(row, col.accessor), row, index: rowIdx })
-                        : getCellValue(row, col.accessor) as React.ReactNode ?? <span className="text-slate-500">--</span>}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
+  const showSearch = server ? Boolean(server.onSearch) : true;
+  return <section className={`data-table ${className}`} aria-label={title ?? 'Records'} aria-busy={loading || undefined}>
+    {(title || description || onAdd || showSearch) && <header className="table-toolbar"><div>{title && <h2>{title}</h2>}{description && <p className="muted">{description}</p>}</div><div className="table-toolbar-actions">{showSearch && <SearchField aria-label={server ? 'Search all records' : 'Search received records'} placeholder={props.searchPlaceholder ?? (server ? 'Search all records…' : 'Search received records…')} value={server ? server.search : localSearch} onChange={e => server ? server.onSearch?.(e.target.value) : setLocalSearch(e.target.value)} />}{onAdd && <Button onClick={onAdd}><Plus size={18} aria-hidden="true" />Add New</Button>}</div></header>}
+    {filters}
+    {error ? <ErrorState title="Records could not be loaded" message={error} retry={props.onRetry} retryLabel={props.retryLabel} /> : loading ? <Skeleton label="Loading records…" rows={4} /> : rows.length === 0 ? emptyState ?? <EmptyState title="No results found" description="Try adjusting your search or filters." /> : <>
+      <div className={mobileCard ? 'table-desktop table-scroll' : 'table-scroll'}><table><thead><tr>{columns.map(column => {
+        const sortable = Boolean(column.sortable && (!server || server.onSort));
+        const selected = sort?.key === column.accessor;
+        return <th key={String(column.accessor)} scope="col" style={{ textAlign: column.align ?? 'left' }} aria-sort={sortable ? selected ? sort?.direction === 'asc' ? 'ascending' : 'descending' : 'none' : undefined}>{sortable ? <button className="table-sort" onClick={() => handleSort(String(column.accessor))}>{column.header}{selected && (sort?.direction === 'asc' ? <ArrowUp size={16} aria-hidden="true" /> : <ArrowDown size={16} aria-hidden="true" />)}</button> : column.header}</th>;
+      })}</tr></thead><tbody>{rows.map((row, index) => <tr key={rowKey?.(row) ?? index} onClick={onRowClick ? e => { if (!(e.target as HTMLElement).closest('button,a,input,select')) onRowClick(row); } : undefined} className={onRowClick ? 'clickable-row' : ''}>{columns.map((column, columnIndex) => <td key={String(column.accessor)} style={{ textAlign: column.align ?? 'left' }}>{column.cell ? column.cell({ value: cellValue(row, column.accessor), row, index }) : columnIndex === 0 && onRowClick ? <button className="record-open" onClick={() => onRowClick(row)} aria-label={`Open ${rowLabel?.(row) ?? String(cellValue(row, column.accessor))}`}>{String(cellValue(row, column.accessor) ?? '—')}</button> : String(cellValue(row, column.accessor) ?? '—')}</td>)}</tr>)}</tbody></table></div>
+      {mobileCard && <div className="table-mobile">{rows.map((row, index) => <div key={rowKey?.(row) ?? index}>{mobileCard(row)}</div>)}</div>}
+    </>}
+    {server && !error && <Pagination page={server.page} totalPages={server.totalPages} total={server.total} pageSize={server.pageSize} onPage={server.onPage} onPageSize={server.onPageSize} busy={loading} />}
+    {!server && <p className="table-scope muted">Search and sort apply to received rows only.</p>}
+  </section>;
+}
 export default AdvancedTable;

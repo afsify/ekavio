@@ -96,6 +96,33 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
       });
     }
     await db.query("UPDATE memberships SET role='admin' WHERE id=$1",[membership]);
+    await t.test('queue creation, transition and appointment check-in persist safe record IDs in audit', async () => {
+      const mutate = async (path: string, body: Record<string, unknown>, status: number, method = 'POST') => {
+        const response = await fetch(origin + path, { method,
+          headers: { authorization: 'Bearer ' + token, 'x-tenant-id': org, 'x-branch-id': branch, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+        assert.equal(response.status, status);
+        return (await response.json()).data;
+      };
+      const customer = await mutate('/customers', { name: 'Synthetic audit customer' }, 201);
+      const service = await mutate('/services', { name: 'Synthetic audit service', durationMinutes: 30 }, 201);
+      const queueBody = { customerId: customer.id, serviceId: service.id, idempotencyKey: randomUUID() };
+      const queue = await mutate('/queue', queueBody, 201);
+      assert.equal((await mutate('/queue', queueBody, 200)).id, queue.id);
+      await mutate(`/queue/${queue.id}/status`, { status: 'serving', expectedVersion: queue.version }, 200, 'PATCH');
+      const appointment = await mutate('/appointments', { customerId: customer.id, serviceId: service.id,
+        localStart: '2026-10-12T10:30', idempotencyKey: randomUUID() }, 201);
+      const checkInBody = { idempotencyKey: randomUUID() };
+      const checkedIn = await mutate(`/appointments/${appointment.id}/check-in`, checkInBody, 200);
+      assert.equal((await mutate(`/appointments/${appointment.id}/check-in`, checkInBody, 200)).created, false);
+      const events = (await db.query<{ action: string; details: Record<string, unknown> }>(
+        "SELECT action, details FROM audit_events WHERE organization_id=$1 AND action IN ('queue.token.created','queue.token.status_changed','appointment.checked_in')", [org])).rows;
+      assert.equal(events.length, 3, 'each committed action audits once; idempotent replay adds no event');
+      for (const event of events) {
+        assert.equal(event.details.queueRecordId, event.action === 'appointment.checked_in' ? checkedIn.tokenId : queue.id);
+        assert.equal(event.details.tokenId, undefined, 'record metadata must not collide with credential-redaction keys');
+      }
+    });
     await t.test('valid positive reads reject foreign organization and branch context for every module', async () => {
       for (const [,path] of modules) {
         assert.equal((await request(path)).status,200);

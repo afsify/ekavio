@@ -23,6 +23,12 @@ Commercial modules retain keys `queue`, `attendance`, `ledger`, `inventory`, pre
 
 ## Deferred work
 
+V2-11A implements the shared experience foundation and Dashboard/Customers
+exemplar, not new business domains or pilot approval. Reference sources remain
+read-only and ignored. See [experience evidence](../reviews/V2-11A_EXPERIENCE_FOUNDATION.md)
+and [V2-11 phases B/C/D/E](V2_11_EXPERIENCE_ROADMAP.md) for the explicitly deferred
+domain redesigns. NO-GO remains unchanged; no next phase starts automatically.
+
 V2-08D delivers the bounded shared form foundation; V2-08E consumes active reportable
 metadata and custom CSV, reusing the single typed Customer filter. Broader custom/
 multiselect filters, safe custom uniqueness, saved presets, general email, low-stock

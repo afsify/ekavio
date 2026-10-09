@@ -1,5 +1,35 @@
 # EkaVio Project Context
 
+## Current experience work: V2-11A (2026-10-09)
+
+Resumed the preserved in-progress UI changes on main, starting from accepted
+`5c254a14af6e083959e2b936dde826cbf82e6a4c`. The existing annotated
+`pre-v2-11a-experience-foundation` checkpoint was not recreated. Retain the
+intentional `reference/` ignore rule; all three reference trees are read-only and
+out of Git. No backend domain, migration, commercial policy or session behavior
+is replaced. Source audit and original implementation are documented in
+[reference analysis](docs/reviews/V2-11A_REFERENCE_UX_ANALYSIS.md),
+[ADR 0029](docs/adr/0029-ekavio-design-system.md),
+[experience evidence](docs/reviews/V2-11A_EXPERIENCE_FOUNDATION.md) and
+[V2-11 roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+
+Semantic shared primitives, desktop grouped/compact navigation, tablet drawer,
+mobile bottom navigation/More, human account/context controls and single-store
+Light/Dark/System appearance are the foundation. Dashboard preserves server
+facts and versioned hide/order. Customers demonstrates canonical search/pages,
+the existing typed filter, desktop rows/mobile cards, structured drawer/sheet,
+dynamic fields, guarded save and unsaved confirmation. AdvancedTable server
+mode never searches/sorts a received subset locally. Other domains receive
+shared-shell regression coverage, not a claimed final UX redesign.
+Regression log review also corrected ordinary Queue audit record metadata from
+`tokenId` to `queueRecordId` without changing API DTOs or credential redaction;
+real HTTP/PostgreSQL tests cover persistence and idempotent replay.
+
+**NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging
+only. Hosted authentication, deployed-build, provider/recovery/operations gates
+remain as documented below. Completion requires exact-final-commit CI and the
+annotated `v2-11a-experience-foundation` tag; no later milestone starts implicitly.
+
 ## Current acceptance: V2-10 (2026-10-08)
 
 **NO-GO FOR REAL CUSTOMER DATA.** V2-10 resumes the preserved working tree from

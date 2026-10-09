@@ -33,6 +33,7 @@ dist/
 build/
 coverage/
 out/
+reference/
 
 # Vite
 vite.svg

@@ -67,7 +67,7 @@ export const checkInAppointment = async (req: AuthenticatedRequest, res: Respons
     const context = requireAuthorizationContext(req);
     const token = await operationalRuntimeService.checkInAppointment(context, req.params.appointmentId as string, req.body.idempotencyKey);
     if (token.created) {
-      await recordSecurityAudit(context, 'appointment.checked_in', { appointmentId: req.params.appointmentId as string, tokenId: token.id, branchId: token.branch_id }, req.ip);
+      await recordSecurityAudit(context, 'appointment.checked_in', { appointmentId: req.params.appointmentId as string, queueRecordId: token.id, branchId: token.branch_id }, req.ip);
       emitToBranch(token.branch_id, 'queue.token.created', { id: token.id, tokenNumber: token.token_number, status: token.status, serviceId: token.service_id, appointmentId: token.appointment_id, version: token.version });
     }
     res.json({ data: { tokenId: token.id, tokenNumber: token.token_number, status: token.status, version: token.version, created: token.created } });

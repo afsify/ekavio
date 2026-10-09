@@ -57,5 +57,5 @@ export async function workspace(page: Page, options: { permissions?: string[]; m
   });
   // Forbid accidentally sending test data to any hosted API.
   await page.route('https://api.ekavio.afsify.com/**', (route) => route.abort());
-  return { org, branch, customers, services, enableCustomers: () => { failCustomers = false; }, pricing: () => savedPricing };
+  return { org, branch, session, customers, services, enableCustomers: () => { failCustomers = false; }, pricing: () => savedPricing };
 }
