@@ -17,6 +17,8 @@ no dependency installation, server execution, source edits or credential copying
 The [source comparison](V2-11A_REFERENCE_UX_ANALYSIS.md) maps 18 reference
 features through two keyed matrices and a quality benchmark. All 67 concrete
 reference file citations were checked against the actual local directories.
+The separate EkaVio-support matrix uses verified current EkaVio source paths,
+not reference-project paths repeated as purported existing implementations.
 CRM grouping/personalization, Biz Auth membership/context presentation and PMS
 operational details/cards informed original implementations. Reference auth,
 Mongo authority, gateways, messaging, effects, fonts and branding were rejected.
@@ -107,6 +109,7 @@ or manual customer test was required.
 | Docker Compose config / build / runtime | PASS, frontend/backend/PostgreSQL healthy |
 | Local HTTP live / ready / root / login | PASS, all HTTP 200 |
 | Bounded normal backend/frontend log review after final backend rebuild | PASS, 121 lines, no matched runtime errors |
+| Post-CI mobile correction: frontend-only Docker rebuild / health / logs | PASS, three healthy containers, four HTTP 200 probes, 27 log lines and no matched runtime errors |
 
 | Chromium suite | Local evidence |
 | --- | --- |
@@ -187,6 +190,25 @@ Queue create/status and appointment check-in now label only that audit metadata
 policy are unchanged. A real HTTP/PostgreSQL regression verifies all three
 events persist and idempotent replay adds no duplicate audit event.
 
+The first pushed implementation (`931f18b`) failed exact CI run `37885629432`:
+58/61 foundation cases passed, but all three 360px Dashboard themes genuinely
+overflowed in Linux Chromium. The downloaded sanitized failure screenshot
+showed Appointments text overflowing the two-column quick-action card. Phone
+shortcuts now use one column below 640px; card text can shrink and wrap within
+its track. The original document-overflow assertion is unchanged, and each
+visual case additionally checks card-level containment. All 12 affected mobile
+cases and the remaining 15 tablet/desktop cases passed locally after correction
+(27/27 across the two bounded runs), with 270 fresh loaded captures and visual
+review of the corrected layouts. The complete CI suite must pass for the
+corrected final commit before the release tag.
+
+That local mobile run completed all assertions but stalled in Windows Vite
+teardown. Only its verified test-owned server process was terminated; Playwright
+then exited successfully with 12/12. No normal application container or source
+was discarded. A separate documentation review corrected reference paths that
+had been repeated in the EkaVio-support column; all replacement local paths were
+verified. Neither finding was hidden by relaxing an assertion.
+
 Existing multi-actor HR/commercial QA client-phase hooks recreate their isolated
 app/limiter state and can emit express-rate-limit creation-stack diagnostics.
 Those test-only hooks are excluded from compiled runtime routing. They were not
@@ -199,11 +221,11 @@ Measured production build sizes, not laboratory runtime latency claims:
 
 | Output | Baseline | V2-11A |
 | --- | --- | --- |
-| Entry JavaScript | 392.19 kB / 125.82 kB gzip | 431.73 kB / 138.67 kB gzip |
-| CSS | 63.62 kB / 12.09 kB gzip | 76.67 kB / 14.75 kB gzip |
-| PWA precache | 79 entries / 1064.24 KiB | 77 entries / 1091.94 KiB |
+| Entry JavaScript | 392.19 kB / 125.82 kB gzip | 431.73 kB / 138.69 kB gzip |
+| CSS | 63.62 kB / 12.09 kB gzip | 76.77 kB / 14.76 kB gzip |
+| PWA precache | 79 entries / 1064.24 KiB | 77 entries / 1092.04 KiB |
 
-The entry increase is 39.54 kB (12.85 kB gzip); no UI framework or dependency
+The entry increase is 39.54 kB (12.87 kB gzip); no UI framework or dependency
 was added. Lazy route boundaries remain intact. Existing toast/client dynamic
 import warnings and slow-host plugin timing notices are not new bundle errors.
 The first build invocation lacked required VITE variables and correctly refused

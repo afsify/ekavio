@@ -31,6 +31,9 @@ for (const width of [320, 360, 390, 430, 768, 1024, 1280, 1440, 1920]) {
     await page.addInitScript(preference => localStorage.setItem('ekavio-ui-preferences', JSON.stringify({ mode: preference, primaryColor: '#4F46E5' })), mode);
     await page.goto('/dashboard'); await expect(page.getByRole('heading', { name: 'Active customers', exact: true })).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'system' ? 'dark' : mode);
+    // A card can overflow its own grid track before reaching the document edge.
+    // Keep this stricter regression alongside the global overflow assertion.
+    await expect.poll(() => page.locator('.action-card').evaluateAll(cards => cards.every(card => card.scrollWidth <= card.clientWidth))).toBe(true);
     await capture(page, prefix, 'dashboard');
     await page.goto('/customers'); await expect(page.getByRole('heading', { name: 'QA Ordinary Customer', exact: true }).filter({ visible: true })).toBeVisible(); await capture(page, prefix, 'customers');
     await page.getByRole('button', { name: 'View QA Ordinary Customer', exact: true }).filter({ visible: true }).click();
