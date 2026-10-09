@@ -4,25 +4,15 @@ import { Link,useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../api/client';
 import { hasEntitlement } from '../../commercial/catalogue';
-import {
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ClipboardList,
-  Download,
-  History,
-  PackagePlus,
-  PackageSearch,
-  Pencil,
-  RotateCcw,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react';
 import { getErrorMessage } from '../../api/errors';
-import { DetailViewLayout } from '../../components/layout/DetailViewLayout';
+import { AppPage, PageHeader, StatusBadge, DetailSection, ErrorState, FilterPanel, FilterChip, Pagination, SearchField, Skeleton } from '../../components/ui/WorkspacePrimitives';
+import { AdvancedTable, type Column } from '../../components/ui/AdvancedTable';
+import { OperationForm } from '../../components/ui/OperationForm';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { useOperationalContext, useOperationalScope } from '../../hooks/useOperationalContext';
+import { branchTime, decimalUnits, quantityText } from '../../utils/operations';
+import { exactRupees } from '../../components/analytics/contracts';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import {
   type InventoryItem,
@@ -88,8 +78,8 @@ const movementLabels: Record<StockMovement['movementType'], string> = {
 
 const newCommandKey = (): string => window.crypto.randomUUID();
 
-const selectClass = 'block min-h-[44px] w-full rounded-2xl border border-slate-700/80 bg-slate-900/70 px-4 py-3 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20';
-const labelClass = 'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-300';
+const selectClass = '';
+const labelClass = 'form-label';
 
 export const InventoryPage: React.FC = () => {
   const [page, setPage] = useState(1);
@@ -104,14 +94,16 @@ export const InventoryPage: React.FC = () => {
   const [commandKey, setCommandKey] = useState(newCommandKey);
   const [form, setForm] = useState<InventoryFormState>(emptyForm);
   const fields=useDynamicForm('inventory_item',modalMode==='edit'?selectedItem?.id:null,modalMode==='create'||modalMode==='edit');
-  const pageLimit = 12;
+  const pageLimit = 20;
+  const scope = useOperationalScope(), context = useOperationalContext();
+  const [lowOnly, setLowOnly] = useState(false), [filtersOpen, setFiltersOpen] = useState(false), [commandError, setCommandError] = useState<unknown>(null);
 
   const user = useAppStore((state) => state.user);
   const activeTenantId = useAppStore((state) => state.activeTenantId);
   const activeBranchId = useAppStore((state) => state.activeBranchId);
   const entitlements = useAppStore((state) => state.entitlements);
-  const linkedItem = useQuery({queryKey:['inventory',activeTenantId,activeBranchId,'linked-item',linkParams.get('item')],enabled:Boolean(linkParams.get('item')),queryFn:async()=>(await client.get<{data:InventoryItem}>('/inventory/'+linkParams.get('item'))).data.data});
-  const historyItem = chosenHistoryItem===undefined ? linkedItem.data??null : chosenHistoryItem;
+  const linkedItem = useQuery({ queryKey: ['inventory', ...scope, 'detail', chosenHistoryItem?.id ?? linkParams.get('item')], enabled: Boolean(chosenHistoryItem?.id || (chosenHistoryItem === undefined && linkParams.get('item'))), queryFn: async ({ signal }) => (await client.get<{data:InventoryItem}>('/inventory/' + (chosenHistoryItem?.id ?? linkParams.get('item')), { signal })).data.data });
+  const historyItem = chosenHistoryItem === null ? null : linkedItem.data ?? chosenHistoryItem ?? null;
   const canManage = user?.permissions?.includes('inventory.manage') ?? false;
   const activeMembership = user?.memberships?.find(
     (membership) => membership.organizationId === activeTenantId,
@@ -119,7 +111,9 @@ export const InventoryPage: React.FC = () => {
   const branchName = activeMembership?.branches.find(({ id }) => id === activeBranchId)?.name
     ?? 'Selected branch';
 
-  const inventoryQuery = useInventory(page, pageLimit, search, status);
+  const catalogueQuery = useInventory(page, pageLimit, search, status);
+  const lowItemsQuery = useLowStockAlerts(page, pageLimit);
+  const inventoryQuery = lowOnly ? lowItemsQuery : catalogueQuery;
   const lowStockQuery = useLowStockAlerts(1, 1);
   const unitsQuery = useInventoryUnits();
   const movementQuery = useInventoryMovements(historyItem?.id ?? null, historyPage, 20);
@@ -153,6 +147,7 @@ export const InventoryPage: React.FC = () => {
     item: InventoryItem | null = null,
     movement: StockMovement | null = null,
   ) => {
+    setCommandError(null);
     setModalMode(mode);
     setSelectedItem(item);
     setSelectedMovement(movement);
@@ -188,6 +183,7 @@ export const InventoryPage: React.FC = () => {
   ) => setForm((current) => ({ ...current, [key]: value }));
 
   const submit = async () => {
+    if (!canManage || isMutating || !formValid) return;
     try {
       if (modalMode === 'create') {
         if (!form.name.trim()) throw new Error('Item name is required');
@@ -255,8 +251,12 @@ export const InventoryPage: React.FC = () => {
         });
         toast.success('Reversal recorded');
       }
-      closeModal();
+      setModalMode(null);
+      setSelectedItem(null);
+      setSelectedMovement(null);
+      setForm(emptyForm());
     } catch (error) {
+      setCommandError(error);
       toast.error(getErrorMessage(error, 'Inventory command failed'));
     }
   };
@@ -266,332 +266,60 @@ export const InventoryPage: React.FC = () => {
     setHistoryPage(1);
   };
 
-  const header = (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-indigo-500/20 p-3 text-indigo-400">
-            <PackageSearch className="h-8 w-8" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Inventory</h1>
-            <p className="text-sm text-slate-400">
-              {branchName} · default stock location · exact movement history
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {hasEntitlement(entitlements,'purchasing')&&user?.permissions?.includes('purchasing.read')&&<Link className="quiet-button" to="/purchasing">View Purchasing</Link>}
-          <Button
-            variant="secondary"
-            onClick={() => exportToCSV(items.map((item) => ({
-              name: item.name,
-              sku: item.sku ?? '',
-              barcode: item.barcode ?? '',
-              unit: item.unit.label,
-              quantity: item.quantity,
-              reorderThreshold: item.reorderThreshold,
-              price: item.price ?? '',
-              currency: item.currency,
-              status: item.status,
-            })), `inventory_current_page_${page}`)}
-            disabled={items.length === 0}
-          >
-            <Download className="h-4 w-4" />
-            Export current page
-          </Button>
-          {canManage && (
-            <Button onClick={() => openModal('create')}>
-              <PackagePlus className="h-4 w-4" />
-              Create item
-            </Button>
-          )}
-        </div>
-      </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:max-w-md">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Catalogue items</p>
-          <p className="mt-1 text-xl font-bold text-white">{inventoryQuery.data?.total ?? '—'}</p>
-        </div>
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
-          <p className="text-xs uppercase tracking-wide text-rose-300">Low stock</p>
-          <p className="mt-1 text-xl font-bold text-rose-300">{lowStockQuery.data?.total ?? '—'}</p>
-        </div>
-      </div>
-    </div>
-  );
 
-  const mainContent = (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
-          <label className="relative">
-            <span className="sr-only">Search inventory</span>
-            <Search className="pointer-events-none absolute left-4 top-3.5 h-4 w-4 text-slate-500" />
-            <input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Search name, SKU, or barcode"
-              className={`${selectClass} pl-11`}
-            />
-          </label>
-          <select
-            aria-label="Filter inventory status"
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-            className={selectClass}
-          >
-            <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-      </section>
-
-      {inventoryQuery.isLoading && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-10 text-center text-slate-400">
-          Loading branch inventory…
-        </div>
-      )}
-      {inventoryQuery.isError && (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-rose-200">
-          <p className="font-semibold">Inventory could not be loaded.</p>
-          <p className="mt-1 text-sm">{getErrorMessage(inventoryQuery.error, 'Request failed safely')}</p>
-          <Button className="mt-4" variant="secondary" onClick={() => void inventoryQuery.refetch()}>
-            Retry
-          </Button>
-        </div>
-      )}
-      {!inventoryQuery.isLoading && !inventoryQuery.isError && items.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 p-10 text-center">
-          <PackageSearch className="mx-auto h-10 w-10 text-slate-600" />
-          <h2 className="mt-3 font-semibold text-white">No inventory items found</h2>
-          {canManage && <Button className="mt-4" onClick={() => openModal('create')}>Add Inventory Item</Button>}
-          <p className="mt-1 text-sm text-slate-400">
-            Create a catalogue item or change the current filters.
-          </p>
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => (
-          <article
-            key={item.id}
-            className={`rounded-2xl border p-5 shadow-lg ${
-              item.isLowStock
-                ? 'border-rose-500/30 bg-rose-500/5'
-                : 'border-slate-800 bg-slate-900'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-bold text-white">{item.name}</h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  {item.sku ? `SKU ${item.sku}` : 'No SKU'}
-                  {item.barcode ? ` · ${item.barcode}` : ''}
-                </p>
-              </div>
-              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
-                item.status === 'active'
-                  ? 'bg-emerald-500/10 text-emerald-300'
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                {item.status}
-              </span>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-950/60 p-3">
-                <p className="text-xs text-slate-500">Branch quantity</p>
-                <p className={`mt-1 text-xl font-bold ${item.isLowStock ? 'text-rose-300' : 'text-white'}`}>
-                  {item.quantity} <span className="text-xs font-medium text-slate-400">{item.unit.label}</span>
-                </p>
-              </div>
-              <div className="rounded-xl bg-slate-950/60 p-3">
-                <p className="text-xs text-slate-500">Reference price</p>
-                <p className="mt-1 text-xl font-bold text-white">
-                  {item.price === null ? '—' : `₹${item.price}`}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-              <span>Low-stock threshold: {item.reorderThreshold}</span>
-              {item.isLowStock && (
-                <span className="inline-flex items-center gap-1 font-semibold text-rose-300">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Low stock
-                </span>
-              )}
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-800 pt-4">
-              <Button size="sm" variant="secondary" onClick={() => showHistory(item)}>
-                <History className="h-4 w-4" /> History
-              </Button>
-              {canManage && (
-                <>
-                  <Button size="sm" variant="secondary" onClick={() => openModal('receive', item)} disabled={item.status !== 'active'}>
-                    <ArrowDownToLine className="h-4 w-4" /> Receive
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => openModal('consume', item)} disabled={item.status !== 'active'}>
-                    <ArrowUpFromLine className="h-4 w-4" /> Consume
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => openModal('adjust', item)} disabled={item.status !== 'active'}>
-                    <SlidersHorizontal className="h-4 w-4" /> Adjust
-                  </Button>
-                  <Button size="sm" variant="ghost" aria-label={`Edit ${item.name}`} onClick={() => openModal('edit', item)}>
-                    <Pencil className="h-4 w-4" /> Edit
-                  </Button>
-                </>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-
-      {(inventoryQuery.data?.totalPages ?? 0) > 1 && (
-        <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>
-            Previous
-          </Button>
-          <span className="text-sm text-slate-400">
-            Page {page} of {inventoryQuery.data?.totalPages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= (inventoryQuery.data?.totalPages ?? 1)}
-            onClick={() => setPage((value) => value + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
-
-      {historyItem && (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-lg font-bold text-white">
-                <ClipboardList className="h-5 w-5 text-indigo-400" />
-                {historyItem.name} movement history
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Permanent facts for {branchName}; reversals remain visible.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {setHistoryItem(null);setLinkParams({});}}
-              aria-label="Close movement history"
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          {movementQuery.isLoading && <p className="py-8 text-center text-slate-400">Loading movement history…</p>}
-          <EntityFields entity="inventory_item" id={historyItem.id}/>
-          {movementQuery.isError && (
-            <p className="py-6 text-rose-300">{getErrorMessage(movementQuery.error, 'Movement history failed to load')}</p>
-          )}
-          {!movementQuery.isLoading && movementQuery.data?.data.length === 0 && (
-            <p className="py-8 text-center text-slate-500">No stock movements exist for this branch.</p>
-          )}
-          <div className="divide-y divide-slate-800">
-            {(movementQuery.data?.data ?? []).map((movement) => (
-              <div key={movement.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-white">{movementLabels[movement.movementType]}</span>
-                    <span className={`font-mono text-sm font-bold ${
-                      movement.quantityDelta.startsWith('-') ? 'text-rose-300' : 'text-emerald-300'
-                    }`}>
-                      {movement.quantityDelta.startsWith('-') ? '' : '+'}{movement.quantityDelta} {movement.unit.label}
-                    </span>
-                    {movement.reversedByMovementId && (
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">Reversed</span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {new Date(movement.occurredAt).toLocaleString()}
-                    {movement.actorName ? ` · ${movement.actorName}` : ' · migration import'}
-                  </p>
-                  {(movement.reason || movement.reference) && (
-                    <p className="mt-2 text-sm text-slate-300">
-                      {movement.reason ?? 'No reason'}{movement.reference ? ` · Ref: ${movement.reference}` : ''}
-                    </p>
-                  )}
-                </div>
-                {canManage
-                  && movement.movementType !== 'reversal'
-                  && !movement.reversedByMovementId && !movement.purchaseReceiptLineId && (
-                  <Button size="sm" variant="ghost" onClick={() => openModal('reverse', historyItem, movement)}>
-                    <RotateCcw className="h-4 w-4" /> Reverse
-                  </Button>
-                )}
-                {movement.purchaseReceiptLineId&&<p className="text-sm text-slate-400">Purchasing receipt — independent reversal blocked; returns/corrections deferred.</p>}
-              </div>
-            ))}
-          </div>
-          {(movementQuery.data?.totalPages ?? 0) > 1 && (
-            <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4">
-              <Button variant="secondary" size="sm" disabled={historyPage <= 1} onClick={() => setHistoryPage((value) => value - 1)}>
-                Previous
-              </Button>
-              <span className="text-xs text-slate-400">Page {historyPage} of {movementQuery.data?.totalPages}</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={historyPage >= (movementQuery.data?.totalPages ?? 1)}
-                onClick={() => setHistoryPage((value) => value + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
-        </section>
-      )}
-    </div>
-  );
-
-  return (
-    <>
-      {linkedItem.isError&&<p role="alert" className="error-text">{getErrorMessage(linkedItem.error,'Linked Inventory item is unavailable in this branch.')} <button className="quiet-button" onClick={()=>void linkedItem.refetch()}>Retry linked item</button></p>}
-      <DetailViewLayout header={header} mainContent={mainContent} />
-      <AdvancedModal
-        isOpen={modalMode !== null}
-        onClose={closeModal}
-        title={modalTitle}
-        size="lg"
-        closeOnBackdropClick={!isMutating}
-        closeOnEscape={!isMutating}
-        actions={(
-          <>
-            <Button variant="secondary" onClick={closeModal} disabled={isMutating}>Cancel</Button>
-            <Button
-              variant={modalMode === 'reverse' ? 'danger' : 'primary'}
-              onClick={() => void submit()}
-              disabled={(modalMode==='create'||modalMode==='edit')&&(!fields.ready||!fields.valid||Boolean(fields.error))}
-              isLoading={isMutating}
-            >
-              {modalMode === 'reverse' ? 'Record reversal' : 'Save'}
-            </Button>
-          </>
-        )}
-                >
+  const amount = decimalUnits(form.quantity.trim(), 3), threshold = decimalUnits(form.reorderThreshold.trim(), 3);
+  const opening = form.openingQuantity.trim() ? decimalUnits(form.openingQuantity.trim(), 3) : 0n, price = form.price.trim() ? decimalUnits(form.price.trim(), 2) : 0n;
+  const catalogueMode = modalMode === 'create' || modalMode === 'edit';
+  const formValid = canManage && (catalogueMode
+    ? Boolean(fields.ready && fields.valid && !fields.error && form.name.trim() && unitsQuery.data?.some(u => u.code === form.unitCode) && threshold !== null && opening !== null && price !== null)
+    : modalMode === 'reverse'
+      ? Boolean(selectedMovement && selectedMovement.movementType !== 'reversal' && !selectedMovement.reversedByMovementId && !selectedMovement.purchaseReceiptLineId && form.reason.trim().length >= 3)
+      : Boolean(selectedItem?.status === 'active' && amount !== null && amount > 0n && (modalMode === 'receive' || form.reason.trim().length >= 3)));
+  const current = selectedItem ? decimalUnits(selectedItem.quantity, 3) : null;
+  const delta = modalMode === 'reverse' && selectedMovement
+    ? (selectedMovement.quantityDelta.startsWith('-') ? decimalUnits(selectedMovement.quantityDelta.slice(1), 3) : -(decimalUnits(selectedMovement.quantityDelta, 3) ?? 0n))
+    : amount === null ? null : modalMode === 'consume' || (modalMode === 'adjust' && form.direction === 'decrease') ? -amount : amount;
+  const itemActions = (item: InventoryItem) => <button className="quiet-button" onClick={() => showHistory(item)}>Details &amp; history</button>;
+  const columns: Column<InventoryItem>[] = [
+    { header: 'Item', accessor: 'name', cell: ({ row }) => <div><strong>{row.name}</strong><p className="muted">{row.sku ?? 'No SKU'} · {row.unit.label}</p></div> },
+    { header: 'Available', accessor: 'quantity', cell: ({ row }) => <strong>{row.quantity} {row.unit.label}</strong> },
+    { header: 'Stock state', accessor: 'isLowStock', cell: ({ row }) => <StatusBadge tone={row.isLowStock ? 'warning' : 'success'}>{row.isLowStock ? 'Low stock' : 'Above threshold'}</StatusBadge> },
+    { header: 'Status', accessor: 'status', cell: ({ row }) => <StatusBadge>{row.status === 'active' ? 'Active' : 'Inactive'}</StatusBadge> },
+    { header: 'Reference price', accessor: 'priceMinor', cell: ({ row }) => row.priceMinor !== null ? exactRupees(row.priceMinor) : '—' },
+    { header: 'Actions', accessor: 'actions', cell: ({ row }) => itemActions(row) },
+  ];
+  const purchasing = hasEntitlement(entitlements, 'purchasing') && user?.permissions?.includes('purchasing.read');
+  const closeHistory = () => { setHistoryItem(null); setLinkParams({}); };
+  return <AppPage className="operations-workspace">
+    <PageHeader title="Inventory" eyebrow="Daily operations · Stock control" description={branchName + ' · default stock location · exact permanent movement history'} actions={<>
+      {purchasing && <Link className="quiet-button" to="/purchasing">View Purchasing</Link>}
+      <button className="quiet-button" disabled={!items.length} onClick={() => exportToCSV(items.map(item => ({ name: item.name, sku: item.sku ?? '', barcode: item.barcode ?? '', unit: item.unit.label, quantity: item.quantity, reorderThreshold: item.reorderThreshold, price: item.price ?? '', currency: item.currency, status: item.status })), 'inventory_current_page_' + page)}>Export current page</button>
+      {canManage && <button className="action-link" onClick={() => openModal('create')}>Create item</button>}
+    </>} />
+    <div className="operations-summary"><section className="panel"><h2>{lowOnly ? 'Low-stock matches' : 'Filtered catalogue items'}</h2><p className="stat-value">{inventoryQuery.isError ? '—' : inventoryQuery.data?.total ?? '—'}</p><p className="muted">Selected branch · server-filtered total</p></section><section className="panel"><h2>Branch low stock</h2><p className="stat-value">{lowStockQuery.isError ? '—' : lowStockQuery.data?.total ?? '—'}</p><button className="quiet-button" aria-pressed={lowOnly} onClick={() => { setLowOnly(v => !v); setPage(1); }}>{lowOnly ? 'Show catalogue' : 'View low-stock items'}</button>{lowStockQuery.isError && <button className="quiet-button" onClick={() => void lowStockQuery.refetch()}>Retry low-stock count</button>}</section></div>
+    {context.isError && <ErrorState title="Branch time unavailable" message="Timestamps wait for the authorized branch timezone; no device-time fallback is used." retry={() => void context.refetch()} />}
+    {!canManage && <p className="muted">Read-only catalogue and history; stock commands require Inventory manage permission.</p>}
+    {!lowOnly && <><SearchField label="Search inventory" maxLength={200} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search names, SKU or barcode" /><FilterPanel label="Inventory filters" open={filtersOpen} onToggle={() => setFiltersOpen(v => !v)} count={status ? 1 : 0}><label className="field">Item status<select aria-label="Item status" value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label></FilterPanel>{(search || status) && <FilterChip label="Catalogue filters" onRemove={() => { setSearch(''); setStatus(''); setPage(1); }} />}</>}
+    {lowOnly && <p className="muted">Canonical branch low-stock list. Catalogue search/status filters do not apply.</p>}
+    <AdvancedTable mode="server" title={lowOnly ? 'Low-stock items' : 'Item catalogue'} description="Bounded server pages · quantities retain three decimal places · no page-local sorting" columns={columns} rowKey={i => i.id} data={items} loading={inventoryQuery.isPending} error={inventoryQuery.isError ? getErrorMessage(inventoryQuery.error, 'Catalogue unavailable') : null} onRetry={() => void inventoryQuery.refetch()} server={{ search: '', page, pageSize: pageLimit, total: inventoryQuery.data?.total ?? 0, totalPages: inventoryQuery.data?.totalPages ?? 1, onPage: setPage }} emptyState={<EmptyState title={lowOnly ? 'No low-stock items' : 'No matching items'} description={lowOnly ? 'No items meet the server low-stock condition.' : 'Change filters or create an item if authorized.'} />} mobileCard={item => <article className="panel mobile-record-card"><div className="operations-record-heading"><h2>{item.name}</h2><StatusBadge tone={item.isLowStock ? 'warning' : 'neutral'}>{item.isLowStock ? 'Low stock' : item.status}</StatusBadge></div><p className="stat-value">{item.quantity} <small>{item.unit.label}</small></p><p className="muted">{item.sku ?? 'No SKU'} · threshold {item.reorderThreshold}</p>{itemActions(item)}</article>} />
+    {linkedItem.isError && <ErrorState title="Item detail unavailable" message={getErrorMessage(linkedItem.error, 'Unavailable in this branch.')} retry={() => void linkedItem.refetch()} />}
+    <AdvancedModal isOpen={Boolean(historyItem) && !modalMode} title="Inventory item details" presentation="drawer" onClose={closeHistory} actions={historyItem && canManage && <div className="record-actions">{(['receive', 'consume', 'adjust', 'edit'] as const).map(mode => <button className={mode === 'receive' ? 'action-link' : 'quiet-button'} key={mode} disabled={mode !== 'edit' && historyItem.status !== 'active'} onClick={() => openModal(mode, historyItem)}>{mode === 'edit' ? 'Edit item' : mode === 'receive' ? 'Receive stock' : mode === 'consume' ? 'Consume stock' : 'Adjust stock'}</button>)}</div>}>
+      {historyItem && <div className="page-stack"><h2>{historyItem.name}</h2><StatusBadge tone={historyItem.isLowStock ? 'warning' : 'neutral'}>{historyItem.isLowStock ? 'Low stock' : historyItem.status}</StatusBadge><DetailSection title="Available stock"><p className="stat-value">{historyItem.quantity} {historyItem.unit.label}</p><p>{branchName} · {historyItem.locationName}</p><p>Threshold {historyItem.reorderThreshold} · Reference price {historyItem.priceMinor !== null ? exactRupees(historyItem.priceMinor) : 'Not set'}</p></DetailSection><DetailSection title="Catalogue"><p>SKU: {historyItem.sku ?? 'Not set'} · Barcode: {historyItem.barcode ?? 'Not set'}</p><EntityFields entity="inventory_item" id={historyItem.id} /></DetailSection>
+      <DetailSection title="Movement history"><p className="muted">Permanent branch facts. Reversal appends an exact inverse, never deletes.</p>{movementQuery.isPending ? <Skeleton label="Loading movement history" /> : movementQuery.isError ? <ErrorState title="History unavailable" message={getErrorMessage(movementQuery.error, 'Retry history')} retry={() => void movementQuery.refetch()} /> : movementQuery.data?.data.length === 0 ? <p>No movements yet.</p> : <div className="page-stack">{movementQuery.data?.data.map(m => <article className="panel" key={m.id}><div className="operations-record-heading"><h3>{movementLabels[m.movementType]}</h3><StatusBadge tone={m.quantityDelta.startsWith('-') ? 'warning' : 'success'}>{m.quantityDelta.startsWith('-') ? '' : '+'}{m.quantityDelta} {m.unit.label}</StatusBadge></div><p className="muted">{branchTime(m.occurredAt, context.timezone, true)} · {m.actorName ?? (m.actorMembershipId ? 'Actor name unavailable' : 'Migration import')}</p><p>{m.reason ?? 'No reason'}{m.reference ? ' · Ref: ' + m.reference : ''}</p>{m.reversedByMovementId && <StatusBadge>Reversed</StatusBadge>}{m.reversesMovementId && <p>Inverse of a retained movement.</p>}{m.purchaseReceiptLineId ? <p>Purchasing receipt — independent reversal blocked; returns/corrections deferred. {purchasing && <Link to="/purchasing">View Purchasing</Link>}</p> : canManage && m.movementType !== 'reversal' && !m.reversedByMovementId && <button className="quiet-button" onClick={() => openModal('reverse', historyItem, m)}>Reverse movement</button>}</article>)}</div>}<Pagination page={historyPage} totalPages={movementQuery.data?.totalPages ?? 1} total={movementQuery.data?.total ?? 0} pageSize={20} onPage={setHistoryPage} busy={movementQuery.isFetching} /></DetailSection></div>}
+    </AdvancedModal>
+    <OperationForm open={modalMode !== null} title={modalTitle} valid={formValid} busy={isMutating} dirty={JSON.stringify(form) !== JSON.stringify(emptyForm()) || Object.keys(fields.patch).length > 0} error={commandError} retryAdvice={modalMode === 'edit' ? 'Reviewed catalogue values are retained. Refresh authoritative records if the result is uncertain.' : undefined} confirmLabel={modalMode === 'reverse' ? 'Record reversal' : 'Save'} onClose={closeModal} onConfirm={() => void submit()} review={<DetailSection title={catalogueMode ? form.name : selectedItem?.name ?? 'Stock movement'}><p>{branchName} · {modalTitle}</p>{catalogueMode ? <><p>{form.unitCode} · SKU {form.sku || 'Not set'} · Barcode {form.barcode || 'Not set'}</p><p>Reference price {price !== null && form.price ? exactRupees(price.toString()) : 'Not set'} · threshold {form.reorderThreshold} · status {modalMode === 'create' ? 'Active' : form.status}</p>{modalMode === 'create' && <p>Opening quantity {form.openingQuantity || '0.000'}; creates an immutable movement.</p>}{fields.schema && <DynamicForm schema={fields.schema} values={fields.values} readOnly />}</> : <><p>Stock change {delta !== null ? quantityText(delta) : '—'} {selectedItem?.unit.label}</p><p>Available at review {selectedItem?.quantity}. Projected quantity {current !== null && delta !== null ? quantityText(current + delta) : '—'}. Preview only; revalidated transactionally.</p><p>{form.reason || 'No reason'} · {form.reference || 'No reference'}</p><p>Appends a permanent fact; original history remains visible.</p></>}</DetailSection>}>
         {(modalMode === 'create' || modalMode === 'edit') && (
           <div className="space-y-4">
+            {unitsQuery.isError && <ErrorState title="Units unavailable" message="Reload canonical units before saving." retry={() => void unitsQuery.refetch()} />}
             {fields.error&&<p role="alert">Form configuration unavailable. <button onClick={fields.retry}>Retry fields</button></p>}
             {fields.schema&&<DynamicForm schema={fields.schema} values={fields.values} onChange={fields.change} builtins={{
               name:<Input label="Item name" required value={form.name} onChange={e=>setField('name',e.target.value)}/>,
-              unitCode:<label className="field">Unit<select value={form.unitCode} onChange={e=>setField('unitCode',e.target.value as InventoryUnit['code'])} className={selectClass}>{(unitsQuery.data??[]).map(u=><option key={u.code} value={u.code}>{u.label}</option>)}</select></label>,
+              unitCode:<label className="field">Unit<select aria-label="Unit" value={form.unitCode} onChange={e=>setField('unitCode',e.target.value as InventoryUnit['code'])} className={selectClass}>{(unitsQuery.data??[]).map(u=><option key={u.code} value={u.code}>{u.label}</option>)}</select></label>,
               sku:<Input label="SKU (optional)" value={form.sku} onChange={e=>setField('sku',e.target.value)}/>,
               barcode:<Input label="Barcode (optional)" value={form.barcode} onChange={e=>setField('barcode',e.target.value)}/>,
               price:<Input label="Reference price (INR)" inputMode="decimal" value={form.price} onChange={e=>setField('price',e.target.value)}/>
             }}/>}
-            {modalMode==='edit'&&<label className="field">Status<select value={form.status} onChange={e=>setField('status',e.target.value as 'active'|'inactive')}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>}
+            {modalMode==='edit'&&<label className="field">Status<select aria-label="Status" value={form.status} onChange={e=>setField('status',e.target.value as 'active'|'inactive')}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>}
             <Input
                 label="Low-stock threshold"
                 inputMode="decimal"
@@ -608,7 +336,7 @@ export const InventoryPage: React.FC = () => {
                 onChange={(event) => setField('openingQuantity', event.target.value)}
               />
             )}
-            <p className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
+            <p className="panel">
               Quantity is never edited directly. An opening quantity creates an immutable opening movement in the same transaction.
             </p>
           </div>
@@ -616,9 +344,9 @@ export const InventoryPage: React.FC = () => {
 
         {(modalMode === 'receive' || modalMode === 'consume' || modalMode === 'adjust') && selectedItem && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <p className="font-semibold text-white">{selectedItem.name}</p>
-              <p className="mt-1 text-sm text-slate-400">
+            <div className="panel">
+              <p className="form-label">{selectedItem.name}</p>
+              <p className="muted">
                 Available: {selectedItem.quantity} {selectedItem.unit.label} · {branchName}
               </p>
             </div>
@@ -638,6 +366,8 @@ export const InventoryPage: React.FC = () => {
             )}
             <Input
               label={`Quantity (${selectedItem.unit.label})`}
+              required maxLength={32} helper="Positive quantity, up to three decimal places. The server prevents negative stock."
+              error={form.quantity && (amount === null || amount <= 0n) ? "Enter a positive exact quantity." : undefined}
               inputMode="decimal"
               placeholder="0.000"
               value={form.quantity}
@@ -649,18 +379,19 @@ export const InventoryPage: React.FC = () => {
               </label>
               <textarea
                 id="stock-reason"
+                maxLength={1000} minLength={modalMode === 'receive' ? undefined : 3} required={modalMode !== 'receive'}
                 value={form.reason}
                 onChange={(event) => setField('reason', event.target.value)}
                 className={`${selectClass} min-h-24`}
               />
             </div>
             <Input
-              label="Reference (optional)"
+              label="Reference (optional)" maxLength={128}
               value={form.reference}
               onChange={(event) => setField('reference', event.target.value)}
             />
             {modalMode === 'adjust' && (
-              <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <p className="panel">
                 This adjustment becomes a permanent inventory fact. Correct a mistake with a reversal.
               </p>
             )}
@@ -669,7 +400,7 @@ export const InventoryPage: React.FC = () => {
 
         {modalMode === 'reverse' && selectedMovement && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">
+            <div className="panel">
               Reversing {movementLabels[selectedMovement.movementType]} records an exact inverse movement of{' '}
               {selectedMovement.quantity} {selectedMovement.unit.label}. The original fact remains visible.
             </div>
@@ -677,6 +408,7 @@ export const InventoryPage: React.FC = () => {
               <label className={labelClass} htmlFor="reversal-reason">Reversal reason</label>
               <textarea
                 id="reversal-reason"
+                required minLength={3} maxLength={1000}
                 value={form.reason}
                 onChange={(event) => setField('reason', event.target.value)}
                 className={`${selectClass} min-h-24`}
@@ -684,9 +416,8 @@ export const InventoryPage: React.FC = () => {
             </div>
           </div>
         )}
-      </AdvancedModal>
-    </>
-  );
-};
 
+    </OperationForm>
+  </AppPage>;
+};
 export default InventoryPage;

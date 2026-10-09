@@ -1,6 +1,42 @@
 # EkaVio Project Context
 
-## Current experience work: V2-11A (2026-10-09)
+## Current experience work: V2-11B (2026-10-09)
+
+Continued preserved work on main from accepted V2-11A
+`bdefe1aba0648cf3d40221c185cae05635b6789e`. The existing annotated
+`pre-v2-11b-daily-operations` checkpoint is published and its remote peeled
+target verified. Git connectivity recovered using command-local Schannel/HTTP1.1
+with TLS verification intact; no remote URL, credentials or global Git policy changed.
+Intentional `reference/` protection remains; source trees stay read-only/out of Git.
+
+Queue, Appointments, Attendance, Customer Dues and Inventory now reuse the
+semantic responsive shell and explicit server tables/mobile records. Single-dialog
+edit/review/discard forms retain failed command values and applicable keys/versions,
+and prevent double saves. Uncertain non-idempotent Customer creation disables
+resubmission and requires checking the authoritative Customer directory.
+Reception shares the canonical Customer form/save path including dynamic fields.
+Authorized branch timezone/business date comes from existing CORE projections,
+not the device clock. Attendance preserves Unmarked versus Absent and reasoned
+versioned correction history. Dues separates organization and branch balances;
+BigInt display/previews never replace server paise authority. Inventory preserves
+three-decimal facts, immutable movement history and protected Purchasing receipts.
+CSV is explicitly current-page and formula-safe. No new endpoint, migration,
+runtime backend behavior, theme store or business module is introduced.
+
+See [source-backed audit](docs/reviews/V2-11B_OPERATIONS_UX_AUDIT.md),
+[daily operations evidence](docs/reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md)
+and [remaining C/D/E roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+Evidence separates real disposable PostgreSQL workflows/negative authority from
+sanitized presentation screenshots. CI now includes both operations suites;
+authenticated private fixture artifacts remain excluded from upload and Git.
+
+**NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging
+only. Local engineering acceptance cannot close V2-10 hosted authentication,
+provider, extended genuine recovery, ownership/monitoring or always-on requirements.
+Release requires exact-final-commit CI, then annotated
+`v2-11b-daily-operations-experience`; V2-11C does not start implicitly.
+
+## Prior experience foundation: V2-11A (2026-10-09)
 
 Resumed the preserved in-progress UI changes on main, starting from accepted
 `5c254a14af6e083959e2b936dde826cbf82e6a4c`. The existing annotated

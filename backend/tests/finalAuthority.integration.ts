@@ -17,7 +17,8 @@ import { createApp } from '../src/app.js';
 import { permissionsForRole } from '../src/services/authorizationPolicy.js';
 
 const modules = [
-  ['queue', '/queue', 'queue.read'], ['attendance', '/attendance?date=2026-10-08', 'attendance.read'],
+  ['queue', '/queue', 'queue.read'], ['queue', '/appointments?date=2026-10-12', 'queue.read'],
+  ['attendance', '/attendance?date=2026-10-08', 'attendance.read'],
   ['ledger', '/customer-dues/entries', 'ledger.read'], ['inventory', '/inventory', 'inventory.read'],
   ['crm', '/crm/leads', 'crm.read'], ['purchasing', '/purchasing/orders', 'purchasing.read'],
   ['hr_plus', '/hr/leave?from=2026-10-08&to=2026-10-08', 'hr_plus.read'],
@@ -61,6 +62,7 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
       { effect, status:'active', source:'pilot', reason:'STAGING V210 disposable acceptance' });
     for (const [key,path,permission] of modules) {
       await t.test(`${key}: missing grant, missing permission, allowed, revoked, archived role`, async () => {
+        await db.query('DELETE FROM entitlement_overrides WHERE organization_id=$1 AND module_definition_id=(SELECT id FROM module_definitions WHERE key=$2)', [org,key]);
         assert.equal((await request(path)).status,403);
         await grant(key,'grant');
         await db.query("UPDATE memberships SET role='staff',custom_role_id=$1 WHERE id=$2",[role,membership]);
@@ -122,6 +124,36 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
         assert.equal(event.details.queueRecordId, event.action === 'appointment.checked_in' ? checkedIn.tokenId : queue.id);
         assert.equal(event.details.tokenId, undefined, 'record metadata must not collide with credential-redaction keys');
       }
+    });
+    await t.test('five daily-operation writes enforce custom-role read/manage, entitlement, live membership, tenant/branch and suspension', async () => {
+      const write = (path:string,body:object,extra:Record<string,string>={}) => fetch(origin+path,{method:'POST',headers:{authorization:'Bearer '+token,'x-tenant-id':org,'x-branch-id':branch,'Content-Type':'application/json',...extra},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
+      const customerResponse = await write('/customers',{name:'Synthetic V211B authority customer'}); assert.equal(customerResponse.status,201); const customer=(await customerResponse.json()).data;
+      const serviceResponse = await write('/services',{name:'Synthetic V211B authority service',durationMinutes:30}); assert.equal(serviceResponse.status,201); const service=(await serviceResponse.json()).data;
+      const commands = [
+        {key:'queue',path:'/queue',read:'queue.read',manage:'queue.manage',status:201,body:{customerId:customer.id,serviceId:service.id,idempotencyKey:randomUUID()}},
+        {key:'queue',path:'/appointments',read:'queue.read',manage:'queue.manage',status:201,body:{customerId:customer.id,serviceId:service.id,localStart:'2026-10-17T10:30',idempotencyKey:randomUUID()}},
+        {key:'attendance',path:'/attendance',read:'attendance.read',manage:'attendance.manage',status:200,body:{membershipId:membership,attendanceDate:'2026-10-17',status:'present',idempotencyKey:randomUUID()}},
+        {key:'ledger',path:'/customer-dues/entries',read:'ledger.read',manage:'ledger.manage',status:201,body:{customerId:customer.id,entryType:'charge',amount:'1.01',idempotencyKey:randomUUID()}},
+        {key:'inventory',path:'/inventory',read:'inventory.read',manage:'inventory.manage',status:201,body:{name:'Synthetic V211B authority item',unitCode:'piece',openingQuantity:'1.125',reorderThreshold:'0',idempotencyKey:randomUUID()}},
+      ];
+      for(const command of commands) {
+        app=createApp({config});
+        await db.query('DELETE FROM organization_role_permissions WHERE role_id=$1',[role]);
+        await db.query('INSERT INTO organization_role_permissions(role_id,permission) VALUES($1,$2)',[role,command.read]);
+        await db.query("UPDATE memberships SET role='staff',custom_role_id=$1 WHERE id=$2",[role,membership]);
+        assert.equal((await write(command.path,command.body)).status,403,command.path+' read-only write rejected');
+        await db.query('INSERT INTO organization_role_permissions(role_id,permission) VALUES($1,$2)',[role,command.manage]);
+        assert.equal((await write(command.path,command.body)).status,command.status,command.path+' custom manager persisted');
+        await grant(command.key,'revoke'); assert.equal((await write(command.path,command.body)).status,403); await grant(command.key,'grant');
+        assert.equal((await write(command.path,command.body,{'x-tenant-id':String(b.user.tenantId)})).status,403);
+        assert.equal((await write(command.path,command.body,{'x-branch-id':String((b.branch as {id:string}).id)})).status,403);
+        await db.query("UPDATE memberships SET status='revoked' WHERE id=$1",[membership]); assert.equal((await write(command.path,command.body)).status,403); await db.query("UPDATE memberships SET status='active' WHERE id=$1",[membership]);
+        await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'suspended',source:'manual',startsAt:new Date(Date.now()-60000).toISOString(),billingCycle:'monthly'});
+        assert.equal((await write(command.path,command.body)).status,403);
+        await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'active',source:'manual',startsAt:new Date(Date.now()-60000).toISOString(),billingCycle:'monthly'});
+      }
+      await db.query("UPDATE memberships SET role='admin',custom_role_id=NULL WHERE id=$1",[membership]);
+      await db.query('DELETE FROM organization_role_permissions WHERE role_id=$1',[role]); app=createApp({config});
     });
     await t.test('valid positive reads reject foreign organization and branch context for every module', async () => {
       for (const [,path] of modules) {

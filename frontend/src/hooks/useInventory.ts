@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
+import { useOperationalScope } from './useOperationalContext';
 
 export interface InventoryUnit {
   code: 'unit' | 'piece' | 'pack' | 'box' | 'kg' | 'g' | 'litre' | 'ml';
@@ -124,30 +125,30 @@ export const useInventory = (
   search = '',
   status = '',
 ) => useQuery({
-  queryKey: inventoryKeys.list(page, limit, search, status),
-  queryFn: async () => {
+  queryKey: [...inventoryKeys.list(page, limit, search, status), ...useOperationalScope()],
+  queryFn: async ({ signal }) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (search) params.set('search', search);
     if (status) params.set('status', status);
-    const response = await client.get<Paginated<InventoryItem>>(`/inventory?${params}`);
+    const response = await client.get<Paginated<InventoryItem>>(`/inventory?${params}`, { signal });
     return response.data;
   },
 });
 
 export const useLowStockAlerts = (page = 1, limit = 20) => useQuery({
-  queryKey: inventoryKeys.lowStock(page, limit),
-  queryFn: async () => {
+  queryKey: [...inventoryKeys.lowStock(page, limit), ...useOperationalScope()],
+  queryFn: async ({ signal }) => {
     const response = await client.get<Paginated<InventoryItem>>(
-      `/inventory/low-stock?page=${page}&limit=${limit}`,
+      `/inventory/low-stock?page=${page}&limit=${limit}`, { signal },
     );
     return response.data;
   },
 });
 
 export const useInventoryUnits = () => useQuery({
-  queryKey: inventoryKeys.units(),
-  queryFn: async () => {
-    const response = await client.get<{ data: InventoryUnit[] }>('/inventory/units');
+  queryKey: [...inventoryKeys.units(), ...useOperationalScope()],
+  queryFn: async ({ signal }) => {
+    const response = await client.get<{ data: InventoryUnit[] }>('/inventory/units', { signal });
     return response.data.data;
   },
   staleTime: Number.POSITIVE_INFINITY,
@@ -158,10 +159,10 @@ export const useInventoryMovements = (
   page = 1,
   limit = 20,
 ) => useQuery({
-  queryKey: inventoryKeys.movements(itemId ?? 'none', page, limit),
-  queryFn: async () => {
+  queryKey: [...inventoryKeys.movements(itemId ?? 'none', page, limit), ...useOperationalScope()],
+  queryFn: async ({ signal }) => {
     const response = await client.get<Paginated<StockMovement>>(
-      `/inventory/${itemId}/movements?page=${page}&limit=${limit}`,
+      `/inventory/${itemId}/movements?page=${page}&limit=${limit}`, { signal },
     );
     return response.data;
   },

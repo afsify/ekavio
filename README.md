@@ -33,6 +33,15 @@ business capabilities, and maintainable backend architecture.
 
 ## Project Status
 
+V2-11B transforms the existing Queue, Appointments, Attendance, Customer Dues
+and Inventory workflows using the V2-11A foundation. Desktop server tables,
+mobile records, contextual details, reviewed commands and guarded forms preserve
+canonical PostgreSQL authority, branch time, exact money/stock and idempotency.
+See [daily operations acceptance](docs/reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md)
+and [source audit](docs/reviews/V2-11B_OPERATIONS_UX_AUDIT.md).
+No backend feature, migration or second component framework is introduced.
+V2-11C/D/E remain deferred; V2-11C does not start automatically.
+
 V2-11A adds an original semantic design system, grouped responsive application
 shell, authoritative context switching, factual Dashboard and Customers exemplar.
 References remain read-only under ignored `reference/`; no reference code or
@@ -42,7 +51,7 @@ integration is imported. See [experience acceptance](docs/reviews/V2-11A_EXPERIE
 [remaining V2-11 phases](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
 **NO-GO FOR REAL CUSTOMER DATA is unchanged.** Render Free is staging only;
 V2-10 hosted/recovery/provider/operations requirements remain independent.
-V2-11B does not start automatically.
+These UX milestones do not approve real customer data or hosted production.
 
 🚧 Active development
 

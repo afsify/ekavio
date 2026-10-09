@@ -5,7 +5,7 @@
 | Phase | Scope | Preserve / acceptance boundary |
 | --- | --- | --- |
 | V2-11A | Source-backed reference review, semantic shared UI, desktop/tablet/mobile shell, context/profile/navigation, factual Dashboard and Customers exemplar | Automated local workflow/visual/all-module smoke, exact-commit CI and annotated completion tag; no pilot GO |
-| V2-11B | Daily operations: Queue, Appointments, Attendance, Customer Dues and Inventory work layouts | Canonical IDs, branch-time conversion, status transitions, exact journal/stock arithmetic, authorization and idempotency |
+| V2-11B | Implemented daily operations: Queue, Appointments, Attendance, Customer Dues and Inventory work layouts | Reviewed actions, bounded server pages/mobile cards, branch-time conversion, canonical status/history, exact journal/stock arithmetic, authority and idempotency; local acceptance and exact-commit CI/tag release gate, no pilot GO |
 | V2-11C | CRM/follow-up relationship work and Supplier/Purchasing documents/receiving | Existing stages/conversion, exact frozen lines, partial/full receipt, independent module dependencies |
 | V2-11D | Organization/branch/role/staff/HR administration, reports/notifications and billing experience | Membership/operator separation, self/broad HR privacy, existing report/export scopes, exact settlement and lifecycle |
 | V2-11E | Final cross-domain polish, accessibility/performance/responsive acceptance and public/account cohesion | Broad automatic regressions and loaded visual QA; hosted/recovery/operations GO gates stay independent |
@@ -20,3 +20,6 @@ OAuth, Mongo authority, messaging stack or paid infrastructure is adopted.
 See [reference mapping](../reviews/V2-11A_REFERENCE_UX_ANALYSIS.md),
 [ADR 0029](../adr/0029-ekavio-design-system.md) and
 [A acceptance](../reviews/V2-11A_EXPERIENCE_FOUNDATION.md).
+See [B source audit](../reviews/V2-11B_OPERATIONS_UX_AUDIT.md) and
+[B acceptance](../reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md).
+V2-11C/D/E remain deferred, not implemented by B. No phase starts automatically.

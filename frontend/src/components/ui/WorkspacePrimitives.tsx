@@ -26,8 +26,8 @@ export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNod
 export function SearchField(props: InputProps) {
   return <Input {...props} type="search" icon={<Search size={18} aria-hidden="true" />} />;
 }
-export function FilterPanel({ children, open, onToggle, count = 0 }: { children: ReactNode; open: boolean; onToggle: () => void; count?: number }) {
-  return <div className="filter-panel"><button className="quiet-button" aria-expanded={open} onClick={onToggle}>Filters{count ? ` (${count})` : ''}</button>{open && <section className="panel filter-controls" aria-label="Customer filters">{children}</section>}</div>;
+export function FilterPanel({ children, open, onToggle, count = 0, label = 'Customer filters' }: { children: ReactNode; open: boolean; onToggle: () => void; count?: number; label?: string }) {
+  return <div className="filter-panel"><button className="quiet-button" aria-expanded={open} onClick={onToggle}>Filters{count ? ` (${count})` : ''}</button>{open && <section className="panel filter-controls" aria-label={label}>{children}</section>}</div>;
 }
 export function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return <button className="filter-chip" onClick={onRemove} aria-label={`Remove ${label} filter`}>{label} <span aria-hidden="true">×</span></button>;

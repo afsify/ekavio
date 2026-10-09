@@ -20,8 +20,9 @@ export const exportToCSV = <T extends object>(data: T[], filename: string) => {
       }
 
       if (typeof value === 'string') {
-        const escaped = value.replace(/"/g, '""');
-        return escaped.search(/("|,|\n)/g) >= 0 ? `"${escaped}"` : escaped;
+        const safe = /^[\s]*[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+        const escaped = safe.replace(/"/g, '""');
+        return escaped.search(/("|,|\r|\n)/g) >= 0 ? `"${escaped}"` : escaped;
       }
 
       if (typeof value === 'object') {
@@ -46,5 +47,6 @@ export const exportToCSV = <T extends object>(data: T[], filename: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 };

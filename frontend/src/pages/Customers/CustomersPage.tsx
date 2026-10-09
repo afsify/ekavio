@@ -10,13 +10,12 @@ import { type Paginated } from '../../hooks/useQueue';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { AdvancedTable, type Column } from '../../components/ui/AdvancedTable';
 import { Input } from '../../components/ui/Input';
-import { PhoneInput } from '../../components/ui/PhoneInput';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 import { AppPage, PageHeader, SearchField, FilterPanel, FilterChip, StatusBadge, DetailSection, Skeleton, ErrorState } from '../../components/ui/WorkspacePrimitives';
-import { normalizePhone } from '../../utils/phone';
 import { useDynamicForm } from '../../hooks/useDynamicForm';
-import { DynamicForm } from '../../components/forms/DynamicForm';
+import { CustomerFormFields } from '../../components/forms/CustomerFormFields';
+import { customerPhoneError, saveCustomer } from '../../utils/customerDraft';
 import { CustomerCrmContext } from '../../components/crm/CustomerCrmContext';
 import { EntityFields } from '../../components/forms/EntityFields';
 
@@ -58,8 +57,7 @@ export default function CustomersPage() {
   const selected = useQuery({ queryKey: ['customer-detail', ...accessScope, detail], enabled: Boolean(detail && activeTenantId), queryFn: async ({ signal }) => (await client.get<{ data: Customer }>(`/customers/${detail}`, { signal })).data.data });
   const save = useMutation({
     mutationFn: async () => {
-      const body = { customFields: fields.patch, name: form.name.trim(), phone: form.phone.trim() || null, notes: form.notes.trim() || null, ...(editing ? { status: form.status } : {}) };
-      return editing ? client.patch(`/customers/${editing.id}`, body) : client.post('/customers', body);
+      return saveCustomer(form, fields.patch, editing?.id, editing?.phone);
     },
     onSuccess: async () => {
       await Promise.all(['form-values', 'operational-customers', 'customer-detail', 'customer-dues-customers', 'dashboardStats'].map(key => cache.invalidateQueries({ queryKey: [key] })));
@@ -67,7 +65,7 @@ export default function CustomersPage() {
     },
   });
   const open = (customer: Customer | null) => { fields.reset(); save.reset(); setDiscard(false); setEditing(customer); setForm(canonicalForm(customer)); };
-  const phoneError = form.phone && form.phone !== editing?.phone && !normalizePhone(form.phone) ? 'Enter a valid phone number or leave it blank.' : undefined;
+  const phoneError = customerPhoneError(form.phone, editing?.phone);
   const dirty = JSON.stringify(form) !== JSON.stringify(canonicalForm(editing ?? null)) || Object.keys(fields.patch).length > 0;
   const closeForm = () => { if (save.isPending) return; if (dirty) setDiscard(true); else setEditing(undefined); };
   useEffect(() => {
@@ -97,12 +95,7 @@ export default function CustomersPage() {
         <p className="muted">{editing ? 'Update this customer without changing their identity.' : 'Add the essentials now. You can add more information later.'}</p>
         {fields.error && <ErrorState title="Form configuration unavailable" message="Reload the authorized fields before saving." retry={fields.retry} retryLabel="Retry fields" />}
         {!fields.schema && !fields.error && <Skeleton label="Loading customer form…" />}
-        {fields.schema && <DynamicForm schema={fields.schema} values={fields.values} onChange={fields.change} builtins={{
-          name: <Input label="Customer name" value={form.name} maxLength={200} required onChange={e => setForm({ ...form, name: e.target.value })} />,
-          phone: <PhoneInput label="Customer phone (optional)" value={form.phone} error={phoneError} onChange={phone => setForm({ ...form, phone })} />,
-          notes: <div className="field"><label htmlFor="customer-notes">Notes (optional)</label><textarea id="customer-notes" maxLength={2000} rows={4} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>,
-          status: editing && <label className="field">Status<select value={form.status} onChange={e => setForm({ ...form, status: e.target.value as Customer['status'] })}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>,
-        }} />}
+        <CustomerFormFields form={form} setForm={setForm} fields={fields} editing={Boolean(editing)} originalPhone={editing?.phone} />
         {save.isError && <p role="alert" className="error-text">{getErrorMessage(save.error, 'Customer could not be saved.')}</p>}
       </form>}
     </AdvancedModal>

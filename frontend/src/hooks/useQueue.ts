@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
+import { useOperationalScope } from './useOperationalContext';
+import { saveCustomer, blankCustomer } from '../utils/customerDraft';
 
 export interface CustomerSummary { id: string; name: string; phone: string | null }
 export interface ServiceSummary { id: string; name: string; durationMinutes?: number }
@@ -27,7 +29,9 @@ export interface QueueResponse extends Paginated<QueueToken> {
 const useContextKey = () => {
   const organizationId = useAppStore((state) => state.activeTenantId);
   const branchId = useAppStore((state) => state.activeBranchId);
-  return { organizationId, branchId };
+  const scope = useOperationalScope();
+  const permissions = useAppStore(s => s.user?.permissions ?? []);
+  return { organizationId, branchId, scope, permissions };
 };
 
 export const queueKeys = {
@@ -39,8 +43,8 @@ export const queueKeys = {
 export const useQueue = (page = 1) => {
   const context = useContextKey();
   return useQuery({
-    queryKey: queueKeys.list(context.organizationId, context.branchId, page),
-    queryFn: async () => (await client.get<QueueResponse>(`/queue?page=${page}&limit=20`)).data,
+    queryKey: [...queueKeys.list(context.organizationId, context.branchId, page), ...context.scope],
+    queryFn: async ({ signal }) => (await client.get<QueueResponse>(`/queue?page=${page}&limit=20`, { signal })).data,
     enabled: Boolean(context.organizationId && context.branchId),
   });
 };
@@ -48,10 +52,9 @@ export const useQueue = (page = 1) => {
 export const useCreateToken = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { customerId: string; serviceId: string; providerMembershipId?: string }) =>
+    mutationFn: async (input: { customerId: string; serviceId: string; providerMembershipId?: string; idempotencyKey: string }) =>
       (await client.post<{ data: QueueToken }>('/queue', {
         ...input,
-        idempotencyKey: crypto.randomUUID(),
       })).data.data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queueKeys.root }),
   });
@@ -72,11 +75,12 @@ export const useUpdateTokenStatus = () => {
 export const useCustomers = (search = '') => {
   const context = useContextKey();
   return useQuery({
-    queryKey: ['operational-customers', context.organizationId, search],
-    queryFn: async () => (await client.get<Paginated<CustomerSummary>>('/customers', {
+    queryKey: ['operational-customers', ...context.scope, search],
+    queryFn: async ({ signal }) => (await client.get<Paginated<CustomerSummary>>('/customers', {
+      signal,
       params: { search: search || undefined, limit: 100 },
     })).data,
-    enabled: Boolean(context.organizationId),
+    enabled: Boolean(context.organizationId && context.permissions.includes('customers.read')),
   });
 };
 
@@ -84,18 +88,18 @@ export const useCreateCustomer = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: { name: string; phone?: string }) =>
-      (await client.post<{ data: CustomerSummary }>('/customers', input)).data.data,
+      (await saveCustomer({ ...blankCustomer, ...input }, {})).data as CustomerSummary,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['operational-customers'] }),
   });
 };
 
-export const useBranchServices = () => {
+export const useBranchServices = (search = '') => {
   const context = useContextKey();
   return useQuery({
-    queryKey: ['operational-services', context.organizationId, context.branchId],
-    queryFn: async () => (await client.get<Paginated<ServiceSummary>>('/services', {
-      params: { scope: 'branch', limit: 100 },
+    queryKey: ['operational-services', ...context.scope, search],
+    queryFn: async ({ signal }) => (await client.get<Paginated<ServiceSummary>>('/services', {
+      signal, params: { scope: 'branch', limit: 100, search: search || undefined },
     })).data,
-    enabled: Boolean(context.organizationId && context.branchId),
+    enabled: Boolean(context.organizationId && context.branchId && context.permissions.includes('services.read')),
   });
 };

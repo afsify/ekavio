@@ -52,9 +52,9 @@ test('Services empty, create/edit, Queue and Appointment consume same catalogue'
   const state = await workspace(page); await page.goto('/services'); await expect(page.getByRole('heading', { name: 'No services yet' })).toBeVisible();
   await page.getByRole('button', { name: 'Create your first service' }).click(); await page.getByLabel('Service name', { exact: true }).fill('STAGING V208A Service'); await page.getByLabel('Duration (minutes)').fill('45'); await page.getByRole('button', { name: 'Save service' }).click();
   await page.getByRole('button', { name: 'Edit STAGING V208A Service' }).click(); await page.getByLabel('Service name', { exact: true }).fill('STAGING V208A Updated Service'); await page.getByRole('button', { name: 'Save service' }).click();
-  await expect(page.getByRole('heading', { name: 'STAGING V208A Updated Service', exact: true })).toBeVisible();
-  await page.goto('/queue'); await page.getByRole('button', { name: 'Add New' }).click(); await expect(page.getByLabel('Branch-available service').getByRole('option', { name: 'STAGING V208A Updated Service' })).toHaveCount(1); await page.getByRole('button', { name: 'Close modal' }).click();
-  await page.goto('/appointments'); await page.getByRole('button', { name: 'Add New' }).click(); await expect(page.getByLabel('Branch-available service').getByRole('option', { name: 'STAGING V208A Updated Service' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'STAGING V208A Updated Service', exact: true })).toBeVisible();
+  await page.goto('/queue'); await page.getByRole('button', { name: 'New token', exact: true }).click(); await expect(page.getByLabel('Branch-available service').getByRole('option', { name: 'STAGING V208A Updated Service · 45 min', exact: true })).toHaveCount(1); await page.getByRole('button', { name: 'Close modal' }).click();
+  await page.goto('/appointments'); await page.getByRole('button', { name: 'New appointment', exact: true }).click(); await expect(page.getByLabel('Branch-available service').getByRole('option', { name: 'STAGING V208A Updated Service · 45 min', exact: true })).toHaveCount(1);
   expect(state.services).toHaveLength(1); expect(state.services[0].durationMinutes).toBe(45);
 });
 test('read-only membership has no customer/service mutations', async ({ page }) => {
