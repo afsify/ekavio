@@ -33,6 +33,15 @@ business capabilities, and maintainable backend architecture.
 
 ## Project Status
 
+V2-11C transforms CRM, manual Follow-ups, Suppliers and Purchasing using the
+same semantic shell, controlled server tables/mobile records and reviewed forms.
+Lead conversion remains explicit and atomic; PO previews retain exact BigInt
+quantities/INR, and receiving retains blank actual quantities, the confirmed
+payload/key and canonical Inventory history. No new domain, endpoint, dependency
+or migration is introduced. See [relationship acceptance](docs/reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md)
+and [source audit](docs/reviews/V2-11C_CRM_PURCHASING_UX_AUDIT.md).
+V2-11D/E remain deferred and do not start automatically. **NO-GO FOR REAL CUSTOMER DATA remains unchanged.**
+
 V2-11B transforms the existing Queue, Appointments, Attendance, Customer Dues
 and Inventory workflows using the V2-11A foundation. Desktop server tables,
 mobile records, contextual details, reviewed commands and guarded forms preserve
@@ -40,7 +49,7 @@ canonical PostgreSQL authority, branch time, exact money/stock and idempotency.
 See [daily operations acceptance](docs/reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md)
 and [source audit](docs/reviews/V2-11B_OPERATIONS_UX_AUDIT.md).
 No backend feature, migration or second component framework is introduced.
-V2-11C/D/E remain deferred; V2-11C does not start automatically.
+V2-11C is separately implemented above; V2-11D/E remain deferred.
 
 V2-11A adds an original semantic design system, grouped responsive application
 shell, authoritative context switching, factual Dashboard and Customers exemplar.

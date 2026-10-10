@@ -16,6 +16,7 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-10 | Engineering acceptance candidate implemented: 325 database/159 local browser tests, versioned recovery coverage through 020, actual encrypted archive restore only through 019, hosted public/security checks and 45-gate evidence register; strict NO-GO, hosted authenticated/provider/operations gates open; exact final CI remains a post-commit gate |
 | V2-11A | Implemented semantic theme/components, responsive shared shell, factual Dashboard and Customers exemplar; accepted exact-commit CI and tagged baseline, no pilot GO |
 | V2-11B | Implemented daily operations UX for Queue, Appointments, Attendance, Customer Dues and Inventory; canonical APIs/time/money/stock/authority remain unchanged; automatic local acceptance and exact-commit CI/tag release gate, no pilot GO |
+| V2-11C | Implemented CRM/Follow-ups, Suppliers and Purchasing UX; bounded server tables/mobile records, reviewed canonical conversion/drafts, exact receiving/idempotency/context safeguards; automatic local acceptance and exact-commit CI/tag release gate, no pilot GO |
 
 ## Core foundation versus commercial modules
 
@@ -30,8 +31,10 @@ exemplar, not new business domains or pilot approval. Reference sources remain
 read-only and ignored. See [experience evidence](../reviews/V2-11A_EXPERIENCE_FOUNDATION.md).
 V2-11B implements the five daily-operation workspaces; see
 [B acceptance](../reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md).
-[V2-11 phases C/D/E](V2_11_EXPERIENCE_ROADMAP.md) retain the explicitly deferred
-relationship, administration and final-polish work. NO-GO remains unchanged;
+V2-11C implements relationship and purchasing work; see
+[C acceptance](../reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md).
+[V2-11 phases D/E](V2_11_EXPERIENCE_ROADMAP.md) retain the explicitly deferred
+administration and final-polish work. NO-GO remains unchanged;
 no next phase starts automatically.
 
 V2-08D delivers the bounded shared form foundation; V2-08E consumes active reportable

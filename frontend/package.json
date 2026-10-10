@@ -21,7 +21,9 @@
     "test:e2e:commercial": "playwright test --config playwright.commercial.config.ts",
     "test:e2e:experience": "playwright test --config playwright.experience.config.ts",
     "test:e2e:operations": "playwright test --config playwright.operations.config.ts",
-    "test:e2e:operations-visual": "playwright test --config playwright.operations-visual.config.ts"
+    "test:e2e:operations-visual": "playwright test --config playwright.operations-visual.config.ts",
+    "test:e2e:relationships": "playwright test --config playwright.relationships.config.ts",
+    "test:e2e:relationships-visual": "playwright test --config playwright.relationships-visual.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

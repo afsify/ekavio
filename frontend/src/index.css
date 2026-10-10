@@ -481,3 +481,19 @@ body { line-height: 1.5; }
 .search-select [role=listbox] { max-height:240px;overflow:auto; }
 .search-select [role=option] { display:flex;justify-content:space-between;text-align:left;gap:8px;min-height:44px;width:100%;padding:10px;border-radius:8px; }
 .search-select [aria-selected=true] { background:var(--surface-subtle);color:var(--primary-readable); }
+.record-title { font-size:var(--font-sm);font-weight:600;overflow-wrap:anywhere; }
+.pipeline-stages { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px; }
+.pipeline-stages h2 { font-size:var(--font-base); }
+.pipeline-stages .panel:has([aria-pressed=true]) { border-color:var(--primary); }
+.crm-workspace .detail-section :is(p,li),.operations-workspace .dialog-body :is(p,h2,h3,h4) { overflow-wrap:anywhere; }
+.crm-workspace [data-dynamic-form]>section>div:empty { display:none; }
+@media(max-width:767px) {
+ .relationship-attention>.panel { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px 8px;padding:10px; }
+ .relationship-attention h2 { margin:0; }
+ .relationship-attention .stat-value { font-size:1.125rem;line-height:1.3; }
+ .relationship-attention .attention-description { display:none; }
+ .relationship-attention .quiet-button { grid-column:1/-1;width:100%;padding:6px;white-space:normal;font-size:var(--font-xs); }
+ .pipeline-stages { grid-template-columns:1fr; }
+ .pipeline-stages.table-desktop { display:none; }
+ .record-actions .quiet-button { white-space:normal;overflow-wrap:anywhere; }
+}

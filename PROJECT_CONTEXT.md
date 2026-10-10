@@ -1,6 +1,44 @@
 # EkaVio Project Context
 
-## Current experience work: V2-11B (2026-10-09)
+## Current experience work: V2-11C (2026-10-10)
+
+Started on clean main at accepted V2-11B
+`49f6fdc8aa18abb0cce7b75f1863ea06142a8e9e`; exact successful CI
+`37963905634` and the annotated completion tag were verified. The single
+annotated `pre-v2-11c-crm-purchasing-experience` checkpoint is published at that
+baseline. Reference sources remain read-only, intentionally ignored and untracked.
+
+CRM Leads/pipeline, manual Follow-ups, organization Suppliers, branch Purchase
+Orders and receipt history now reuse explicit server-mode desktop tables/mobile
+records, semantic states and single-dialog edit/review/discard workflows.
+Pipeline stage selection retains its paginated Lead workspace. Lead and Customer
+dynamic layouts, branch-local Follow-up time, versions, retained activity and
+explicit atomic new/existing Customer conversion remain canonical. No automatic
+contact matching, Sales, reminders, Supplier payments or accounting is added.
+
+Supplier name alone remains sufficient; optional contacts are validated. PO
+selection remains bounded to server pages, at most 50 unique lines, exact
+three-decimal quantity/paise BigInt previews and frozen ordered snapshots.
+Receiving starts blank, confirms actual quantities and retains the original
+payload/version/key after response loss; canonical stock changes once. Inventory
+catalogue prices and independent Purchasing-movement reversal restrictions stay
+unchanged. Query keys include user/workspace/authority; cancellation and consumed
+one-time Lead/PO deep links prevent stale dialogs reopening on a branch switch.
+
+See [source audit](docs/reviews/V2-11C_CRM_PURCHASING_UX_AUDIT.md),
+[acceptance evidence](docs/reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md) and
+[remaining D/E roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+Real disposable PostgreSQL workflow/authority proof is separate from sanitized
+loaded visual evidence. CI includes both relationship suites; private fixture
+outputs are excluded from uploads and Git. Existing ADRs 0026/0027/0029 govern;
+no new backend behavior, migration, dependency or second design system.
+
+**NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging-only,
+Atlas is retained, and V2-10 hosted/recovery/provider/operations requirements
+remain independent. Release requires exact-final-commit CI success followed by
+annotated `v2-11c-crm-purchasing-experience`. Do not start V2-11D automatically.
+
+## Prior experience work: V2-11B (2026-10-09)
 
 Continued preserved work on main from accepted V2-11A
 `bdefe1aba0648cf3d40221c185cae05635b6789e`. The existing annotated

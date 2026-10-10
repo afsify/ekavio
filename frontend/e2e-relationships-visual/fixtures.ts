@@ -1,0 +1,41 @@
+import { randomUUID } from 'node:crypto';
+import type { Page } from '@playwright/test';
+import { workspace } from '../e2e/fixtures';
+export async function relationshipFixture(page: Page, readonly = false) {
+  const permissions = ['crm.read', 'purchasing.read', 'inventory.read', 'customers.read', 'reports.read', ...(readonly ? [] : ['crm.manage', 'purchasing.manage', 'inventory.manage', 'customers.manage'])];
+  const state = await workspace(page, { permissions, modules: ['crm', 'purchasing', 'inventory'] });
+  const stage = { id: randomUUID(), name: 'Qualified', description: 'Reviewed enquiries', position: 0, status: 'active', version: 1 };
+  const lead = { id: randomUUID(), name: 'QA relationship enquiry with a descriptive company name', company: 'QA sample business', phone: null, email: null, source: 'Walk-in enquiry', notes: 'Disposable presentation fixture, not real customer data.', pipeline_stage_id: stage.id, stage_name: stage.name, assigned_membership_id: null, assignee_name: null, assignee_status: null, status: 'active', lost_reason: null, converted_customer_id: null, customer_name: null, branch_name: 'Main', version: 2, created_at: '2026-10-07T05:00:00Z' };
+  const followup = { id: randomUUID(), lead_id: lead.id, lead_name: lead.name, assigned_membership_id: null, assignee_name: null, assignee_status: null, type: 'call', subject: 'QA discuss the next consultation', note: 'Manual next action; no automatic reminder.', status: 'pending', due_at: '2026-10-07T05:00:00Z', completed_at: null, version: 1 };
+  const supplier = { id: randomUUID(), name: 'QA supplier with a longer descriptive business name', contact_name: 'QA supplier representative', phone: null, email: null, gstin: null, address_line_1: 'Disposable sample address', address_line_2: null, city: 'Sample city', state: null, country: 'India', postal_code: null, notes: 'No payments or accounts payable.', status: 'active', version: 1 };
+  const items = ['QA flour', 'QA rice'].map(name => ({ id: randomUUID(), name, sku: 'QA-ITEM', unitCode: 'kg', status: 'active' }));
+  const lines = items.map((i, n) => ({ id: randomUUID(), inventory_item_id: i.id, item_name_snapshot: i.name, sku_snapshot: i.sku, unit_code_snapshot: 'kg', ordered_quantity: n ? '1.250' : '10.000', received_quantity: n ? '0.000' : '4.000', remaining_quantity: n ? '1.250' : '6.000', unit_price_minor: n ? '1001' : '125', line_amount_minor: n ? '1251' : '1250' }));
+  const order = { id: randomUUID(), supplier_id: supplier.id, supplier_name: supplier.name, human_reference: 'EV-PO-0123456789ABCDEF0123456789ABCDEF', branch_name: 'Main', actor_name: 'QA member', status: 'partially_received', order_date: '2026-10-07', expected_delivery_date: '2026-10-09', notes: 'Agreed quantities and prices are immutable after ordering.', version: 3, total_minor: '2501', lines };
+  const receipt = { id: randomUUID(), purchase_order_id: order.id, human_reference: 'EV-GR-0123456789ABCDEF0123456789ABCDEF', order_reference: order.human_reference, supplier_name: supplier.name, actor_name: 'QA member', received_at: '2026-10-07T05:00:00Z', notes: 'Actual partial receipt', lines: [{ id: randomUUID(), movement_id: randomUUID(), inventory_item_id: items[0].id, item_name_snapshot: items[0].name, unit_code_snapshot: 'kg', quantity: '4.000' }] };
+  let empty = false, failure = false;
+  const paged = (rows: unknown[]) => ({ data: empty ? [] : rows, total: empty ? 0 : rows.length, page: 1, limit: 20, timezone: 'Asia/Kolkata' });
+  await page.route('http://127.0.0.1:5009/api/**', async r => {
+    const path = new URL(r.request().url()).pathname.replace('/api', '');
+    if (path === '/forms/lead/schema') return r.fulfill({ json: { data: { entity: 'lead', version: 0, definitions: [], sections: [], builtins: ['name', 'pipelineStageId', 'company', 'phone', 'email', 'source', 'assignedMembershipId', 'notes'].map(key => ({ key, label: key, required: ['name', 'pipelineStageId'].includes(key) })) } } });
+    if (!['/crm/', '/suppliers', '/purchasing/', '/inventory'].some(prefix => path.startsWith(prefix))) return r.fallback();
+    if (failure) return r.fulfill({ status: 503, json: { message: 'Disposable simulated outage' } });
+    let data: unknown;
+    if (path === '/crm/overview') data = { active: empty ? 0 : 1, unassigned: empty ? 0 : 1, today: empty ? 0 : 1, overdue: 0, businessDate: '2026-10-07', timezone: 'Asia/Kolkata', stages: [{ ...stage, leads: empty ? 0 : 1 }] };
+    else if (path === '/crm/stages') data = [stage];
+    else if (path === '/crm/assignees') data = [{ id: state.session.memberships[0].id, name: 'QA member' }];
+    else if (path === '/crm/leads') data = paged([lead]);
+    else if (path.endsWith('/activity')) data = [{ id: randomUUID(), action: 'lead.created', actor_name: 'QA member', occurred_at: '2026-10-07T05:00:00Z', stage_name: stage.name, note: null, assignee_name: null, customer_name: null }];
+    else if (path.startsWith('/crm/leads/')) data = lead;
+    else if (path === '/crm/followups') data = paged([followup]);
+    else if (path === '/suppliers') data = paged([supplier]);
+    else if (path.startsWith('/suppliers/')) data = { ...supplier, summary: { orders: '1', last_ordered_at: '2026-10-07T05:00:00Z' }, orders: [order], activity: [] };
+    else if (path === '/purchasing/overview') data = { open: empty ? '0' : '1', partial: empty ? '0' : '1', awaiting: empty ? '0' : '1', recent: empty ? '0' : '1' };
+    else if (path === '/purchasing/orders') data = paged([order]);
+    else if (path.startsWith('/purchasing/orders/')) data = { ...order, receipts: [receipt], activity: [{ id: randomUUID(), action: 'purchase.received', actor_name: 'QA member', occurred_at: receipt.received_at }] };
+    else if (path === '/purchasing/receipts') data = paged([receipt]);
+    else if (path === '/inventory') return r.fulfill({ json: { ...paged(items), pagination: { totalPages: 1, total: 2, page: 1, limit: 20 } } });
+    else return r.fallback();
+    return r.fulfill({ json: { data } });
+  });
+  return { lead, stage, supplier, order, items, empty: () => { empty = true; }, fail: () => { failure = true; } };
+}
