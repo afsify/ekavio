@@ -515,3 +515,20 @@ body { line-height: 1.5; }
  .pipeline-stages.table-desktop { display:none; }
  .record-actions .quiet-button { white-space:normal;overflow-wrap:anywhere; }
 }
+/* Definition catalogue/editor only; layout studio and record forms retain their contracts. */
+.field-catalogue-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.field-catalogue-filters > *, .field-catalogue-card > *, .field-definition-editor > *, .field-editor-settings > * { min-width: 0; }
+.field-catalogue-card h3, .field-definition-summary dd, .field-definition-editor label, .field-option-summary { overflow-wrap: anywhere; }
+.field-catalogue-card .section-heading { align-items: start; }
+.field-catalogue-card h3 { font-weight: 650; font-size: 1.05rem; }
+.field-indicators { display: flex; flex-wrap: wrap; gap: 6px; }
+.field-editor-settings { border: 0; padding: 0; margin: 0; min-width: 0; }
+.field-editor-settings > section + section { border-top: 1px solid var(--border); padding-top: 20px; }
+.field-definition-editor h3, .field-definition-editor h4 { font-weight: 650; }
+.field-setting { display: flex; align-items: start; gap: 10px; min-height: 44px; }
+.field-setting input { flex-shrink: 0; width: 20px; min-height: 20px; margin-top: 3px; }
+.field-setting span { min-width: 0; }
+.field-setting small { display: block; color: var(--text-muted); margin-top: 4px; }
+.field-option-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (min-width: 768px) { .field-catalogue-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1440px) { .field-catalogue-filters { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); } }

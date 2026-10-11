@@ -322,8 +322,12 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e:administration-visual
 
+      - name: Test sanitized V2-11E Batch 1 field catalogue responsive states
+        working-directory: frontend
+        run: npx playwright test --config playwright.fields-visual.config.ts
+
       - name: Upload frontend QA evidence
-        # Only sanitized V2-11D presentation evidence is eligible for upload.
+        # V2-11E Batch 1 adds only explicit sanitized presentation screenshots.
         # HR acceptance uses disposable private fixtures and no uploaded traces.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
