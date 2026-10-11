@@ -17,6 +17,9 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { PhoneInput } from '../../components/ui/PhoneInput';
+import { CommercialReview, type CommercialCommand } from '../../components/commercial/CommercialReview';
+import { useOperationalScope } from '../../hooks/useOperationalContext';
+import { uncertainWrite, optionalEmailValid } from '../../utils/mutationOutcome';
 import { CommercialStepper } from '../../components/commercial/CommercialStepper';
 
 const errorMessage = (error: unknown): string => {
@@ -35,6 +38,8 @@ export const CommercialActivationPanel: React.FC<{
   offers: OperatorPricing[];
 }> = ({ request, offers }) => {
   const queryClient = useQueryClient();
+  const scope=useOperationalScope();
+  const [command,setCommand]=useState<CommercialCommand|null>(null);
   const [billingCycle, setBillingCycle] = useState(request.billingCycle);
   const [planKey, setPlanKey] = useState(request.selectedPlanKey ?? '');
   const [addOnKeys, setAddOnKeys] = useState<string[]>(request.selectedAddOnKeys);
@@ -62,12 +67,12 @@ export const CommercialActivationPanel: React.FC<{
   const [oneTimeLink, setOneTimeLink] = useState<string | null>(null);
 
   const agreementQuery = useQuery({
-    queryKey: ['operator-commercial-agreement', request.id],
+    queryKey: ['operator-commercial-agreement', ...scope, request.id],
     enabled: request.status === 'approved' || request.status === 'activated',
-    queryFn: async () => {
+    queryFn: async ({signal}) => {
       try {
         const response = await client.get<{ data: AgreementBundle }>(
-          `/billing/operator/access-requests/${request.id}/agreement`,
+          `/billing/operator/access-requests/${request.id}/agreement`, {signal},
         );
         return response.data.data;
       } catch (error) {
@@ -78,7 +83,8 @@ export const CommercialActivationPanel: React.FC<{
   });
 
   const refreshAgreement = (bundle: AgreementBundle) => {
-    queryClient.setQueryData(['operator-commercial-agreement', request.id], bundle);
+    setCommand(null);
+    queryClient.setQueryData(['operator-commercial-agreement', ...scope, request.id], bundle);
     setOneTimeLink(null);
   };
   const finalize = useMutation({
@@ -112,18 +118,12 @@ export const CommercialActivationPanel: React.FC<{
     onSuccess: refreshAgreement,
   });
   const recordPayment = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payment:{amountMinor:string|null;method:ManualPaymentMethod;reference:string|null;paidAt:string;idempotencyKey:string}) => {
       const agreementId = agreementQuery.data?.agreement.id;
       if (!agreementId) throw new Error('Agreement is not finalized');
       const response = await client.post<{ data: AgreementBundle }>(
         `/billing/operator/agreements/${agreementId}/payments`,
-        {
-          amountMinor: rupeesToPaise(paymentAmount),
-          method: paymentMethod,
-          reference: emptyToNull(paymentReference),
-          paidAt: toIso(paidAt),
-          idempotencyKey: paymentKey,
-        },
+        payment,
       );
       return response.data.data;
     },
@@ -162,6 +162,7 @@ export const CommercialActivationPanel: React.FC<{
     },
     onSuccess: async () => {
       await agreementQuery.refetch();
+      setCommand(null);
     },
   });
   const revokeInvitation = useMutation({
@@ -200,27 +201,32 @@ export const CommercialActivationPanel: React.FC<{
     || (offers.some((offer) => (offer.key === planKey || addOnKeys.includes(offer.key)) && offer.pricing?.pricingMode === 'contact') && adjustmentReason.trim().length < 3)
     || rupeesToPaise(agreedTotalMinor) === null
     || (!planKey && addOnKeys.length === 0)
-    || !legalName.trim() || !billingContact.trim() || !billingPhone.trim();
+    || legalName.trim().length<2 || billingContact.trim().length<2 || !billingPhone.trim() || !optionalEmailValid(billingEmail)
+    || (rupeesToPaise(agreedTotalMinor)==='0'&&adjustmentReason.trim().length<3);
   const actionError = finalize.error ?? recordPayment.error ?? voidPayment.error
     ?? issueInvitation.error ?? revokeInvitation.error;
 
-  if (agreementQuery.isLoading) return <p className="text-sm text-slate-400">Loading commercial agreement…</p>;
-  if (agreementQuery.isError) return <p className="text-sm text-rose-300">{errorMessage(agreementQuery.error)}</p>;
+  const busy=finalize.isPending||recordPayment.isPending||voidPayment.isPending||issueInvitation.isPending||revokeInvitation.isPending;
+  const facts=<><h3>{request.businessName}</h3><p>Plan: {bundle?bundle.agreement.listPricingSnapshot.items.find(i=>i.offerType==='plan')?.name??'Individual modules':offers.find(o=>o.key===planKey&&o.offerType==='plan')?.name??'Individual modules'} · Add-ons: {bundle?bundle.agreement.listPricingSnapshot.items.filter(i=>i.offerType==='add_on').map(i=>i.name).join(', '):offers.filter(o=>o.offerType==='add_on'&&addOnKeys.includes(o.key)).map(o=>o.name).join(', ')||'None'}</p><p>{bundle?.agreement.billingCycle??billingCycle} · {bundle?.agreement.startsAt??startsAt} to {bundle?.agreement.currentPeriodEndsAt??endsAt}</p><p>Agreed: {formatInrMinor(bundle?.agreement.agreedTotalMinor??rupeesToPaise(agreedTotalMinor)??'0')} · Confirmed: {bundle?formatInrMinor(bundle.confirmedTotalMinor):'Not settled'}</p><p>Historical terms freeze at finalization. Exact settlement is required before one-time onboarding; no default password or platform-operator privilege is assigned.</p></>;
+  const review=(title:string,submit:()=>void,extra?:React.ReactNode,retryIdentical=false)=>{finalize.reset();recordPayment.reset();voidPayment.reset();issueInvitation.reset();revokeInvitation.reset();setCommand({title,submit,retryIdentical,facts:<>{facts}{extra}</>});};
+  const reviewed=<><CommercialReview command={command} busy={busy} error={actionError} close={()=>setCommand(null)}/>{uncertainWrite(actionError)&&<p role="alert">Outcome uncertain. Reload and check persisted agreement/payment history before another command. <button className="quiet-button" onClick={()=>window.location.reload()}>Reload authoritative workspace</button></p>}</>;
+  if (agreementQuery.isLoading) return <p className="text-sm muted">Loading commercial agreement…</p>;
+  if (agreementQuery.isError) return <p className="text-sm text-[var(--error)]">{errorMessage(agreementQuery.error)}</p>;
 
   if (!bundle) {
     return (
-      <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+      <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5"><fieldset className="page-stack min-w-0" disabled={Boolean(command)||busy||uncertainWrite(actionError)}>
         <CommercialStepper steps={[{ label: 'Request', complete: true }, { label: 'Approved', complete: true }, { label: 'Agreement', complete: false }, { label: 'Payment settled', complete: false }, { label: 'Onboarding issued', complete: false }, { label: 'Activated', complete: false }]} />
         <div>
-          <h4 className="font-bold text-white">Finalize commercial agreement</h4>
-          <p className="mt-1 text-xs text-slate-400">Current list pricing is recalculated by the backend. Enter the negotiated total in INR rupees.</p>
+          <h4 className="font-bold text-foreground">Finalize commercial agreement</h4>
+          <p className="mt-1 text-xs muted">Current list pricing is recalculated by the backend. Enter the negotiated total in INR rupees.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm text-slate-300">Billing cycle
-            <select value={billingCycle} onChange={(event) => setBillingCycle(event.target.value as typeof billingCycle)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+          <label className="text-sm text-foreground">Billing cycle
+            <select value={billingCycle} onChange={(event) => setBillingCycle(event.target.value as typeof billingCycle)} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-foreground"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
           </label>
-          <label className="text-sm text-slate-300">Plan
-            <select value={planKey} onChange={(event) => { const key = event.target.value; setPlanKey(key); const modules = plans.find((plan) => plan.key === key)?.moduleKeys ?? []; setAddOnKeys((current) => current.filter((key) => !addOns.find((item) => item.key === key)?.moduleKeys?.some((module) => modules.includes(module)))); }} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="">No plan</option>{plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}</select>
+          <label className="text-sm text-foreground">Plan
+            <select value={planKey} onChange={(event) => { const key = event.target.value; setPlanKey(key); const modules = plans.find((plan) => plan.key === key)?.moduleKeys ?? []; setAddOnKeys((current) => current.filter((key) => !addOns.find((item) => item.key === key)?.moduleKeys?.some((module) => modules.includes(module)))); }} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-foreground"><option value="">No plan</option>{plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}</select>
           </label>
           <Input label="Agreed total ₹" inputMode="decimal" value={agreedTotalMinor} onChange={(event) => setAgreedTotalMinor(event.target.value)} />
           <Input label="Adjustment / complimentary reason" maxLength={500} value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} />
@@ -228,11 +234,11 @@ export const CommercialActivationPanel: React.FC<{
           <Input label="Subscription ends" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
         </div>
         <div>
-          <p className="mb-2 text-sm font-semibold text-slate-300">Final add-ons</p>
+          <p className="mb-2 text-sm font-semibold text-foreground">Final add-ons</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {addOns.map((addOn) => {
               const included = addOn.moduleKeys?.some((module) => plans.find((plan) => plan.key === planKey)?.moduleKeys?.includes(module));
-              return <label key={addOn.key} className="flex items-center gap-2 rounded-xl border border-slate-800 p-3 text-sm text-slate-300"><input type="checkbox" disabled={included} checked={addOnKeys.includes(addOn.key)} onChange={(event) => setAddOnKeys((current) => event.target.checked ? [...current, addOn.key] : current.filter((key) => key !== addOn.key))} />{addOn.name}{included && ' — included in plan'}</label>;
+              return <label key={addOn.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] p-3 text-sm text-foreground"><input type="checkbox" disabled={included} checked={addOnKeys.includes(addOn.key)} onChange={(event) => setAddOnKeys((current) => event.target.checked ? [...current, addOn.key] : current.filter((key) => key !== addOn.key))} />{addOn.name}{included && ' — included in plan'}</label>;
             })}
           </div>
         </div>
@@ -248,58 +254,58 @@ export const CommercialActivationPanel: React.FC<{
           <Input label="Postal code" maxLength={20} value={postalCode} onChange={(event) => setPostalCode(event.target.value)} />
           <Input label="GSTIN (optional)" maxLength={15} value={gstin} onChange={(event) => setGstin(event.target.value.toUpperCase())} />
         </div>
-        <Button disabled={formInvalid} isLoading={finalize.isPending} onClick={() => finalize.mutate()}><ShieldCheck className="h-4 w-4" /> Finalize agreement</Button>
-        {finalize.isError && <p className="text-sm text-rose-300">{errorMessage(finalize.error)}</p>}
-      </div>
+        <Button disabled={formInvalid} isLoading={finalize.isPending} onClick={() => review('Finalize agreement',()=>finalize.mutate(),<><p>Billing identity: {legalName} · {billingContact} · {billingPhone} · {billingEmail||'No email'}</p><p>Address: {[addressLine1,addressLine2,city,state,postalCode].filter(Boolean).join(', ')||'Not supplied'} · GSTIN: {gstin||'Not supplied'}</p><p>Adjustment reason: {adjustmentReason||'None'}</p></>)}><ShieldCheck className="h-4 w-4" /> Finalize agreement</Button>
+        {finalize.isError && <p className="text-sm text-[var(--error)]">{errorMessage(finalize.error)}</p>}
+      </fieldset>{reviewed}</div>
     );
   }
 
   return (
-    <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5">
+    <div className="space-y-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-5"><fieldset className="page-stack min-w-0" disabled={Boolean(command)||busy||uncertainWrite(actionError)}>
       <CommercialStepper steps={[{ label: 'Request', complete: true }, { label: 'Approved', complete: true }, { label: 'Agreement', complete: true }, { label: 'Payment settled', complete: bundle.settlementSatisfied }, { label: 'Onboarding issued', complete: Boolean(activeInvitation || bundle.invitations.some((item) => item.consumedAt)) }, { label: 'Activated', complete: bundle.agreement.status === 'activated' }]} />
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h4 className="font-bold text-white">Commercial agreement</h4><p className="text-xs text-slate-400">Finalized {new Date(bundle.agreement.finalizedAt).toLocaleString()}</p></div>
+        <div><h4 className="font-bold text-foreground">Commercial agreement</h4><p className="text-xs muted">Finalized {new Date(bundle.agreement.finalizedAt).toLocaleString()}</p></div>
         <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-200">{bundle.agreement.status.replace('_', ' ')}</span>
       </div>
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div><dt className="text-slate-500">Final plan</dt><dd className="font-semibold text-white">{bundle.agreement.listPricingSnapshot.items.find((item) => item.offerType === 'plan')?.name ?? 'No base plan'}</dd></div>
-        <div><dt className="text-slate-500">Final add-ons</dt><dd className="font-semibold text-white">{bundle.agreement.listPricingSnapshot.items.filter((item) => item.offerType === 'add_on').map((item) => item.name).join(', ') || 'None'}</dd></div>
-        <div><dt className="text-slate-500">Current list subtotal</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.agreement.listSubtotalMinor)}</dd></div>
-        <div><dt className="text-slate-500">Agreed total</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.agreement.agreedTotalMinor)}</dd></div>
-        <div><dt className="text-slate-500">Confirmed payments</dt><dd className="font-semibold text-white">{formatInrMinor(bundle.confirmedTotalMinor)}</dd></div>
-        <div><dt className="text-slate-500">Billing cycle</dt><dd className="capitalize text-white">{bundle.agreement.billingCycle}</dd></div>
-        <div><dt className="text-slate-500">Finalized by operator</dt><dd className="break-all text-xs text-slate-300">Platform operator<TechnicalDetails values={{ 'Finalizing operator': bundle.agreement.finalizedByUserId }} /></dd></div>
-        <div><dt className="text-slate-500">Period</dt><dd className="text-white">{new Date(bundle.agreement.startsAt).toLocaleDateString()} – {new Date(bundle.agreement.currentPeriodEndsAt).toLocaleDateString()}</dd></div>
+        <div><dt className="muted">Final plan</dt><dd className="font-semibold text-foreground">{bundle.agreement.listPricingSnapshot.items.find((item) => item.offerType === 'plan')?.name ?? 'No base plan'}</dd></div>
+        <div><dt className="muted">Final add-ons</dt><dd className="font-semibold text-foreground">{bundle.agreement.listPricingSnapshot.items.filter((item) => item.offerType === 'add_on').map((item) => item.name).join(', ') || 'None'}</dd></div>
+        <div><dt className="muted">Current list subtotal</dt><dd className="font-semibold text-foreground">{formatInrMinor(bundle.agreement.listSubtotalMinor)}</dd></div>
+        <div><dt className="muted">Agreed total</dt><dd className="font-semibold text-foreground">{formatInrMinor(bundle.agreement.agreedTotalMinor)}</dd></div>
+        <div><dt className="muted">Confirmed payments</dt><dd className="font-semibold text-foreground">{formatInrMinor(bundle.confirmedTotalMinor)}</dd></div>
+        <div><dt className="muted">Billing cycle</dt><dd className="capitalize text-foreground">{bundle.agreement.billingCycle}</dd></div>
+        <div><dt className="muted">Finalized by operator</dt><dd className="break-all text-xs text-foreground">Platform operator<TechnicalDetails values={{ 'Finalizing operator': bundle.agreement.finalizedByUserId }} /></dd></div>
+        <div><dt className="muted">Period</dt><dd className="text-foreground">{new Date(bundle.agreement.startsAt).toLocaleDateString()} – {new Date(bundle.agreement.currentPeriodEndsAt).toLocaleDateString()}</dd></div>
       </dl>
-      {bundle.agreement.adjustmentReason && <p className="rounded-xl bg-slate-900 p-3 text-sm text-slate-300">Reason: {bundle.agreement.adjustmentReason}</p>}
+      {bundle.agreement.adjustmentReason && <p className="rounded-xl bg-[var(--surface)] p-3 text-sm text-foreground">Reason: {bundle.agreement.adjustmentReason}</p>}
 
       {bundle.agreement.status === 'awaiting_payment' && (
-        <div className="space-y-3 border-t border-slate-800 pt-4">
-          <h5 className="flex items-center gap-2 font-semibold text-white"><ReceiptIndianRupee className="h-4 w-4" /> Record manual payment</h5>
-          <p className="text-xs text-slate-400">Remaining: {formatInrMinor(remainingMinor)}. This records the operator's assertion that funds were received.</p>
+        <div className="space-y-3 border-t border-[var(--border)] pt-4">
+          <h5 className="flex items-center gap-2 font-semibold text-foreground"><ReceiptIndianRupee className="h-4 w-4" /> Record manual payment</h5>
+          <p className="text-xs muted">Remaining: {formatInrMinor(remainingMinor)}. This records the operator's assertion that funds were received.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Amount ₹" inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} />
-            <label className="text-sm text-slate-300">Method<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as ManualPaymentMethod)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-white"><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label>
+            <label className="text-sm text-foreground">Method<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as ManualPaymentMethod)} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-foreground"><option value="upi">UPI</option><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label>
             <Input label="Safe reference (optional)" maxLength={160} value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} />
             <Input label="Paid at" type="datetime-local" value={paidAt} onChange={(event) => setPaidAt(event.target.value)} />
           </div>
-          <Button size="sm" disabled={(rupeesToPaise(paymentAmount) === null || rupeesToPaise(paymentAmount) === '0') || !paidAt} isLoading={recordPayment.isPending} onClick={() => recordPayment.mutate()}>Record payment</Button>
+          <Button size="sm" disabled={(rupeesToPaise(paymentAmount) === null || rupeesToPaise(paymentAmount) === '0') || !paidAt} isLoading={recordPayment.isPending} onClick={() => {const payment={amountMinor:rupeesToPaise(paymentAmount),method:paymentMethod,reference:emptyToNull(paymentReference),paidAt:toIso(paidAt),idempotencyKey:paymentKey};review('Record payment',()=>recordPayment.mutate(payment),<p>Operator-confirmed funds: {formatInrMinor(payment.amountMinor!)} · {payment.method.replaceAll('_',' ')} · {payment.paidAt} · {payment.reference||'No reference'}. Confirm only funds actually received.</p>,true);}}>Record payment</Button>
         </div>
       )}
 
-      {bundle.payments.length > 0 && <div className="space-y-2 border-t border-slate-800 pt-4"><h5 className="font-semibold text-white">Payment history</h5>{bundle.payments.map((payment) => <div key={payment.id} className="rounded-xl bg-slate-900 p-3 text-sm"><div className="flex justify-between gap-3"><span className="text-white">{formatInrMinor(payment.amountMinor)} · {payment.method.replace('_', ' ')}</span><span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-rose-300'}>{payment.status}</span></div><p className="text-xs text-slate-500">{new Date(payment.paidAt).toLocaleString()} {payment.reference ? `· ${payment.reference}` : ''}</p><p className="mt-1 break-all text-[11px] text-slate-600">Recorded by platform operator</p>{payment.status === 'confirmed' && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Button size="sm" variant="danger" className="mt-2" disabled={voidReason.trim().length < 3} isLoading={voidPayment.isPending} onClick={() => voidPayment.mutate(payment.id)}><XCircle className="h-4 w-4" /> Void</Button>}</div>)}{bundle.payments.some((payment) => payment.status === 'confirmed') && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Input label="Void reason (required before voiding)" maxLength={500} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />}</div>}
+      {bundle.payments.length > 0 && <div className="space-y-2 border-t border-[var(--border)] pt-4"><h5 className="font-semibold text-foreground">Payment history</h5>{bundle.payments.map((payment) => <div key={payment.id} className="rounded-xl bg-[var(--surface)] p-3 text-sm"><div className="flex justify-between gap-3"><span className="text-foreground">{formatInrMinor(payment.amountMinor)} · {payment.method.replace('_', ' ')}</span><span className={payment.status === 'confirmed' ? 'text-emerald-300' : 'text-[var(--error)]'}>{payment.status}</span></div><p className="text-xs muted">{new Date(payment.paidAt).toLocaleString()} {payment.reference ? `· ${payment.reference}` : ''}</p><p className="mt-1 break-all text-[11px] muted">Recorded by platform operator</p>{payment.status === 'confirmed' && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Button size="sm" variant="danger" className="mt-2" disabled={voidReason.trim().length < 3} isLoading={voidPayment.isPending} onClick={() => review('Void payment',()=>voidPayment.mutate(payment.id),<p>Void {formatInrMinor(payment.amountMinor)} · {payment.method} · {payment.paidAt}. Reason: {voidReason}. No refund is issued; history is retained.</p>)}><XCircle className="h-4 w-4" /> Void</Button>}</div>)}{bundle.payments.some((payment) => payment.status === 'confirmed') && ['awaiting_payment', 'paid'].includes(bundle.agreement.status) && <Input label="Void reason (required before voiding)" maxLength={500} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />}</div>}
 
       {['paid', 'onboarding_pending'].includes(bundle.agreement.status) && (
-        <div className="space-y-3 border-t border-slate-800 pt-4">
-          <h5 className="flex items-center gap-2 font-semibold text-white"><Link2 className="h-4 w-4" /> Secure onboarding</h5>
-          <p className="text-xs text-slate-400">This link is shown once. Generate a replacement if lost. A replacement revokes the previous active link, and raw links are never stored.</p>
-          <Button size="sm" isLoading={issueInvitation.isPending} onClick={() => issueInvitation.mutate()}>{activeInvitation ? 'Generate replacement link' : 'Generate onboarding link'}</Button>
-          {oneTimeLink && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-semibold text-amber-200">Shown once — copy and share manually.</p><p className="mt-2 break-all text-xs text-slate-200">{oneTimeLink}</p><Button size="sm" variant="secondary" className="mt-2" onClick={() => void navigator.clipboard.writeText(oneTimeLink)}><Copy className="h-4 w-4" /> Copy link</Button></div>}
-          {activeInvitation && <div className="space-y-2"><p className="text-xs text-slate-400">Active invitation expires {new Date(activeInvitation.expiresAt).toLocaleString()}</p><Input label="Revocation reason" maxLength={500} value={revokeReason} onChange={(event) => setRevokeReason(event.target.value)} /><Button size="sm" variant="danger" disabled={revokeReason.trim().length < 3} isLoading={revokeInvitation.isPending} onClick={() => revokeInvitation.mutate(activeInvitation.id)}>Revoke active link</Button></div>}
+        <div className="space-y-3 border-t border-[var(--border)] pt-4">
+          <h5 className="flex items-center gap-2 font-semibold text-foreground"><Link2 className="h-4 w-4" /> Secure onboarding</h5>
+          <p className="text-xs muted">This link is shown once. Generate a replacement if lost. A replacement revokes the previous active link, and raw links are never stored.</p>
+          <Button size="sm" isLoading={issueInvitation.isPending} onClick={() => review(activeInvitation?'Generate replacement link':'Generate onboarding link',()=>issueInvitation.mutate(),<p>{activeInvitation?'The previous active link will be revoked.':'Generate one single-use link after exact settlement.'} The customer chooses their own password; the raw handoff is shown once in memory only.</p>)}>{activeInvitation ? 'Generate replacement link' : 'Generate onboarding link'}</Button>
+          {oneTimeLink && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3"><p className="text-xs font-semibold text-[var(--warning)]">Shown once — copy and share manually.</p><p className="mt-2 break-all text-xs text-foreground">{oneTimeLink}</p><Button size="sm" variant="secondary" className="mt-2" onClick={() => void navigator.clipboard.writeText(oneTimeLink)}><Copy className="h-4 w-4" /> Copy link</Button></div>}
+          {activeInvitation && <div className="space-y-2"><p className="text-xs muted">Active invitation expires {new Date(activeInvitation.expiresAt).toLocaleString()}</p><Input label="Revocation reason" maxLength={500} value={revokeReason} onChange={(event) => setRevokeReason(event.target.value)} /><Button size="sm" variant="danger" disabled={revokeReason.trim().length < 3} isLoading={revokeInvitation.isPending} onClick={() => review('Revoke active link',()=>revokeInvitation.mutate(activeInvitation.id),<p>Expires {activeInvitation.expiresAt}. Reason: {revokeReason}. This link can no longer onboard the customer.</p>)}>Revoke active link</Button></div>}
         </div>
       )}
-      {bundle.agreement.status === 'activated' && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">Customer organization and subscription are activated.</p>}
-      {actionError && <p className="text-sm text-rose-300">{errorMessage(actionError)}</p>}
-    </div>
+      {bundle.agreement.status === 'activated' && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-[var(--success)]">Customer organization and subscription are activated.</p>}
+      {actionError && <p className="text-sm text-[var(--error)]">{errorMessage(actionError)}</p>}
+    </fieldset>{reviewed}</div>
   );
 };

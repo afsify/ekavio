@@ -53,7 +53,7 @@ for(const mode of ['light','dark','system'] as const) test(`${mode} preference p
 test('staff email invitation accepts own password, limits navigation and rejects reuse',async({page,browser}) => {
   await login(page); await page.goto('/staff'); await page.getByRole('button',{name:'Invite staff',exact:true}).click();
   await expect(page.getByLabel(/password/i)).toHaveCount(0); await page.getByLabel('Full name').fill('Disposable QA staff'); await page.getByLabel('Phone number',{exact:true}).fill('9876543298');
-  const email=`${randomUUID()}@example.invalid`; await page.getByLabel('Email (optional)').fill(email); await page.getByRole('button',{name:'Send invitation',exact:true}).click(); await expect(page.getByText('Disposable QA staff',{exact:true})).toBeVisible();
+  const email=`${randomUUID()}@example.invalid`; await page.getByLabel('Email (optional)').fill(email); await page.getByRole('button',{name:'Review',exact:true}).click(); await expect(page.getByRole('dialog')).toContainText(email); await page.getByRole('button',{name:'Send invitation',exact:true}).click(); await expect(page.getByText('Disposable QA staff',{exact:true})).toBeVisible();
   const messages=await (await page.request.get(`${api}/__test/mail`)).json() as Array<{purpose:string;url:string}>; const link=messages.findLast((message) => message.purpose==='staff_invitation')!.url;
   const context=await browser.newContext(); const staff=await context.newPage(); await staff.goto(link); const password=randomUUID(); await staff.getByLabel('New password',{exact:true}).fill(password); await staff.getByLabel('Confirm password').fill(password); await staff.getByRole('button',{name:'Accept invitation'}).click(); await expect(staff.getByRole('status')).toContainText('Account ready');
   await login(staff,email,password); await staff.goto('/staff'); await expect(staff.getByRole('button',{name:'Invite staff',exact:true})).toHaveCount(0); await expect(staff.getByRole('link',{name:'Commercial Intake',exact:true})).toHaveCount(0);
@@ -62,7 +62,7 @@ test('staff email invitation accepts own password, limits navigation and rejects
 test('manual staff invitation is shown once, cleared on close and accepted without email authority',async({page,browser}) => {
   await login(page); await page.goto('/staff'); await page.getByRole('button',{name:'Invite staff',exact:true}).click();
   await page.getByLabel('Full name').fill('Disposable manual staff'); await page.getByLabel('Phone number',{exact:true}).fill('9876543299');
-  await page.getByRole('button',{name:'Send invitation',exact:true}).click();
+  await page.getByRole('button',{name:'Review',exact:true}).click(); await page.getByRole('button',{name:'Send invitation',exact:true}).click();
   const handoff=page.getByLabel('One-time handoff link'); await expect(handoff).toBeVisible(); const link=await handoff.inputValue();
   await page.getByRole('button',{name:'I have handed off the link'}).click(); await expect(handoff).toHaveCount(0);
   await page.reload(); await expect(handoff).toHaveCount(0);

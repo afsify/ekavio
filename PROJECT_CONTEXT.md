@@ -1,6 +1,50 @@
 # EkaVio Project Context
 
-## Current experience work: V2-11C (2026-10-10)
+## Current experience work: V2-11D (2026-10-11)
+
+Continued the preserved main working tree from accepted V2-11C
+`3fb1165dbff6f62ed15d2a5f95ae1dd360868caf`, exact CI `38066738453`.
+The published annotated `pre-v2-11d-administration-experience` checkpoint is
+preserved. Reference trees remain read-only, intentionally ignored and out of Git.
+
+Organization operating profile, Branches, Roles and Staff now use semantic
+details, bounded canonical directories and reviewed editing/invitation/access
+commands. Branch/Member projections have a 200-record server bound, not a complete
+paginated or globally sorted dataset. Staff managers without optional catalogue
+grants retain unchanged server-returned assignments; no permission is inferred.
+HR Plus reuses server tables/mobile records and guarded review sheets for leave,
+configuration, calendars and shifts. Whole days, different/all-branch reviewers,
+private reasons, branch dates/UTC, versions and immutable published history remain
+canonical; Attendance remains independently entitled.
+
+Reports expose curated server filters/results and a captured filter/column export
+review, retaining fresh server authorization, audit and bounded formula-safe CSV.
+Notifications remain personal, with explicit cross-category/page bulk-read review
+and truthful preference feedback. Billing distinguishes persisted subscriptions,
+independent add-ons, effective module sources, limits, payment facts and renewals.
+Operator pricing/intake/agreement/payment/invitation/renewal commands are reviewed;
+only existing keyed commands permit identical uncertain retries. No automatic
+charge, gateway, fabricated settlement, owner transfer or new business API exists.
+
+Queries/dialogs are keyed by account, organization, branch, grants, entitlements
+and operator authority. Cancellation and captured-context checks prevent late
+Billing responses from replacing a changed session. No backend runtime, migration,
+dependency, second theme/auth store or reference source was introduced.
+
+See [D source audit](docs/reviews/V2-11D_ADMINISTRATION_UX_AUDIT.md),
+[D acceptance evidence](docs/reviews/V2-11D_ADMINISTRATION_EXPERIENCE.md),
+[ADR 0029](docs/adr/0029-ekavio-design-system.md) and
+[remaining E roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+Real disposable PostgreSQL authority/workflow tests remain separate from sanitized
+8-width/3-theme Chromium visual evidence; private browser artifacts are excluded
+from CI upload and Git. Release requires exact-final-commit CI success followed
+by annotated `v2-11d-administration-experience`.
+
+**NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging-only;
+Atlas is retained. V2-10 hosted/recovery/provider/monitoring/operations requirements
+remain independent. Do not start V2-11E automatically.
+
+## Prior experience work: V2-11C (2026-10-10)
 
 Started on clean main at accepted V2-11B
 `49f6fdc8aa18abb0cce7b75f1863ea06142a8e9e`; exact successful CI
@@ -27,7 +71,7 @@ one-time Lead/PO deep links prevent stale dialogs reopening on a branch switch.
 
 See [source audit](docs/reviews/V2-11C_CRM_PURCHASING_UX_AUDIT.md),
 [acceptance evidence](docs/reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md) and
-[remaining D/E roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
+[experience roadmap](docs/roadmap/V2_11_EXPERIENCE_ROADMAP.md).
 Real disposable PostgreSQL workflow/authority proof is separate from sanitized
 loaded visual evidence. CI includes both relationship suites; private fixture
 outputs are excluded from uploads and Git. Existing ADRs 0026/0027/0029 govern;

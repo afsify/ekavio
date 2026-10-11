@@ -42,6 +42,7 @@ interface TablePresentation<T> {
   rowLabel?: (row: T) => string;
   mobileCard?: (row: T) => ReactNode;
   filters?: ReactNode;
+  showPagination?: boolean;
 }
 // Server mode cannot accidentally run local operations over a paginated subset.
 export type AdvancedTableProps<T> = TablePresentation<T> & (
@@ -78,7 +79,7 @@ export function AdvancedTable<T extends object>(props: AdvancedTableProps<T>) {
       })}</tr></thead><tbody>{rows.map((row, index) => <tr key={rowKey?.(row) ?? index} onClick={onRowClick ? e => { if (!(e.target as HTMLElement).closest('button,a,input,select')) onRowClick(row); } : undefined} className={onRowClick ? 'clickable-row' : ''}>{columns.map((column, columnIndex) => <td key={String(column.accessor)} style={{ textAlign: column.align ?? 'left' }}>{column.cell ? column.cell({ value: cellValue(row, column.accessor), row, index }) : columnIndex === 0 && onRowClick ? <button className="record-open" onClick={() => onRowClick(row)} aria-label={`Open ${rowLabel?.(row) ?? String(cellValue(row, column.accessor))}`}>{String(cellValue(row, column.accessor) ?? '—')}</button> : String(cellValue(row, column.accessor) ?? '—')}</td>)}</tr>)}</tbody></table></div>
       {mobileCard && <div className="table-mobile">{rows.map((row, index) => <div key={rowKey?.(row) ?? index}>{mobileCard(row)}</div>)}</div>}
     </>}
-    {server && !error && <Pagination page={server.page} totalPages={server.totalPages} total={server.total} pageSize={server.pageSize} onPage={server.onPage} onPageSize={server.onPageSize} busy={loading} />}
+    {server && !error && props.showPagination !== false && <Pagination page={server.page} totalPages={server.totalPages} total={server.total} pageSize={server.pageSize} onPage={server.onPage} onPageSize={server.onPageSize} busy={loading} />}
     {!server && <p className="table-scope muted">Search and sort apply to received rows only.</p>}
   </section>;
 }

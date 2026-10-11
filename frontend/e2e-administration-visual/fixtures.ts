@@ -1,0 +1,58 @@
+import { randomUUID } from 'node:crypto';
+import type { Page } from '@playwright/test';
+import { workspace } from '../e2e/fixtures';
+// Sanitized contract DTOs only. These images are NOT database-authority proof.
+export async function administrationFixture(page: Page, readonly = false) {
+  const permissions = ['organization.read','branches.read','roles.read','staff.read','billing.read','reports.read','customers.read','hr_plus.read', ...(readonly ? [] : ['organization.manage','branches.manage','roles.manage','staff.manage','hr_plus.manage','hr_plus.approve'])];
+  const state = await workspace(page, { permissions, modules: ['hr_plus','inventory','crm'], operator: !readonly });
+  const branch = { id: state.branch, name: 'Main', code: 'main', timezone: 'Asia/Kolkata', status: 'active', version: 2, updated_at: '2026-10-11T05:00:00Z' };
+  const role = { id: randomUUID(), name: 'QA customer directory reviewer with a descriptive role', description: 'Customer access only; not a subscription or operator grant.', permissions: ['customers.read'], version: 2, status: 'active' };
+  const member = { id: randomUUID(), name: 'QA organization colleague with a longer display name', phone: '+919876540001', email: 'qa@example.invalid', role: 'staff', roleName: role.name, customRoleId: role.id, membershipId: randomUUID(), status: 'active', branchIds: [state.branch], branchNames: ['Main'], version: 2, updated_at: branch.updated_at };
+  const profile = { name: 'QA demonstration organization with descriptive operating details', type: 'service business', business_category: 'Consultation', description: 'Sanitized UX acceptance fixture, not private or hosted information.', contact_email: 'qa@example.invalid', contact_phone: '+919876540002', address: 'QA sample address with a deliberately long descriptive delivery instruction', website: 'https://example.invalid', active_staff: 2, active_branches: 1, custom_roles: 1, pending_invitations: 0 };
+  const type = { id: randomUUID(), name: 'QA whole-day leave', description: 'Explicit business policy, not accrued balance', status: 'active', requires_reason: true, allow_past: false, minimum_notice_days: 0, count_non_working: true, display_order: 0, version: 1 };
+  const template = { id: randomUUID(), name: 'QA local working shift', start_time: '09:00', end_time: '17:00', overnight: false, break_minutes: 30, status: 'active', version: 1 };
+  const leave = { id: randomUUID(), membership_id: member.membershipId, employee: member.name, type_name_snapshot: type.name, start_date: '2026-10-12', end_date: '2026-10-13', counted_days: 2, status: 'pending', reason: 'QA sanitized ordinary reason; no medical or employee data.', can_review: true, version: 1, created_at: branch.updated_at };
+  const shift = { id: randomUUID(), employee: member.name, branch_name: 'Main', membership_id: member.membershipId, template_id: template.id, template_name_snapshot: template.name, business_date: '2026-10-14', timezone_snapshot: 'Asia/Kolkata', starts_at: '2026-10-14T03:30:00Z', ends_at: '2026-10-14T11:30:00Z', break_minutes: 30, status: 'draft', version: 1 };
+  const plan = { key: 'qa-plan', name: 'QA independent operations plan' }, addOn = { key: 'qa-hr', name: 'QA HR Plus add-on' };
+  const subscription = { status: 'active', source: 'manual', plan, addOns: [addOn], startsAt: '2026-10-01T00:00:00Z', currentPeriodEndsAt: '2026-11-01T00:00:00Z' };
+  const renewalId=randomUUID(),subscriptionId=randomUUID();
+  const packageSnapshot={billingCycle:'monthly',plan:{...plan,moduleKeys:['crm']},addOns:[{...addOn,moduleKeys:['hr_plus']}]};
+  const listPricingSnapshot={billingCycle:'monthly',currency:'INR',complete:true,calculatedAt:branch.updated_at,items:[{offerType:'plan',...plan,priceMinor:'12345',pricingUpdatedAt:branch.updated_at}]};
+  const renewal={id:renewalId,organizationId:state.org,subscriptionId,renewalKind:'continuous',currency:'INR',billingCycle:'monthly',selectedPlanKey:plan.key,selectedAddOnKeys:[addOn.key],packageSnapshot,listSubtotalMinor:'12345',listPricingSnapshot,agreedTotalMinor:'12345',adjustmentReason:null,priorPeriodStartsAt:subscription.startsAt,priorPeriodEndsAt:subscription.currentPeriodEndsAt,renewalStartsAt:subscription.currentPeriodEndsAt,renewalEndsAt:'2026-12-01T00:00:00Z',status:'awaiting_payment',finalizedAt:branch.updated_at,appliedAt:null,cancelledAt:null,cancellationReason:null,createdAt:branch.updated_at,updatedAt:branch.updated_at};
+  Object.assign(state.session.entitlements, { subscription });
+  const columns = [{ key: 'name', label: 'Customer name', selected: true }, { key: 'notes', label: 'Authorized reportable note with descriptive human label', selected: true }];
+  let empty = false, failure = false;
+  const paged = (rows: unknown[]) => ({ data: empty ? [] : rows, total: empty ? 0 : rows.length, page: 1, limit: 20 });
+  await page.route('http://127.0.0.1:5009/api/**', async r => {
+    const path = new URL(r.request().url()).pathname.replace('/api','');
+    if (!['/organization','/branches','/roles','/members','/staff','/hr/','/reports','/notifications','/billing/'].some(p => path.startsWith(p))) return r.fallback();
+    if (path === '/organization/context') return r.fallback();
+    if (failure) return r.fulfill({ status: 503, json: { message: 'Disposable simulated outage' } });
+    let data: unknown;
+    if (path === '/organization') data = profile;
+    else if (path === '/branches') data = empty ? [] : [branch];
+    else if (path === '/roles') data = { catalogue: [{ key: 'customers.read', label: 'View customers', category: 'Customers', description: 'Read canonical customer records' }], system: [{ name: 'staff', permissions: ['customers.read'] }], custom: empty ? [] : [role] };
+    else if (path.startsWith('/members') || path === '/staff') data = empty ? [] : [member];
+    else if (path === '/staff/invitations') data = [];
+    else if (path === '/hr/context') data = { types: [type], templates: [template], calendar: { id: randomUUID(), name: 'QA explicit work calendar', working_days: [1,2,3,4,5], version: 1 }, days: [], timezone: 'Asia/Kolkata', businessDate: '2026-10-11', permissions };
+    else if (path.includes('/hr/history/') || path.endsWith('/history')) data = { events: [{ action: 'leave.requested', resulting_version: 1, occurred_at: branch.updated_at, actor: 'QA member' }], decisions: [] };
+    else if (path.endsWith('/leave')) data = paged([leave]);
+    else if (path.endsWith('/shifts') || path.endsWith('/schedule')) data = paged([shift]);
+    else if (path === '/hr/availability') data = { ...paged([{ id: member.membershipId, name: member.name, days: [{ day: '2026-10-14', state: 'scheduled' }] }]), calendarConfigured: true };
+    else if (path === '/reports') data = [{ key: 'customers', label: 'Customer directory', scope: 'organization', dateRange: false, filters: ['search'], statuses: [] }];
+    else if (path === '/reports/customers') data = { report: 'customers', scope: 'organization', timezone: 'Asia/Kolkata', generatedAt: branch.updated_at, filters: {}, columns, rows: empty ? [] : [{ name: 'QA report customer with an extended descriptive name', notes: 'QA readable long reportable value '.repeat(12) }], summary: { records: empty ? '0' : '1' }, page: 1, limit: 25, total: empty ? 0 : 1 };
+    else if (path === '/notifications/preferences') data = { organizationChanges: true, crmAssignments: true, hrUpdates: true };
+    else if (path === '/notifications') data = { rows: empty ? [] : [{ id: randomUUID(), title: 'QA your workspace access changed', message: 'Review your canonical organization membership and assigned branches. No private reason is copied here.', category: 'organization', action: 'settings', createdAt: branch.updated_at, readAt: null }], unread: empty ? 0 : 1, total: empty ? 0 : 1, page: 1, limit: 25 };
+    else if (path === '/billing/subscription') data = empty ? { ...state.session.entitlements, subscription: null } : state.session.entitlements;
+    else if (path === '/billing/catalogue') data = { modules: [], plans: [], addOns: [{ ...addOn, description: 'Independently purchased leave and scheduling; Attendance is separate.', moduleKeys: ['hr_plus'], limitAdjustments: [] }] };
+    else if (path === '/billing/commercial') data = { agreement: { agreedTotalMinor: '12345', billingCycle: 'monthly', status: 'activated', startsAt: subscription.startsAt, currentPeriodEndsAt: subscription.currentPeriodEndsAt, planName: plan.name, addOnNames: [addOn.name], selectedPlanKey: plan.key, selectedAddOnKeys: [addOn.key] }, billingProfile: { legalName: 'QA billing organization', contactName: 'QA representative', phone: '+919876540003', email: null, addressLine1: 'QA sanitized billing address', country: 'India' }, payments: [{ amountMinor: '12345', method: 'bank_transfer', paidAt: branch.updated_at, status: 'confirmed', reference: 'QA manual payment assertion' }] };
+    else if (path === '/billing/renewals') data = [{ renewal: { id: randomUUID(), renewalKind: 'continuous', agreedTotalMinor: '12345', priorPeriodEndsAt: subscription.currentPeriodEndsAt, renewalStartsAt: subscription.currentPeriodEndsAt, renewalEndsAt: '2026-12-01T00:00:00Z', status: 'awaiting_payment', planName: plan.name, addOnNames: [addOn.name], selectedPlanKey: plan.key, selectedAddOnKeys: [addOn.key] }, payments: [] }];
+    else if (path === '/billing/operator/renewals') return r.fulfill({ json: { data: [{organizationId:state.org,organizationName:'QA renewal workspace',subscriptionId,subscriptionStatus:'active',billingCycle:'monthly',planKey:plan.key,planName:plan.name,addOnKeys:[addOn.key],addOnNames:[addOn.name],currentPeriodStartsAt:subscription.startsAt,currentPeriodEndsAt:subscription.currentPeriodEndsAt,renewalId,renewalStatus:'awaiting_payment',renewalKind:'continuous',renewalStartsAt:renewal.renewalStartsAt,renewalEndsAt:renewal.renewalEndsAt,renewalAppliedAt:null,expired:false,secondsUntilExpiry:864000}], pagination: { total: 1 }, observedAt: branch.updated_at } });
+    else if(path==='/billing/operator/renewals/'+renewalId)data={renewal,payments:[],confirmedTotalMinor:'0',settlementSatisfied:false};
+    else return r.fallback();
+    if (empty && path === '/billing/commercial') data = null;
+    if (empty && path === '/billing/renewals') data = [];
+    return r.fulfill({ json: { data } });
+  });
+  return { member, role, empty: () => { empty = true; }, fail: () => { failure = true; } };
+}

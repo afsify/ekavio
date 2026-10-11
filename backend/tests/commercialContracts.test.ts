@@ -256,7 +256,9 @@ test('frontend consumes canonical backend entitlement state without local activa
     source('frontend/src/components/layout/navigation.ts'),
   ]);
   assert.match(store, /entitlements: payload\.entitlements/);
-  assert.match(store, /client\.get<\{ data: EffectiveEntitlements \}>\('\/billing\/subscription'\)/);
+  assert.match(store, /client\.get<\{ data: EffectiveEntitlements \}>\('\/billing\/subscription',\{signal\}\)/);
+  assert.match(store, /response\.data\.data\.organizationId !== organizationId/);
+  assert.match(store, /signal\?\.aborted\|\|authority!==JSON\.stringify/);
   assert.doesNotMatch(store, /setEntitlements:/);
   assert.match(app, /ModuleGuard module=\{MODULES\.LEDGER\}/);
   assert.match(sidebar, /hasEntitlement\(entitlements, item\.module\)/);
@@ -308,7 +310,9 @@ test('manual renewal lifecycle keeps mutation operator-only and billing read-onl
 
   assert.match(operatorPage, /Record manual renewal payment/);
   assert.match(operatorPage, /Current server list-price preview/);
-  assert.match(operatorPage, /window\.confirm/);
+  assert.match(operatorPage, /<CommercialReview command=\{command\} busy=\{busy\}/);
+  assert.match(operatorPage, /review\('Apply renewal',[\s\S]*settlement[\s\S]*true\)/);
+  assert.doesNotMatch(operatorPage, /window\.confirm/);
   assert.match(operatorPage, /\/billing\/operator\/renewals/);
   assert.doesNotMatch(operatorPage, /setEntitlements|upsertEntitlement|Pay Now/);
   assert.match(billingPage, /Renewal history/);

@@ -4,8 +4,8 @@ import { useAppStore } from '../store/useAppStore';
 import type { DashboardData } from '../components/analytics/contracts';
 
 export function useOperationalScope() {
-  const { user, activeTenantId, activeBranchId, entitlements } = useAppStore();
-  return [user?.id, activeTenantId, activeBranchId, user?.permissions?.join(','), JSON.stringify(entitlements)] as const;
+  const { user, activeTenantId, activeBranchId, entitlements, isPlatformOperator } = useAppStore();
+  return [user?.id, activeTenantId, activeBranchId, user?.permissions?.join(','), JSON.stringify(entitlements), isPlatformOperator] as const;
 }
 export function useOperationalContext() {
   const { user, activeTenantId, activeBranchId, entitlements } = useAppStore();

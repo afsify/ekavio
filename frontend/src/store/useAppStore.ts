@@ -79,7 +79,7 @@ export interface AppState {
   setTheme: (mode: ThemeConfig['mode'], primaryColor?: string) => void;
   setActiveTenant: (tenantId: string) => Promise<boolean>;
   setActiveBranch: (branchId: string) => Promise<boolean>;
-  refreshEntitlements: () => Promise<EffectiveEntitlements>;
+  refreshEntitlements: (signal?:AbortSignal) => Promise<EffectiveEntitlements>;
 }
 
 const DEFAULT_THEME: ThemeConfig = { mode: 'light', primaryColor: '#4F46E5' };
@@ -198,14 +198,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  refreshEntitlements: async () => {
+  refreshEntitlements: async (signal) => {
     const organizationId = get().activeTenantId;
+    const authority=JSON.stringify([get().user?.id,organizationId,get().activeBranchId,get().user?.permissions,get().isPlatformOperator]);
     if (!organizationId) throw new Error('No active organization');
     const { client } = await import('../api/client');
-    const response = await client.get<{ data: EffectiveEntitlements }>('/billing/subscription');
+    const response = await client.get<{ data: EffectiveEntitlements }>('/billing/subscription',{signal});
     if (response.data.data.organizationId !== organizationId) {
       throw new Error('Commercial response organization mismatch');
     }
+    if(signal?.aborted||authority!==JSON.stringify([get().user?.id,get().activeTenantId,get().activeBranchId,get().user?.permissions,get().isPlatformOperator]))throw new Error('Commercial workspace changed');
     set({ entitlements: response.data.data });
     return response.data.data;
   },

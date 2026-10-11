@@ -6,7 +6,7 @@ import OrganizationPage from '../pages/Settings/OrganizationPage';
 import {client} from '../api/client';
 import {useAppStore} from '../store/useAppStore';
 import {visibleDestinations} from '../components/layout/navigation';
-const setup=(section:'roles'|'branches'|'overview'|'audit')=>render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><OrganizationPage section={section}/></MemoryRouter></QueryClientProvider>);
+const setup=(section:'roles'|'branches'|'overview'|'audit')=>{useAppStore.setState({activeTenantId:'fixture',activeBranchId:'fixture-branch'});return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><OrganizationPage section={section}/></MemoryRouter></QueryClientProvider>);};
 it('CORE navigation is independent of Queue and platform authority',()=>{const paths=visibleDestinations(['customers.read','services.read'],null,false).map(p=>p.path);expect(paths).toContain('/customers');expect(paths).toContain('/services');expect(paths).not.toContain('/queue');expect(paths).not.toContain('/platform');});
 it('custom role catalogue is loaded from server, unknown frontend authority is not invented',async()=>{
   useAppStore.setState({user:{id:'fixture',tenantId:'fixture',role:'admin',permissions:['roles.read','roles.manage','customers.read']}});

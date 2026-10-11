@@ -89,7 +89,7 @@ test('Settings uses human context, hides UUID, and saves profile', async ({ page
 });
 test('commercial operator navigation stays separate and pricing uses exact rupees', async ({ page }) => {
   const state = await workspace(page, { operator: true }); await page.goto('/commercial/requests'); await expect(page.getByRole('heading', { name: 'Platform operations', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Monthly price ₹')).toHaveValue('123.45'); await expect(page.getByLabel('Yearly price ₹')).toHaveValue('1000.00'); await page.getByLabel('Monthly price ₹').fill('199.99'); await page.getByRole('button', { name: 'Save pricing' }).click(); await expect.poll(() => state.pricing()?.monthlyPriceMinor).toBe('19999');
+  await expect(page.getByLabel('Monthly price ₹')).toHaveValue('123.45'); await expect(page.getByLabel('Yearly price ₹')).toHaveValue('1000.00'); await page.getByLabel('Monthly price ₹').fill('199.99'); await page.getByRole('button', { name: 'Save pricing' }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Review', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Save pricing', exact: true }).click(); await expect.poll(() => state.pricing()?.monthlyPriceMinor).toBe('19999');
 });
 test('anonymous protected route and logout return to Login', async ({ page }) => {
   await workspace(page, { authenticated: false }); await page.goto('/customers'); await expect(page).toHaveURL(/\/login$/);

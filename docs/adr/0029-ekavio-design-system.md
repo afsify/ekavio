@@ -59,3 +59,25 @@ domain work. Full cache clears cost refetches but prohibit stale old-workspace
 presentation. Safe page-size/display preferences persist; PII searches do not.
 Mock visual evidence and real local PostgreSQL acceptance are explicitly
 distinct from hosted/provider/operations evidence. NO-GO remains unchanged.
+
+## V2-11D application (2026-10-11)
+
+Administration reuses server-mode tables through `BoundedDirectory`. Branches
+and memberships expose bounded server-ordered search without total/page/sort
+contracts; the UI therefore displays that limitation and hides invented paging
+and local global sort. Roles remain canonical configuration, not a paginated API.
+Reports and HR retain their existing server pagination and supported filters.
+
+`OperationForm` supplies one edit/review/discard dialog for administration and HR;
+`CommercialReview` reuses it for existing operator commands. Review snapshots are
+component memory, never a new business authority. Non-idempotent uncertain writes
+require authoritative inspection; only canonical repeat-safe commands retain an
+identical key/payload retry. Organization saves await refreshed versions before
+another edit. Staff without optional catalogue-read grants can retain, not infer
+or extend, existing server-returned assignments.
+
+Scoped queries include account, organization, branch, permission, entitlements
+and operator state where applicable. Cancelled/late Billing refreshes cannot
+update another authority context. Personal notifications and tenant Billing stay
+separate from operator mutation authority. No new backend domain, migration,
+dependency, second UI kit or hosted readiness claim is introduced.
