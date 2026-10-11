@@ -37,3 +37,36 @@ Managed browser connection failed due unavailable sandbox metadata; the expressl
 authorized repository Playwright/Chromium fallback will be used. No unavailable
 hosted/operator evidence will be claimed. Final outcomes belong in the separate
 acceptance report, not this pre-implementation plan.
+
+## Post-implementation Linux finding (2026-10-11)
+
+The first D commit, `b1846b77439e84c0393f0f7cbd504ca9c8290a64`, passed its
+local gates but failed Linux CI run `38121116223`: 62/65 D visual cases passed;
+the three 320px renewal journeys overflowed. This is a real layout defect,
+not evidence that the original document-width assertion was too strict.
+
+Linux-native Vite with Playwright 1.63.0 / Chromium 153.0.8010.12 and DejaVu
+Sans reproduced a 325px document inside a 320px viewport. The renewal wrapper
+was 246px wide at x=37, but its implicit minimum-content grid track and both
+cards were 288px wide, ending at x=325. Nested native form controls supplied
+the minimum-content pressure. The Playwright image's original WenQuanYi font
+produced a smaller, still incorrect 279px card inside that 246px wrapper; its
+right edge stayed within the viewport, explaining an otherwise green check.
+
+The bounded correction explicitly uses zero-minimum grid tracks, shrinkable
+direct children and available-width form grids. Phone detail padding is 12px
+(20px from 640px), leaving a readable 220px native date/time control. The
+desktop 0.85/1.15 split remains. Screenshot review also caught the nested
+two-column date control clipping at 1024px despite a passing document check.
+Form columns therefore use `auto-fit` with a 240px preferred minimum capped
+at the available width, rather than assuming the viewport equals card width.
+The permanent matrix additionally requires a readable 220px date control.
+Measured corrected cards and track are 246px,
+their right edge is x=283, and document scroll width is 320px. No global
+clipping, font reduction, authority change or dependency upgrade is involved.
+
+Permanent visual coverage additionally checks both cards against their grid
+and captures the filled payment form. Existing document, dialog, focus and
+commercial assertions, timeouts and zero-retry policy remain intact. Temporary
+font/geometry diagnostics and sanitized screenshots remain ignored, out of Git.
+Final verification and release evidence belong in the acceptance report.

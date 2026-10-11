@@ -35,8 +35,10 @@ require authoritative inspection before a new command; keyed repeat-safe retries
 retain the original payload/key. Successful Organization writes await refreshed
 records before reopening an editor, preventing a stale role version race.
 
-## Actual local gates
+## Historical local gates at the first D commit
 
+These results belong to `b1846b77439e84c0393f0f7cbd504ca9c8290a64` before its
+first push. They are not Linux CI acceptance or proof for a later correction.
 All counts below count distinct cases, not repeated attempts.
 
 | Gate | Evidence |
@@ -132,9 +134,132 @@ loader. Dedicated viewport-value captures and the exact Reports loading locator
 corrected the evidence without weakening assertions. No failed attempt is counted
 as a passed gate.
 
+## Linux CI investigation and final correction
+
+The first pushed D commit `b1846b77439e84c0393f0f7cbd504ca9c8290a64`
+failed [CI run 38121116223](https://github.com/afsify/ekavio/actions/runs/38121116223),
+foundation job `114415875261`. The D visual step passed 62/65; the three
+320px Light/Dark/System journeys failed the unchanged document-width assertion
+at the loaded renewal screenshot. Earlier local 495-case success did not
+constitute Linux acceptance. No completion tag was published for that commit.
+
+Resume inspection found main, origin/main and fresh remote main at that SHA,
+with no staged or untracked project changes before this correction. Existing
+ignored Linux diagnostics and the downloaded sanitized CI artifact were retained.
+The checkpoint remains at the accepted C baseline; no checkpoint was recreated.
+
+The CI runner used Ubuntu 24.04, Node 20.20.2 and Playwright 1.63.0 /
+Chromium 153.0.8010.12. A clean, unchanged-lockfile install in the matching
+official Playwright Noble image provided Linux-native Vite/Tailwind and Chromium.
+That image's Node 24.20.0 is a documented local harness difference, not a
+repository upgrade; final GitHub acceptance must use the workflow's Node 20.
+The default container WenQuanYi font concealed document-level overflow, while
+DejaVu Sans reproduced CI's failure. Installing those fonts only in disposable
+QA did not change application fonts or dependencies.
+
+| 320px geometry | Before, DejaVu Sans | Corrected |
+| --- | ---: | ---: |
+| Viewport / HTML client width / DPR | 320 / 320 / 1 | 320 / 320 / 1 |
+| Document and body scroll width | 325 | 320 |
+| Renewal wrapper width | 246 | 246 |
+| Grid track / direct card width | 288 | 246 |
+| Direct card right edge | 325 | 283 |
+| Filled date control width | Intrinsic sizing pushed the card outward | 220 |
+
+An implicit minimum-content grid track inherited native form-control pressure.
+WenQuanYi yielded a still-incorrect 279px card inside the 246px wrapper, but its
+right edge (316px) stayed within the document. Thus Linux-browser tests against
+Windows assets passing earlier did not rule out the defect. Explicit zero-minimum
+tracks and shrinkable direct children remove the cause. Phone detail padding is
+12px, returning to 20px at 640px. Screenshot review then caught a 1024px nested
+two-column date field clipping despite document containment; `auto-fit` form
+columns now respond to card width, with a 240px preferred minimum capped at 100%.
+The existing desktop outer split is retained. No global overflow clipping or
+font-size reduction is introduced.
+
+The three original 320px journeys passed after correction, followed by a full
+65/65 Linux run. After the final screenshot-driven refinement, a fresh D
+matrix passed 65/65 and the affected commercial regression passed 24/24.
+Permanent coverage retains every
+original assertion/deadline and zero retries, adds direct-card containment and
+a 220px date-control minimum, and captures the filled payment form. The case
+count remains 65; diagnostic repetitions are not new product acceptance cases.
+
+Development initially served cached pre-edit modules from the Windows mount;
+a read-only served-source check proved the mismatch. Fresh QA server processes
+served the actual correction. An initial build/preview lacked mandatory public
+API URLs and stopped safely; explicit loopback QA URLs resolved setup. One
+production comparison was declined because automatic approval review exhausted
+its usage limit; it did not execute and is not a test failure or pass. The
+normally approved resumed comparison passed. Hosted credentials were never used.
+
+During the final refinement, concurrent QA builds/dev serving produced navigation
+interference (including an explicitly destroyed execution context), not a renewed
+overflow failure. The incomplete foundation attempt had 36 passed, four failed,
+two interrupted and 19 unrun; the incomplete D attempt had four passed, two
+failed, one interrupted and 58 unrun. Neither is counted as a passed suite.
+Only those identified QA runners were stopped and their evidence retained. The
+container's missing frontend ignore file was restored; native Linux and Windows
+production CSS then matched (`index-BGP7c20E.css`, 75.80 kB / 14.83 kB gzip).
+Remaining local suites use fixed Linux production assets, sequential suite
+execution, original suite workers/deadlines and zero retries. CI retains its
+unchanged fresh Linux development-server workflow.
+
+Final native Linux production renewal diagnostics passed 24/24 combinations;
+the original three full 320px development journeys also passed 3/3 after the
+last form-grid change. Measured date widths are 220px at 320px and approximately
+329px at 1024px. All eight focused payment/review contact sheets (48 actual
+screenshots across Light/Dark/System) and representative full-resolution originals
+were inspected. These diagnostics supplement, not inflate, the 495 distinct
+retained product-browser cases. Earlier 26 full administration/state contact
+sheets were also inspected; the final refinement changes only renewal form sizing.
+
+The final 65-case Linux production run completed in 10.3 minutes. All 26 newly
+generated administration/state contact sheets were visually reviewed again,
+covering all eight widths and three themes, with full-resolution 320px payment
+and review and 1024px payment originals checked separately. The ignored
+`frontend/test-results/linux-release-administration/` contains 887 original
+frames (35 loaded journeys across 24 combinations, 42 state frames and five
+special frames) and 26 contact sheets. Earlier diagnostic artifacts are preserved.
+
+### Final corrected-source local gates
+
+Completed runner exit codes and retained logs were recovered, not inferred from
+partial output. Final frozen Linux suites ran sequentially, without retries.
+The previously failing/interrupted 1920px Light/Dark foundation journeys and
+390px shell case passed in the complete 61/61 foundation rerun. No incomplete
+attempt contributes to the following totals.
+
+| Gate | Final result |
+| --- | --- |
+| Backend lint / typecheck / unit / build | Passed; 196/196 unit tests. Backend source is unchanged by the layout correction. |
+| Database integration | 34 files, 328/328 tests; zero failures/skips; isolated disposable PostgreSQL and legacy-test Mongo fixtures. |
+| Frontend lint / typecheck / component / build | Passed after the final form-grid correction; 121/121 component tests; Windows and native Linux production builds passed. |
+| Recovery / security / source contracts | Root operations contracts 23/23; Mongo-source contract 4/4. |
+| Dependency audits | Four backend/frontend full and production-only audits; zero vulnerabilities; lockfiles unchanged. |
+| Real PostgreSQL browser workflows | 163/163 across the 12 retained suites listed above. Affected commercial 24/24 rerun after the last layout edit is a repeat, not an inflated distinct-case total. |
+| Final Linux presentation regressions | Administration 65/65, foundation 61/61, daily operations 175/175, relationships 31/31: 332/332. |
+| Distinct product browser total | 495/495 = 163 real PostgreSQL + 332 sanitized presentation cases. Supplementary 24-combination diagnostics and three original 320px development reruns are recorded separately. |
+| Docker runtime | Config/build/up passed; three healthy services; live/ready/root/login HTTP 200; bounded logs free of runtime-error/sensitive-value matches. |
+
+Only the renewal page, semantic renewal CSS, strengthened visual regression,
+acceptance report and source audit changed in this correction. Original document
+overflow, dialog/focus/occlusion, commercial authority and security assertions,
+deadlines and zero-retry policy remain unchanged. No CI configuration, dependency,
+backend, migration, secret or hosted setting changed. README, PROJECT_CONTEXT,
+ADR 0029 and the V2-11 roadmap already describe the implemented scope, deferred E
+work and independent NO-GO restrictions; their existing boundaries remain valid.
+
+Final source builds on Windows and Linux passed: 435 modules, main entry
+317.61 kB / 101.01 kB gzip, shared client 99.54 kB / 33.89 kB gzip, CSS
+75.80 kB / 14.83 kB gzip, PWA 78 entries / 1144.38 KiB. The existing mixed
+static/dynamic API import warning remains. Docker rebuilt the final frontend;
+all three services are healthy, live/ready/root/login returned HTTP 200 and a
+bounded 150-line/service, ten-minute runtime/security scan found zero matches.
+
 ## Performance, security and exclusions
 
-Production build: 435 transformed modules; main entry 317.61 kB / 101.00 kB gzip,
+Historical first-D production build: 435 transformed modules; main entry 317.61 kB / 101.00 kB gzip,
 shared client 99.54 kB / 33.89 kB gzip, CSS 75.41 kB / 14.76 kB gzip. D workspaces
 remain lazy-loaded. PWA precache is 78 entries / 1144.03 KiB, versus accepted C's
 77 / 1112.46 KiB: +31.57 KiB (2.84%). The existing mixed static/dynamic API-client
