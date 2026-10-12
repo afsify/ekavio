@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { workspace } from '../e2e/fixtures';
 // Sanitized contract DTOs only. These images are NOT database-authority proof.
-export async function administrationFixture(page: Page, readonly = false) {
-  const permissions = ['organization.read','branches.read','roles.read','staff.read','billing.read','reports.read','customers.read','hr_plus.read', ...(readonly ? [] : ['organization.manage','branches.manage','roles.manage','staff.manage','hr_plus.manage','hr_plus.approve'])];
-  const state = await workspace(page, { permissions, modules: ['hr_plus','inventory','crm'], operator: !readonly });
+export async function administrationFixture(page: Page, readonly = false, extraPermissions: string[] = []) {
+  const permissions = ['organization.read','branches.read','roles.read','staff.read','billing.read','reports.read','customers.read','hr_plus.read', ...extraPermissions, ...(readonly ? [] : ['organization.manage','branches.manage','roles.manage','staff.manage','hr_plus.manage','hr_plus.approve'])];
+  const state = await workspace(page, { permissions, modules: ['hr_plus','inventory','crm', ...(extraPermissions.includes('queue.read') ? ['queue'] : [])], operator: !readonly });
   const branch = { id: state.branch, name: 'Main', code: 'main', timezone: 'Asia/Kolkata', status: 'active', version: 2, updated_at: '2026-10-11T05:00:00Z' };
   const role = { id: randomUUID(), name: 'QA customer directory reviewer with a descriptive role', description: 'Customer access only; not a subscription or operator grant.', permissions: ['customers.read'], version: 2, status: 'active' };
   const member = { id: randomUUID(), name: 'QA organization colleague with a longer display name', phone: '+919876540001', email: 'qa@example.invalid', role: 'staff', roleName: role.name, customRoleId: role.id, membershipId: randomUUID(), status: 'active', branchIds: [state.branch], branchNames: ['Main'], version: 2, updated_at: branch.updated_at };

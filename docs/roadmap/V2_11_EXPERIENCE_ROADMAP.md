@@ -26,7 +26,12 @@ See [C source audit](../reviews/V2-11C_CRM_PURCHASING_UX_AUDIT.md) and
 [C acceptance](../reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md).
 See [D source audit](../reviews/V2-11D_ADMINISTRATION_UX_AUDIT.md) and
 [D acceptance](../reviews/V2-11D_ADMINISTRATION_EXPERIENCE.md).
-V2-11E remains deferred: final cross-domain/public/account polish and broad
-accessibility/performance acceptance. No phase starts automatically. Complete
+V2-11E is delivered in approval-gated intermediate batches: see the
+[source audit and plan](../reviews/V2-11E_SOURCE_AUDIT_AND_PLAN.md),
+[Batch 1 field catalogue](../reviews/V2-11E_BATCH1_FIELD_CATALOGUE.md),
+[Batch 2 layout studio](../reviews/V2-11E_BATCH2_LAYOUT_STUDIO.md) and
+[Batch 3 entity forms acceptance register](../reviews/V2-11E_BATCH3_ENTITY_FORMS.md).
+Batch 4 final cross-domain/public/account polish and broad
+accessibility/performance acceptance remain deferred. No batch starts automatically. Complete
 Branch/Staff paging, new report builders and new commercial capabilities require
 separately reviewed backend/security work, not a client-only approximation.

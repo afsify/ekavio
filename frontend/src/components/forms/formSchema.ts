@@ -16,7 +16,7 @@ export function fieldError(field:Definition,value:FieldValue|undefined):string|u
   case 'number':return /^-?(?:0|[1-9]\d{0,17})(?:\.\d{1,6})?$/.test(value)?undefined:'Use a decimal with at most 18 integer digits and 6 decimal places.';
   case 'currency':return /^(?:0|[1-9]\d{0,17})$/.test(value)?undefined:'Enter a non-negative whole number of INR minor units.';
   case 'date':return /^\d{4}-\d{2}-\d{2}$/.test(value)&&!value.startsWith('0000')&&Number.isFinite(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value?undefined:'Choose a valid calendar date.';
-  case 'datetime':return Number.isFinite(Date.parse(value))?undefined:'Choose a valid UTC date and time.';
+  case 'datetime':return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)&&!value.startsWith('0000')&&Number.isFinite(Date.parse(value))&&Number(value.slice(11,13))<=23&&fieldError({...field,field_type:'date'},value.slice(0,10))===undefined?undefined:'Choose a valid UTC or explicit-offset date and time.';
   case 'email':return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)&&value.length<=254?undefined:'Enter a valid email address.';
   case 'phone':return value.startsWith('+')&&parsePhoneNumberFromString(value)?.isValid()?undefined:'Enter a valid international phone number.';
   case 'url':try {const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?undefined:'Use an HTTP or HTTPS URL without credentials.';}catch{return 'Enter a valid HTTP or HTTPS URL.';}

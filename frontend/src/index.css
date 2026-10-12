@@ -544,3 +544,14 @@ body { line-height: 1.5; }
 .layout-preview input[type=date], .layout-preview input[type=datetime-local] { min-width:0; max-width:100%; }
 .layout-studio-actions { padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
 @media (min-width:1024px) { .layout-studio-workspace { grid-template-columns:minmax(220px,1fr) minmax(0,2fr); align-items:start; } }
+/* Shared canonical dynamic forms, including nested record editors and previews. */
+[data-dynamic-form] .dynamic-section + .dynamic-section { border-top:1px solid var(--border); padding-top:20px; }
+[data-dynamic-form] .dynamic-section > *, .dynamic-choices { min-width:0; }
+.dynamic-choices { border:0; padding:0; margin:0; }
+.dynamic-choices legend, .dynamic-value dt { font-weight:600; color:var(--text-secondary); overflow-wrap:anywhere; }
+.dynamic-value dd { margin:4px 0 0; overflow-wrap:anywhere; }
+[data-dynamic-form] :is(input,select,textarea) { min-width:0; max-width:100%; }
+[data-dynamic-form] .field { grid-template-columns:minmax(0,1fr); }
+[data-dynamic-form] :is(label,p) { min-width:0; overflow-wrap:anywhere; }
+/* Bound canonical Service review facts as well as custom-field controls. */
+.review-facts { min-width:0; overflow-wrap:anywhere; }

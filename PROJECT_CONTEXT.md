@@ -1,6 +1,23 @@
 # EkaVio Project Context
 
-## Current experience work: V2-11D (2026-10-11)
+## Current experience work: V2-11E approval-gated batches (2026-10-12)
+
+Batch 1 field catalogue and Batch 2 layout studio are accepted at main
+`2a410b82028b48253aab3487d5816484d291c98b`, exact successful CI `38223216993`.
+Batch 3 continues the preserved renderer edits and adds a protected Service
+editor, historical-section/choice/datetime/exact-money presentation fixes,
+bounded long-label grids, standard Membership field styling and a proven Lead
+cached-version action guard. Existing six-entity APIs, PostgreSQL/RBAC/entitlement
+authority and original domain invariants are retained; no migrations or packages.
+See [Batch 3 acceptance register](docs/reviews/V2-11E_BATCH3_ENTITY_FORMS.md) for
+actual six-entity, responsive, security and publication gates. Intermediate
+acceptance requires complete exact-final-commit CI success, not a started run.
+The existing pre-V2-11E checkpoint is preserved. No V2-11E completion tag is
+authorized for this batch. Batch 4 and all advanced form capabilities require
+separate approval. NO-GO FOR REAL CUSTOMER DATA and Render Free staging-only
+remain unchanged. Diagnostic recovery notes stay under ignored frontend QA output.
+
+## Prior experience work: V2-11D (2026-10-11)
 
 Continued the preserved main working tree from accepted V2-11C
 `3fb1165dbff6f62ed15d2a5f95ae1dd360868caf`, exact CI `38066738453`.
@@ -42,7 +59,7 @@ by annotated `v2-11d-administration-experience`.
 
 **NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging-only;
 Atlas is retained. V2-10 hosted/recovery/provider/monitoring/operations requirements
-remain independent. Do not start V2-11E automatically.
+remain independent. Do not start unapproved V2-11E batches automatically.
 
 ## Prior experience work: V2-11C (2026-10-10)
 

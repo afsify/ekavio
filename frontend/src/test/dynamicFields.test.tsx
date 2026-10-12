@@ -17,3 +17,22 @@ it('archive removes fields from new forms and preserves historical display',()=>
 it('layout order and missing required fallback keep builtins canonical',()=>{const f=field('text'),s={...schema(f),builtins:[{key:'name',label:'Name',required:true}],sections:[{id:'main',title:'Details',fields:[{key:f.key,visible:true}]}]};const sections=formSections(s);expect(sections[1].fields[0].key).toBe('name');render(<DynamicForm schema={s} values={{}} builtins={{name:<input aria-label="Canonical name" required/>}}/>);expect(screen.getByLabelText('Canonical name')).toBeTruthy();});
 it('boolean false and exact numbers display without number coercion',()=>{render(<DynamicForm schema={{...schema(field('checkbox')),definitions:[field('checkbox'),{...field('number'),key:'decimal',id:'decimal',label:'Exact number'}]}} values={{fixture:false,decimal:'123456789012345678.123456'}} readOnly/>);expect(screen.getByText('No')).toBeTruthy();expect(screen.getByText('123456789012345678.123456')).toBeTruthy();});
 it('required and invalid values are inline and associated with the control',()=>{render(<DynamicForm schema={schema(field('number'))} values={{fixture:'1e6'}}/>);const input=screen.getByLabelText(/Fixture field/);expect(input.getAttribute('aria-invalid')).toBe('true');expect(input.getAttribute('aria-describedby')).toContain('error');expect(screen.getByRole('alert').textContent).toContain('decimal');expect(fieldError(field('checkbox'),false)).toBeUndefined();expect(fieldError(field('date'),'2026-02-30')).toBeTruthy();expect(fieldError(field('url'),'javascript:bad')).toBeTruthy();});
+it('historical values in archived sections stay readable without empty detail sections',()=>{
+ const f=field('text'),s={...schema(f),sections:[{id:'old',title:'Archived layout',status:'archived' as const,fields:[{key:f.key,visible:false}]},{id:'empty',title:'Empty section',fields:[]}]};
+ render(<DynamicForm schema={s} values={{fixture:'Retained historical fact'}} readOnly/>);
+ expect(screen.getByText('Retained historical fact')).toBeTruthy();expect(screen.queryByText('Empty section')).toBeNull();
+});
+it('choice groups have visible named legends and associated required feedback',()=>{
+ render(<DynamicForm schema={schema(field('multiselect'))} values={{}}/>);
+ const group=screen.getByRole('group',{name:'Fixture field *'});expect(group.getAttribute('aria-describedby')).toContain('error');
+ expect(group.querySelector('legend')?.className).not.toContain('sr-only');
+});
+it('invalid datetime drafts remain editable without throwing and offsetless input is rejected',()=>{
+ expect(fieldError(field('datetime'),'2028-01-01T10:30:00')).toBeTruthy();
+ render(<DynamicForm schema={schema(field('datetime'))} values={{fixture:'not-a-date'}}/>);
+ expect(screen.getByLabelText(/Fixture field/).getAttribute('aria-invalid')).toBe('true');
+});
+it('detail currency uses exact rupees without losing the stored minor-unit representation',()=>{
+ render(<DynamicForm schema={schema(field('currency'))} values={{fixture:'123456789012345678'}} readOnly/>);
+ expect(screen.getByText('₹1234567890123456.78')).toBeTruthy();expect(screen.getByText('123456789012345678 INR minor units')).toBeTruthy();
+});

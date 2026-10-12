@@ -33,6 +33,14 @@ business capabilities, and maintainable backend architecture.
 
 ## Project Status
 
+V2-11E is progressing through explicitly approved intermediate batches:
+[field catalogue](docs/reviews/V2-11E_BATCH1_FIELD_CATALOGUE.md),
+[layout studio](docs/reviews/V2-11E_BATCH2_LAYOUT_STUDIO.md) and
+[six-entity forms / protected Service editor](docs/reviews/V2-11E_BATCH3_ENTITY_FORMS.md).
+Batch 3 acceptance requires its complete exact-commit CI; the V2-11E completion
+tag is reserved for separately approved Batch 4. No new backend features,
+migrations or dependencies are added. NO-GO and Free staging-only remain unchanged.
+
 V2-11D transforms Organization, Branches, Roles, Staff, HR Plus, Reports,
 Notifications and Billing using semantic directories, protected details and
 single reviewed/guarded workflows. Canonical membership/branch authority, HR
@@ -43,7 +51,7 @@ are explicitly bounded; no unsupported global paging/sorting is invented.
 See [administration acceptance](docs/reviews/V2-11D_ADMINISTRATION_EXPERIENCE.md)
 and [source audit](docs/reviews/V2-11D_ADMINISTRATION_UX_AUDIT.md).
 No backend feature, migration, dependency, gateway or paid infrastructure is added.
-V2-11E remains deferred and does not start automatically.
+V2-11E final Batch 4 remains deferred and does not start automatically.
 **NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging-only.
 
 V2-11C transforms CRM, manual Follow-ups, Suppliers and Purchasing using the
@@ -53,7 +61,7 @@ quantities/INR, and receiving retains blank actual quantities, the confirmed
 payload/key and canonical Inventory history. No new domain, endpoint, dependency
 or migration is introduced. See [relationship acceptance](docs/reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md)
 and [source audit](docs/reviews/V2-11C_CRM_PURCHASING_UX_AUDIT.md).
-V2-11D is separately implemented above; V2-11E remains deferred. **NO-GO FOR REAL CUSTOMER DATA remains unchanged.**
+V2-11D is separately implemented above; V2-11E final acceptance remains deferred. **NO-GO FOR REAL CUSTOMER DATA remains unchanged.**
 
 V2-11B transforms the existing Queue, Appointments, Attendance, Customer Dues
 and Inventory workflows using the V2-11A foundation. Desktop server tables,
@@ -62,7 +70,7 @@ canonical PostgreSQL authority, branch time, exact money/stock and idempotency.
 See [daily operations acceptance](docs/reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md)
 and [source audit](docs/reviews/V2-11B_OPERATIONS_UX_AUDIT.md).
 No backend feature, migration or second component framework is introduced.
-V2-11C/D are separately implemented above; V2-11E remains deferred.
+V2-11C/D are separately implemented above; V2-11E final acceptance remains deferred.
 
 V2-11A adds an original semantic design system, grouped responsive application
 shell, authoritative context switching, factual Dashboard and Customers exemplar.
