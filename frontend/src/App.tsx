@@ -5,6 +5,8 @@
  */
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+// Install the bounded layout-history relay before BrowserRouter listens.
+import './hooks/useLayoutNavigationGuard';
 import { Toaster } from "react-hot-toast";
 import { useAppStore } from "./store/useAppStore";
 import { ThemeProvider } from "./components/ThemeProvider";

@@ -44,14 +44,18 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
     focusable()[0]?.focus();
     const trap = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
+      // A pending submit can disable the focused button and return focus to
+      // body. Recover containment, but only for the topmost open dialog.
+      if (Array.from(document.querySelectorAll('[role="dialog"]')).at(-1) !== dialog) return;
       const items = focusable();
       const first = items[0], last = items.at(-1);
       if (!first) { event.preventDefault(); dialog?.focus(); return; }
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      if (!dialog?.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    dialog?.addEventListener('keydown', trap);
-    return () => { dialog?.removeEventListener('keydown', trap); previous?.focus(); };
+    document.addEventListener('keydown', trap, true);
+    return () => { document.removeEventListener('keydown', trap, true); previous?.focus(); };
   }, [isOpen]);
   useEffect(() => {
     if (!isOpen) return;

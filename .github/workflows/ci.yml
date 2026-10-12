@@ -326,8 +326,12 @@ jobs:
         working-directory: frontend
         run: npx playwright test --config playwright.fields-visual.config.ts
 
+      - name: Test sanitized V2-11E Batch 2 layout studio responsive states
+        working-directory: frontend
+        run: npx playwright test --config playwright.layout-visual.config.ts
+
       - name: Upload frontend QA evidence
-        # V2-11E Batch 1 adds only explicit sanitized presentation screenshots.
+        # V2-11E Batches 1/2 add only explicit sanitized presentation screenshots.
         # HR acceptance uses disposable private fixtures and no uploaded traces.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()

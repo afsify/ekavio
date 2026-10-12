@@ -42,6 +42,7 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
           <span>Workspace</span>
           <select
             aria-label="Active workspace"
+            data-layout-context="workspace"
             value={activeTenantId ?? user?.tenantId}
             disabled={switching || mutations > 0 || memberships.length < 2}
             onChange={(event) => { const value = event.target.value; void switchContext(() => setActiveTenant(value), 'workspace'); }}
@@ -57,6 +58,7 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
           <span>Branch</span>
           <select
             aria-label="Active branch"
+            data-layout-context="branch"
             value={activeBranchId ?? ''}
             disabled={switching || mutations > 0 || (activeMembership?.branches.length ?? 0) < 2}
             onChange={(event) => { const value = event.target.value; void switchContext(() => setActiveBranch(value), 'branch'); }}

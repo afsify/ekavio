@@ -532,3 +532,15 @@ body { line-height: 1.5; }
 .field-option-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 @media (min-width: 768px) { .field-catalogue-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1440px) { .field-catalogue-filters { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); } }
+/* Bounded layout studio; no global clipping or record-form behavior changes. */
+.layout-studio-workspace, .layout-field-controls { display:grid; grid-template-columns:minmax(0,1fr); gap:20px; }
+.layout-studio-workspace > *, .layout-section-list, .layout-section > *, .layout-field-controls > * { min-width:0; }
+.layout-placement-fact { display:grid; gap:4px; padding:12px 0; border-top:1px solid var(--border); }
+.layout-placement-fact, .layout-field-row, .layout-review { overflow-wrap:anywhere; }
+.layout-field-row { border-top:1px solid var(--border); padding-top:16px; }
+.layout-field-row .record-actions .quiet-button { white-space:normal; overflow-wrap:anywhere; }
+.layout-preview { min-width:0; width:100%; }
+.layout-preview-phone { max-width:390px; margin-inline:auto; }
+.layout-preview input[type=date], .layout-preview input[type=datetime-local] { min-width:0; max-width:100%; }
+.layout-studio-actions { padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+@media (min-width:1024px) { .layout-studio-workspace { grid-template-columns:minmax(220px,1fr) minmax(0,2fr); align-items:start; } }
