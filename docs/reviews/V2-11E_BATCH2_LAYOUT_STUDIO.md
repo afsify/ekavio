@@ -96,6 +96,8 @@ samples resets values; opening preview does not mark a layout dirty.
 - `frontend/src/components/layout/TenantSwitcher.tsx` — context select guard markers
 - `frontend/src/components/ui/AdvancedModal.tsx` — topmost-dialog Tab recovery after
   a pending submit disables the focused button; existing modal lifecycle retained
+- `frontend/src/components/ui/OperationForm.tsx` — synchronous submitted-ref close
+  lock for the retained review-before-save path (see CI investigation below)
 - `frontend/src/index.css` — layout/preview-scoped responsive rules
 - `frontend/src/test/layoutStudio.test.tsx`
 - `frontend/e2e-fields/forms.spec.ts`
@@ -107,8 +109,8 @@ samples resets values; opening preview does not mark a layout dirty.
 
 ## Local acceptance evidence (CI required for intermediate acceptance)
 
-- Final frontend component run: **155/155**, 14 files, exit 0, including all
-  **23 layout cases**, with one worker and original deadlines. An earlier
+- Final follow-up frontend component run: **157/157**, 14 files, exit 0, including
+  all **25 layout/review cases**, with one worker and original deadlines. An earlier
   parallel run had a retained supplier test's 5s resource timeout; assertions
   and deadlines were not increased. The full single-worker rerun passed.
 - PostgreSQL dynamic-field/layout contracts: **19/19**, exit 0. Includes genuine
@@ -125,8 +127,8 @@ samples resets values; opening preview does not mark a layout dirty.
 - Mongo runtime/source retirement: **4/4**, exit 0.
 - Strict NO-GO/evidence and hosted-acceptance safety contracts: **8/8**, exit 0.
 - Final frontend lint/typecheck/build: exit 0 using explicit non-secret local
-  API/socket settings. Production build: 443 modules, index 319.47 kB / 101.55 kB
-  gzip, 78 PWA precache entries / 1174.06 KiB. Existing mixed static/dynamic API
+  API/socket settings. Production build: 443 modules, index 319.47 kB / 101.54 kB
+  gzip, 78 PWA precache entries / 1174.09 KiB. Existing mixed static/dynamic API
   client import warning remains; no new dependency or renderer replacement.
   An earlier build correctly refused missing VITE_API_URL; not counted as pass.
 - Final Linux layout visual/navigation acceptance: **31/31**, exit 0.
@@ -135,10 +137,15 @@ samples resets values; opening preview does not mark a layout dirty.
   Correct window dispatch plus explicit HTTP 403 assertion passed **1/1**, exit
   0. No application assertion, deadline, query behavior or retry policy changed.
   The complete final run passed and regenerated the screenshot set.
+- Follow-up retained real administration browser suite: **6/6**, exit 0, with
+  the original pending-profile assertion unchanged. Dynamic-form browser suite
+  rerun after immediate-close correction: **20/20**, exit 0.
 - Retained Batch 1 Linux catalogue/editor acceptance: **28/28**, exit 0.
   Final affected denied-feedback rerun: **1/1**, exit 0, after denial teardown.
 - Retained Linux foundation navigation/accessibility/theme regression: **61/61**,
   exit 0, including original responsive matrix, context switching and routes.
+- Follow-up retained Linux administration responsive regression: **65/65**,
+  exit 0 (23.2 minutes), with original assertions, deadlines and zero retries.
 - Docker Compose quiet validation: exit 0. Existing backend, frontend and
   PostgreSQL containers are healthy; those baseline images were not rebuilt,
   and are not claimed as new Batch 2 container-build evidence.
@@ -177,7 +184,8 @@ regressions and Docker Compose gate) must succeed before intermediate acceptance
 - Real Chromium: `npx playwright test --config playwright.fields.config.ts`,
   reusing QA-only servers at 5011 / 4175 with the existing external-server flags.
 - Linux: original configs `playwright.layout-visual.config.ts`,
-  `playwright.fields-visual.config.ts`, `playwright.config.ts`; ignored local
+  `playwright.fields-visual.config.ts`, `playwright.config.ts`, and
+  `playwright.administration-visual.config.ts`; ignored local
   wrappers override only baseURL to the owned polling QA server at 4174.
   `FOUNDATION_QA_EXTERNAL_WEB=1`; source/public mounts remain read-only.
 - Sanitized contact sheets: `node e2e-layout-visual/review-matrix.mjs`.
@@ -193,7 +201,8 @@ disabled and CI's private directory exclusions are unchanged.
 
 ### Final source and safety review
 
-The complete intended diff was reviewed. Changes are 17 source/test/CI/report
+The complete initial diff was reviewed. Initial publication contained 17 files;
+the narrow CI correction adds OperationForm, for **18 source/test/CI/report**
 files; backend, DB schema, dependencies/lockfiles, environment files, original
 source audit, Batch 1 report and `.gitignore` are unchanged. `reference/` remains
 ignored and untracked; no reference source was installed, executed or copied.
@@ -203,6 +212,29 @@ boundary; existing APIs still enforce fields and independent entity authority.
 Scoped aborts/remounts and unknown-outcome verification protect cached drafts.
 The 20-section/100-placement limits and required visibility remain enforced.
 Staged path and whitespace/artifact checks are required immediately before commit.
+
+### Exact-commit CI investigation and narrow correction
+
+Initial intermediate commit `acc794f3b3a11a4e03cb12253898f80f11ab7e7e` was normally
+pushed. Exact run [38215828703](https://github.com/afsify/ekavio/actions/runs/38215828703)
+failed the retained V2-11D reviewed administration suite: **5 passed / 1 failed**.
+The pending organization-profile review was still a dialog after Escape, but
+its Saving-disabled assertion failed because the review entered discard.
+The later V2-11D/Batch 1/Batch 2 visual and Docker gates were skipped, not passes.
+
+An unchanged isolated Windows rerun passed **1/1**, so the browser failure alone
+was not called a deterministic reproducer. A new component regression then
+proved the exact lifecycle gap: immediately after confirmation, before pending
+props commit, Escape could enter discard through busy=false from the old render.
+It failed before the correction. The existing submitted ref now synchronously
+locks OperationForm close; layout review close uses the same immediate lock.
+Two strict component regressions cover both paths. This adds no domain/backend
+behavior and changes no original assertion, deadline, security check or retries.
+Follow-up frontend and affected browser acceptance must pass before its normal
+commit/push and a complete new exact-commit CI run. Follow-up lint/typecheck,
+157-case components, production build, 6-case administration and 20-case
+dynamic-form browser runs passed, exit 0. Linux administration responsive
+acceptance completed **65/65**, exit 0; no incomplete result is counted as a pass.
 
 ## Deferred work and publication
 
@@ -215,5 +247,5 @@ Publication is a normal main commit/non-force push only after local acceptance
 and staged diff/security review. As in the accepted Batch 1 convention, exact
 commit/run evidence is verified after publication and reported in the handoff,
 not guessed or recursively self-hashed in this pre-commit report. There is no
-V2-11E completion tag and no checkpoint movement. Current publication status:
-**NOT YET COMMITTED OR ACCEPTED**.
+V2-11E completion tag and no checkpoint movement. Initial CI failure prevents
+acceptance until the narrow follow-up passes the complete exact-commit pipeline.

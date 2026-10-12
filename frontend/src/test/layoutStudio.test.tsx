@@ -5,6 +5,7 @@ import { MemoryRouter, Link } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import { FormLayoutStudio } from '../components/forms/FormLayoutStudio';
 import { LayoutPreview } from '../components/forms/LayoutPreview';
+import { OperationForm } from '../components/ui/OperationForm';
 import { cloneSections, layoutChanges, layoutErrors, sameLayout, startLayoutDraft } from '../components/forms/layoutDraft';
 import { blankDefinition } from '../components/forms/fieldDefinitionUtils';
 import type { FormSchema } from '../components/forms/formSchema';
@@ -14,6 +15,17 @@ import { client } from '../api/client';
 vi.mock('../api/client', () => ({ client: { put: vi.fn(), post: vi.fn() } }));
 const schema = (): FormSchema => ({ entity: 'customer', version: 7, builtins: [{ key: 'name', label: 'Customer name', required: true }], definitions: [{ ...blankDefinition(), id: 'field', key: 'note', label: 'QA note' }], sections: [{ id: 'main', title: 'General', fields: [{ key: 'name', visible: true }, { key: 'note', visible: true }] }] });
 beforeEach(() => { vi.clearAllMocks(); useAppStore.setState({ user: { id: 'qa-user', permissions: ['fields.read', 'fields.manage'] } as never, activeTenantId: 'qa-org', activeBranchId: 'qa-branch' }); });
+it('shared review rejects Escape immediately after confirmation before pending props commit', () => {
+  const confirm = vi.fn(), close = vi.fn();
+  render(<OperationForm open title="QA review" review={<p>Disposable facts</p>} valid busy={false} dirty confirmLabel="Confirm QA" onConfirm={confirm} onClose={close}><p>Disposable editor</p></OperationForm>);
+  fireEvent.click(screen.getByRole('button', { name: /^Review$/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^Confirm QA$/ }));
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('dialog').textContent).toContain('Review · QA review');
+  expect(screen.queryByText('Discard unsaved changes?')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /^Confirm QA$/ }));
+  expect(confirm).toHaveBeenCalledTimes(1); expect(close).not.toHaveBeenCalled();
+});
 it('captures an independent schema, authority and version before edits', () => {
   const initial = schema(), draft = startLayoutDraft(initial, 'authority'); initial.version = 9; initial.sections[0].fields[0].visible = false;
   expect(draft.schema.version).toBe(7); expect(draft.original[0].fields[0].visible).toBe(true); expect(draft.authority).toBe('authority');
@@ -42,6 +54,11 @@ function mount(initial = schema(), manage = true) {
 }
 const changeTitle = (value = 'QA revised') => fireEvent.change(screen.getByLabelText('Section 1 title'), { target: { value } });
 const confirmSave = () => { fireEvent.click(screen.getByRole('button', { name: 'Save layout' })); fireEvent.click(screen.getByRole('button', { name: 'Confirm layout save' })); };
+it('layout review rejects Escape immediately after confirmation before pending notification', () => {
+  vi.mocked(client.put).mockReturnValue(new Promise(() => undefined)); mount(); changeTitle(); confirmSave();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.getByRole('dialog').textContent).toContain('Review layout changes');
+});
 it('disables unchanged save and restores the original snapshot after reviewed discard', () => {
   const view = mount(); expect(screen.getByRole('button', { name: 'Save layout' }).hasAttribute('disabled')).toBe(true); changeTitle();
   view.replace({ ...schema(), version: 8, sections: [{ ...schema().sections[0], title: 'Server winner' }] });

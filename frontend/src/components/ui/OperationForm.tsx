@@ -17,7 +17,9 @@ function OpenOperationForm({ title, children, review, valid, busy, dirty, error,
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
-  const close = () => { if (!busy) { if (dirty) setStage('discard'); else onClose(); } };
+  // Confirmation locks synchronously; mutation pending props arrive later.
+  // Escape must not enter discard through the previous render's busy=false.
+  const close = () => { if (!busy && !submitted.current) { if (dirty) setStage('discard'); else onClose(); } };
   return <AdvancedModal isOpen onClose={close} title={stage === 'discard' ? 'Discard unsaved changes?' : stage === 'review' ? `Review · ${title}` : title} size="xl" closeOnEscape={!busy} closeOnBackdropClick={!busy} actions={stage === 'discard' ? <><button className="quiet-button" onClick={() => setStage(error ? 'review' : 'edit')}>Keep editing</button><button className="danger-button" onClick={onClose}>Discard changes</button></> : <><button className="quiet-button" disabled={busy} onClick={close}>Cancel</button>{stage === 'review' && <button className="quiet-button" disabled={busy || Boolean(error)} onClick={() => setStage('edit')}>Back</button>}<button className="action-link" disabled={busy || !valid} onClick={() => { if (busy || !valid || submitted.current) return; if (stage === 'edit') setStage('review'); else { submitted.current = true; onConfirm(); } }}>{busy ? 'Saving…' : stage === 'edit' ? reviewLabel : confirmLabel}</button></>}>
     <div ref={content} tabIndex={-1}>{stage === 'discard' ? <p>Changes are not saved. If an earlier request failed after submission, refresh authoritative records before starting a new command.</p> : <div className="page-stack">{stage === 'review' ? <><p className="muted">Check the facts before confirming. The server validates the current workspace and domain rules again.</p>{review}</> : children}{Boolean(error) && <p role="alert" className="error-text">{getErrorMessage(error, 'The command could not be completed. Check authoritative records if the outcome is uncertain.')} {retryAdvice}</p>}</div>}</div>
   </AdvancedModal>;

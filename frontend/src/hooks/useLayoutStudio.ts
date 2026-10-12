@@ -63,7 +63,7 @@ export function useLayoutStudio(schema: FormSchema | undefined, authority: strin
     acceptLeave: () => { if (!leave || busy) return; const action = leave.action; setLeave(null); setDraft(null); setReview(null); setPreview(null); save.reset(); action(); },
     reviewSave: () => { if (draft && dirty && !busy && !blocked && !errors.length) setReview({ draft: structuredClone(draft), reset: false }); },
     reviewReset: () => { if (schema && manage && !busy && !blocked) setReview({ draft: structuredClone(draft ?? startLayoutDraft(schema, authority)), reset: true }); },
-    closeReview: () => { if (!busy) setReview(null); },
+    closeReview: () => { if (!busy && !submitted.current) setReview(null); },
     confirm: () => { if (!review || busy || blocked || submitted.current || !manage || !active()) return; submitted.current = true; save.mutate(review); },
     reload: () => guard(() => {
       setReloading(true);
