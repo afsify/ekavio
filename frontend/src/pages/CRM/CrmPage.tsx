@@ -37,7 +37,7 @@ function Workspace(){
  const leads=useQuery({queryKey:['crm',...scope,'leads',filters,page],queryFn:({signal})=>get<Page<Lead>>('leads',{...filters,page,limit:20},signal)});
  const actions=useQuery({queryKey:['crm',...scope,'followups',view,followPage],enabled:tab==='followups',queryFn:({signal})=>get<Page<Followup>>('followups',{view,page:followPage,limit:20},signal)});
  const selected=useQuery({queryKey:['crm',...scope,'detail',detail],enabled:Boolean(detail),queryFn:({signal})=>get<Lead>('leads/'+detail,undefined,signal)});
- const refresh=async()=>{await cache.invalidateQueries({queryKey:['crm']});await cache.invalidateQueries({queryKey:['form-values']});await cache.invalidateQueries({queryKey:['dashboard']});await cache.invalidateQueries({queryKey:['notification']});};
+ const refresh=async()=>{await cache.invalidateQueries({queryKey:['crm',...scope]});await cache.invalidateQueries({queryKey:['form-values',...scope]});await cache.invalidateQueries({queryKey:['dashboardStats',...scope.slice(0,3)]});await cache.invalidateQueries({queryKey:['notifications',...scope]});};
  const mutation=useMutation({mutationFn:async({path,body,method='post'}:{path:string;body:unknown;method?:'post'|'patch'})=>client[method]('/crm/'+path,body),onSuccess:refresh});
  const filter=(key:string,value:string)=>{setPage(1);setFilters(old=>{const next={...old};if(value)next[key]=value;else delete next[key];return next;});};
  const timezone=overview.data?.timezone??leads.data?.timezone;

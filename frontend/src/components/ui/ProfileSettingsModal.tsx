@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +32,10 @@ interface ProfileSettingsModalProps {
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const clearSession = useAppStore((state) => state.clearSession);
+  const submittingUserId = useAppStore((state) => state.user?.id);
+  const alive = useRef(true), passwordController = useRef<AbortController | null>(null);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; passwordController.current?.abort(); }; }, []);
+  const ownsCompletion = () => alive.current && Boolean(submittingUserId) && useAppStore.getState().user?.id === submittingUserId;
   const {
     register,
     handleSubmit,
@@ -43,13 +47,21 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data: PasswordFormInputs) => {
-      const response = await client.put('/profile/password', {
-        oldPassword: data.oldPassword,
-        newPassword: data.newPassword,
-      });
-      return response.data;
+      if (!ownsCompletion()) throw new Error('Account changed. Reopen security settings before saving.');
+      const controller = new AbortController(); passwordController.current = controller;
+      const unsubscribe = useAppStore.subscribe(state => { if (state.user?.id !== submittingUserId) controller.abort(); });
+      try {
+        const response = await client.put('/profile/password', {
+          oldPassword: data.oldPassword,
+          newPassword: data.newPassword,
+        }, { signal: controller.signal });
+        return response.data;
+      } finally { unsubscribe(); }
     },
     onSuccess: () => {
+      // Server revocation still applies to the submitting account. A delayed
+      // completion must not clear a different account's established session.
+      if (!ownsCompletion()) return;
       clearSession();
       toast.success('Password changed. Sign in again to continue.');
       reset();
@@ -57,6 +69,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({ isOp
       navigate('/login', { replace: true });
     },
     onError: (error: unknown) => {
+      if (!ownsCompletion()) return;
       toast.error(getErrorMessage(error, 'Failed to change password'));
     },
   });

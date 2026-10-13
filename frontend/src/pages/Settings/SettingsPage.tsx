@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -13,18 +13,36 @@ import NotificationPreferences from '../Notifications/NotificationPreferences';
 
 const accents = [{ name: 'Indigo', color: '#4F46E5' }, { name: 'Forest', color: '#087443' }, { name: 'Violet', color: '#7040BC' }, { name: 'Rose', color: '#B42358' }];
 export default function SettingsPage() {
+  const userId = useAppStore(state => state.user?.id);
+  return <AccountSettings key={userId ?? 'signed-out'} />;
+}
+function AccountSettings() {
   const { user, theme, setTheme, activeTenantId, activeBranchId } = useAppStore();
   const [params, setParams] = useSearchParams();
   const sections = ['profile', 'appearance', 'organization', 'security', 'notifications'] as const;
   const section = sections.find((value) => value === params.get('section')) ?? 'profile';
   const [name, setName] = useState(user?.name ?? '');
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const alive = useRef(true), profileController = useRef<AbortController | null>(null);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; profileController.current?.abort(); }; }, []);
   const membership = user?.memberships?.find((item) => item.organizationId === activeTenantId);
   const branch = membership?.branches.find((item) => item.id === activeBranchId);
   const organizationAdmin = user?.permissions?.includes('organization.manage');
   const profile = useMutation({
-    mutationFn: (submittedName: string) => client.put('/profile', { name: submittedName }),
-    onSuccess: (_response, submittedName) => { useAppStore.setState((state) => ({ user: state.user ? { ...state.user, name: submittedName } : null })); toast.success('Profile saved'); },
+    mutationFn: async (submittedName: string) => {
+      if (!alive.current || !user?.id || useAppStore.getState().user?.id !== user.id) throw new Error('Account changed. Reopen your profile before saving.');
+      const controller = new AbortController(); profileController.current = controller;
+      const unsubscribe = useAppStore.subscribe(state => { if (state.user?.id !== user.id) controller.abort(); });
+      try { return await client.put('/profile', { name: submittedName }, { signal: controller.signal }); }
+      finally { unsubscribe(); }
+    },
+    onSuccess: (_response, submittedName) => {
+      // An old request may complete after logout/account replacement. Never
+      // apply its name or success feedback to the newly established identity.
+      if (!alive.current || !user?.id || useAppStore.getState().user?.id !== user.id) return;
+      useAppStore.setState((state) => ({ user: state.user?.id === user.id ? { ...state.user, name: submittedName } : state.user }));
+      toast.success('Profile saved');
+    },
   });
   return <div className="page-stack"><header className="page-heading"><div><h1>Settings</h1><p>Manage your profile, appearance and workspace information.</p></div></header>
     <nav className="settings-tabs" aria-label="Settings sections">{sections.map((value) => <button key={value} className="quiet-button capitalize" aria-current={section === value ? 'page' : undefined} onClick={() => setParams({ section: value })}>{value === 'profile' ? 'My Profile' : value[0].toUpperCase() + value.slice(1)}</button>)}</nav>

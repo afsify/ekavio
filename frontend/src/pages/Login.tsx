@@ -59,9 +59,6 @@ export const Login: React.FC = () => {
           toast.success('Signed in to Ekavio!');
           navigate('/dashboard', { replace: true });
         },
-        onError: (error: unknown) => {
-          toast.error(getErrorMessage(error, 'Authentication failed. Please verify credentials.'));
-        },
       }
     );
   };
@@ -69,7 +66,7 @@ export const Login: React.FC = () => {
   const isLoading = loginMutation.isPending;
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
+    <main className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950 px-4 py-10">
       {/* Dynamic background glow */}
       <div
         className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-20 animate-pulse transition-colors duration-500"
@@ -108,6 +105,7 @@ export const Login: React.FC = () => {
               id="password"
               label="Password"
               type="password"
+              autoComplete="current-password"
               {...register('password')}
               placeholder="••••••••"
               icon={<Lock className="h-4 w-4" />}
@@ -125,8 +123,9 @@ export const Login: React.FC = () => {
               <span>Sign In to Ekavio</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
+            {loginMutation.isError && <p role="alert" className="error-text">{getErrorMessage(loginMutation.error, 'Authentication failed. Please verify credentials.')}</p>}
           </form>
-          <Link className="mt-4 block text-sm text-indigo-500" to="/forgot-password">Forgot password?</Link>
+          <Link className="mt-4 block text-sm text-indigo-300" to="/forgot-password">Forgot password?</Link>
 
           <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-center gap-2 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -138,7 +137,7 @@ export const Login: React.FC = () => {
           &copy; {new Date().getFullYear()} EkaVio. <Link to="/privacy">Privacy overview</Link>
         </p>
       </div>
-    </div>
+    </main>
   );
 };
 

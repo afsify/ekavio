@@ -24,8 +24,74 @@ test('phone and case-insensitive verified email login use actual PostgreSQL sess
   await logout(page); await login(page,fixture.email.toUpperCase());
 });
 test('unknown and wrong credentials show generic failures',async({page}) => {
-  await page.goto('/login'); await page.getByLabel('Phone or email').fill('unknown@example.invalid'); await page.getByLabel('Password',{exact:true}).fill(randomUUID()); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByText('Invalid credentials',{exact:true})).toBeVisible();
-  await page.getByLabel('Phone or email').fill(fixture.phone); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByText('Invalid credentials',{exact:true}).first()).toBeVisible();
+  await page.goto('/login'); await page.getByLabel('Phone or email').fill('unknown@example.invalid'); await page.getByLabel('Password',{exact:true}).fill(randomUUID()); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByRole('main').getByText('Invalid credentials',{exact:true})).toBeVisible();
+  await page.getByLabel('Phone or email').fill(fixture.phone); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByRole('main').getByText('Invalid credentials',{exact:true})).toBeVisible();
+});
+test('committed Profile A response cannot rename Account B after sign out and sign in',async({page,request}) => {
+  const other=await (await request.post(`${api}/__test/fixture`)).json() as Fixture;
+  await login(page); await page.goto('/settings');
+  let release!:()=>void; const held=new Promise<void>(resolve=>{release=resolve;});
+  let committedStatus=0,finished=false;
+  await page.route('**/api/profile',async route=>{
+    if(route.request().method()!=='PUT'){await route.continue();return;}
+    const response=await route.fetch(); committedStatus=response.status(); await held;
+    try { await route.fulfill({response}); } catch { /* Account departure aborts the old browser request. */ }
+    finally { finished=true; }
+  });
+  try {
+    await page.getByLabel('Your name').fill('QA original profile committed');
+    await page.getByRole('button',{name:'Save profile'}).click();
+    await expect.poll(()=>committedStatus).toBe(200);
+    await logout(page); await login(page,other.phone,other.password);
+    await page.goto('/settings'); release(); await expect.poll(()=>finished).toBe(true);
+    await expect(page.getByLabel('Your name')).toHaveValue('QA owner');
+    await expect(page.getByRole('link',{name:'Open my profile'})).toHaveText('QA owner');
+    const original=await request.post(`${api}/api/auth/login`,{data:{phone:fixture.phone,password:fixture.password}});
+    expect(original.status()).toBe(200); expect((await original.json()).user.name).toBe('QA original profile committed');
+  } finally { release(); }
+});
+test('authorized password change revokes sessions and requires the new password',async({page}) => {
+  await login(page); await page.goto('/settings?section=security');
+  await page.getByRole('button',{name:'Change password',exact:true}).click();
+  const password=randomUUID();
+  await page.getByLabel('Current Password').fill(fixture.password);
+  await page.getByLabel('New Password',{exact:true}).fill(password);
+  await page.getByLabel('Confirm New Password').fill(password);
+  await page.getByRole('button',{name:'Update Password'}).click();
+  await expect(page).toHaveURL(/login$/);
+  const old=await page.request.post(`${api}/api/auth/login`,{data:{phone:fixture.phone,password:fixture.password}});
+  expect(old.status()).toBe(401);
+  await login(page,fixture.phone,password); await page.reload();
+  await expect(page.getByRole('link',{name:'Open my profile'})).toHaveText('QA owner');
+});
+test('committed Account A password response cannot clear Account B session or refresh cookie',async({page,request}) => {
+  const response=await request.post(`${api}/__test/fixture`); expect(response.status()).toBe(200);
+  const other=await response.json() as Fixture;
+  await login(page); await page.goto('/settings?section=security');
+  let release!:()=>void; const held=new Promise<void>(resolve=>{release=resolve;});
+  let committedStatus=0,finished=false;
+  await page.route('**/api/profile/password',async route=>{
+    const result=await route.fetch(); committedStatus=result.status(); await held;
+    try { await route.fulfill({response:result}); } catch { /* Old account departure aborts its request. */ }
+    finally { finished=true; }
+  });
+  try {
+    await page.getByRole('button',{name:'Change password',exact:true}).click();
+    await page.getByLabel('Current Password').fill(fixture.password);
+    await page.getByLabel('New Password',{exact:true}).fill(randomUUID());
+    const password=await page.getByLabel('New Password',{exact:true}).inputValue();
+    await page.getByLabel('Confirm New Password').fill(password);
+    await page.getByRole('button',{name:'Update Password'}).click();
+    await expect.poll(()=>committedStatus).toBe(200);
+    // Use the existing dialog departure; its overlay correctly blocks the
+    // shell sign-out action while open. Keep the committed response held.
+    await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await logout(page); await login(page,other.phone,other.password);
+    await page.goto('/settings'); release(); await expect.poll(()=>finished).toBe(true);
+    await expect(page.getByLabel('Your name')).toHaveValue('QA owner');
+    await page.reload(); await expect(page.getByLabel('Your name')).toHaveValue('QA owner');
+  } finally { release(); }
 });
 test('captured recovery resets once, revokes prior browser session and permits new password',async({page,browser}) => {
   await page.setViewportSize({width:390,height:900});

@@ -1,6 +1,23 @@
 # EkaVio Project Context
 
-## Current experience work: V2-11E approval-gated batches (2026-10-12)
+## Current experience work: V2-11E final Batch 4 (2026-10-13)
+
+Batch 4 resumes the accepted Batch 3 main baseline
+`5f2be374827bf796cb2293b2464d70bb9f63a4be`; complete exact CI `38248440892`
+and the unchanged original pre-V2-11E checkpoint were independently verified.
+The bounded final audit corrects delayed Profile/password completions across account replacement,
+adds Login/onboarding announcement semantics and a readable Login recovery link, and fixes CRM/HR refreshes to actual
+account/workspace/branch query keys. Existing APIs, PostgreSQL, security/domain
+contracts, original branding and the single Light/Dark/System system remain.
+See [final acceptance register](docs/reviews/V2-11E_FINAL_ACCEPTANCE.md): local gates
+passed, including 181 components, 196 backend units, 328 integration cases,
+175 real browser workflows and 467 sanitized Linux responsive cases. Contact sheets
+were inspected. Engineering release requires complete exact-final-commit CI and
+the verified annotated tag; its immutable receipt is the final release handoff.
+No advanced Forms capability or new business module is authorized.
+**NO-GO FOR REAL CUSTOMER DATA remains unchanged.** Render Free stays staging-only.
+
+## Earlier V2-11E batches (2026-10-12)
 
 Batch 1 field catalogue and Batch 2 layout studio are accepted at main
 `2a410b82028b48253aab3487d5816484d291c98b`, exact successful CI `38223216993`.
@@ -12,9 +29,9 @@ authority and original domain invariants are retained; no migrations or packages
 See [Batch 3 acceptance register](docs/reviews/V2-11E_BATCH3_ENTITY_FORMS.md) for
 actual six-entity, responsive, security and publication gates. Intermediate
 acceptance requires complete exact-final-commit CI success, not a started run.
-The existing pre-V2-11E checkpoint is preserved. No V2-11E completion tag is
-authorized for this batch. Batch 4 and all advanced form capabilities require
-separate approval. NO-GO FOR REAL CUSTOMER DATA and Render Free staging-only
+The existing pre-V2-11E checkpoint is preserved. No V2-11E completion tag was
+authorized for the intermediate batches. Batch 4 is now separately approved;
+all advanced form capabilities still require separate approval. NO-GO FOR REAL CUSTOMER DATA and Render Free staging-only
 remain unchanged. Diagnostic recovery notes stay under ignored frontend QA output.
 
 ## Prior experience work: V2-11D (2026-10-11)

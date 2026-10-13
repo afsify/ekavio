@@ -17,6 +17,8 @@ V2-07 remains **NO-GO FOR REAL CUSTOMER DATA**. Hosted authenticated acceptance 
 | V2-11A | Implemented semantic theme/components, responsive shared shell, factual Dashboard and Customers exemplar; accepted exact-commit CI and tagged baseline, no pilot GO |
 | V2-11B | Implemented daily operations UX for Queue, Appointments, Attendance, Customer Dues and Inventory; canonical APIs/time/money/stock/authority remain unchanged; automatic local acceptance and exact-commit CI/tag release gate, no pilot GO |
 | V2-11C | Implemented CRM/Follow-ups, Suppliers and Purchasing UX; bounded server tables/mobile records, reviewed canonical conversion/drafts, exact receiving/idempotency/context safeguards; automatic local acceptance and exact-commit CI/tag release gate, no pilot GO |
+| V2-11D | Implemented administration/HR/reports/notifications/Billing experience; accepted exact-commit CI and annotated tag, no pilot GO |
+| V2-11E | Accepted field catalogue/layout studio/six-entity batches and final local account/cross-domain/accessibility acceptance; engineering release requires exact-commit CI and verified annotated completion tag, no pilot GO |
 
 ## Core foundation versus commercial modules
 
@@ -33,8 +35,9 @@ V2-11B implements the five daily-operation workspaces; see
 [B acceptance](../reviews/V2-11B_DAILY_OPERATIONS_EXPERIENCE.md).
 V2-11C implements relationship and purchasing work; see
 [C acceptance](../reviews/V2-11C_CRM_PURCHASING_EXPERIENCE.md).
-[V2-11 phases D/E](V2_11_EXPERIENCE_ROADMAP.md) retain the explicitly deferred
-administration and final-polish work. NO-GO remains unchanged;
+[V2-11 phases D/E](V2_11_EXPERIENCE_ROADMAP.md) record accepted administration
+and current final-polish acceptance. See [E final register](../reviews/V2-11E_FINAL_ACCEPTANCE.md).
+NO-GO remains unchanged;
 no next phase starts automatically.
 
 V2-08D delivers the bounded shared form foundation; V2-08E consumes active reportable

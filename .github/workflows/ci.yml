@@ -334,8 +334,12 @@ jobs:
         working-directory: frontend
         run: npx playwright test --config playwright.entity-forms-visual.config.ts
 
+      - name: Test sanitized V2-11E Batch 4 public and account accessibility
+        working-directory: frontend
+        run: npx playwright test --config playwright.polish-visual.config.ts
+
       - name: Upload frontend QA evidence
-        # V2-11E Batches 1/2/3 add only explicit sanitized presentation screenshots.
+        # V2-11E Batches 1–4 add only explicit sanitized presentation screenshots.
         # HR acceptance uses disposable private fixtures and no uploaded traces.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()

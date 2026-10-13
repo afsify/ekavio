@@ -72,9 +72,9 @@ const OnboardingPage: React.FC = () => {
           <div><h1 className="text-2xl font-bold text-white">Complete EkaVio onboarding</h1><p className="text-sm text-slate-400">Choose your password and create the approved workspace.</p></div>
         </div>
 
-        {!token && <p className="mt-8 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">The onboarding link is missing. Ask the EkaVio operator to generate a replacement.</p>}
-        {inspection.isLoading && <p className="mt-8 text-sm text-slate-400">Validating the one-time invitation…</p>}
-        {inspection.isError && <p className="mt-8 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{errorMessage(inspection.error)}</p>}
+        {!token && <p role="alert" className="mt-8 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">The onboarding link is missing. Ask the EkaVio operator to generate a replacement.</p>}
+        {inspection.isLoading && <p role="status" className="mt-8 text-sm text-slate-400">Validating the one-time invitation…</p>}
+        {inspection.isError && <p role="alert" className="mt-8 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{errorMessage(inspection.error)}</p>}
 
         {inspection.data && (
           <div className="mt-8 space-y-6">
@@ -95,7 +95,7 @@ const OnboardingPage: React.FC = () => {
             </div>
             <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs text-emerald-100/80"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p>Your password is sent only to the onboarding API over HTTPS. The one-time token was removed from the address bar and is never stored in browser storage.</p></div>
             <Button className="w-full" size="lg" disabled={passwordInvalid || !timezone.trim()} isLoading={complete.isPending} onClick={() => complete.mutate()}><CheckCircle2 className="h-5 w-5" /> Create my workspace</Button>
-            {complete.isError && <p className="text-sm text-rose-300">{errorMessage(complete.error)}</p>}
+            {complete.isError && <p role="alert" className="text-sm text-rose-300">{errorMessage(complete.error)}</p>}
           </div>
         )}
       </div>

@@ -14,7 +14,9 @@ const entitlements={modules:[{key:'crm',enabled:true}]} as never;
 const setup=(permissions:string[])=>{
  useAppStore.setState({user:{id:'qa',permissions} as never,activeTenantId:'org',activeBranchId:'branch',entitlements});
  vi.mocked(client.get).mockImplementation(async(path)=>({data:{data:path==='/crm/overview'?{active:0,today:0,overdue:0,unassigned:0,timezone:'Asia/Kolkata',businessDate:'2026-10-07',stages:[]}:path==='/crm/leads'?{data:[],total:0,page:1,limit:20,timezone:'Asia/Kolkata'}:path.includes('/forms/')?{entity:'lead',version:0,definitions:[],sections:[],builtins:[]}:[]}}) as never);
- render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><CrmPage/></MemoryRouter></QueryClientProvider>);
+ const cache=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={cache}><MemoryRouter><CrmPage/></MemoryRouter></QueryClientProvider>);
+ return cache;
 };
 describe('CRM shared presentation',()=>{
  it('commercial and permission navigation checks are independent',()=>{expect(visibleDestinations(['crm.read'],null,false).some(d=>d.path==='/crm')).toBe(false);expect(visibleDestinations([],entitlements,false).some(d=>d.path==='/crm')).toBe(false);expect(visibleDestinations(['crm.read'],entitlements,false).find(d=>d.path==='/crm')?.name).toBe('CRM & Follow-ups');});
@@ -23,6 +25,23 @@ describe('CRM shared presentation',()=>{
  it('read-only CRM renders factual empty state without management controls',async()=>{setup(['crm.read']);await screen.findByRole('heading',{name:'No leads yet'});expect(screen.queryByRole('button',{name:'Create lead'})).toBeNull();expect(screen.queryByRole('button',{name:'Pipeline settings'})).toBeNull();expect(screen.getByRole('heading',{name:'Active leads'})).toBeTruthy();});
  it('manager explicitly configures empty pipeline, no auto seeding on read',async()=>{vi.mocked(client.post).mockResolvedValue({data:{data:{created:5}}});setup(['crm.read','crm.manage']);await screen.findByRole('heading',{name:'No leads yet'});expect(client.post).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Pipeline settings'}));fireEvent.click(screen.getByRole('button',{name:'Create recommended stages'}));await waitFor(()=>expect(client.post).toHaveBeenCalledWith('/crm/stages/recommended',{}));});
  it('search remains bounded and propagates to the shared server query',async()=>{setup(['crm.read']);const search=await screen.findByRole('searchbox',{name:'Search leads'});expect(search.getAttribute('maxlength')).toBe('200');fireEvent.change(search,{target:{value:'No match'}});await waitFor(()=>expect(client.get).toHaveBeenCalledWith('/crm/leads',expect.objectContaining({params:expect.objectContaining({search:'No match'})})));});
+});
+it('CRM writes invalidate actual dashboard and notification cache keys', async () => {
+ vi.mocked(client.post).mockResolvedValue({data:{data:{created:5}}});
+ const cache=setup(['crm.read','crm.manage']);
+ cache.setQueryData(['dashboardStats','qa','org','branch'],{widgets:[]});
+ cache.setQueryData(['notifications','qa','org','branch'],{rows:[]});
+ const scope=JSON.parse(currentLayoutAuthority()) as unknown[];
+ cache.setQueryData(['notifications',...scope],{rows:[]});
+ cache.setQueryData(['dashboardStats','qa','foreign-org','branch'],{widgets:[]});
+ cache.setQueryData(['notifications','qa','foreign-org','branch'],{rows:[]});
+ await screen.findByRole('heading',{name:'No leads yet'});
+ fireEvent.click(screen.getByRole('button',{name:'Pipeline settings'}));
+ fireEvent.click(screen.getByRole('button',{name:'Create recommended stages'}));
+ await waitFor(()=>expect(cache.getQueryState(['dashboardStats','qa','org','branch'])?.isInvalidated).toBe(true));
+ expect(cache.getQueryState(['notifications',...scope])?.isInvalidated).toBe(true);
+ expect(cache.getQueryState(['dashboardStats','qa','foreign-org','branch'])?.isInvalidated).toBe(false);
+ expect(cache.getQueryState(['notifications','qa','foreign-org','branch'])?.isInvalidated).toBe(false);
 });
 it('does not start a versioned action from cached Lead details while authoritative refresh is pending', async () => {
  useAppStore.setState({user:{id:'qa',permissions:['crm.read','crm.manage','customers.manage']} as never,activeTenantId:'org',activeBranchId:'branch',entitlements,isPlatformOperator:false});

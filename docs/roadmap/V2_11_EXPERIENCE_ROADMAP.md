@@ -32,6 +32,9 @@ V2-11E is delivered in approval-gated intermediate batches: see the
 [Batch 2 layout studio](../reviews/V2-11E_BATCH2_LAYOUT_STUDIO.md) and
 [Batch 3 entity forms acceptance register](../reviews/V2-11E_BATCH3_ENTITY_FORMS.md).
 Batch 4 final cross-domain/public/account polish and broad
-accessibility/performance acceptance remain deferred. No batch starts automatically. Complete
+accessibility/performance acceptance are separately approved and locally passed;
+see the [final acceptance register](../reviews/V2-11E_FINAL_ACCEPTANCE.md).
+Release still requires complete local gates, exact-final-commit CI and the single
+annotated completion tag. No subsequent milestone starts automatically. Complete
 Branch/Staff paging, new report builders and new commercial capabilities require
 separately reviewed backend/security work, not a client-only approximation.
