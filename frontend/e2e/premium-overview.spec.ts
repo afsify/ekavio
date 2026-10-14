@@ -56,9 +56,17 @@ for (const width of [320, 360, 390, 430, 768, 1024, 1440, 1920]) for (const mode
     if (width < 1024) {
       const trigger = page.getByRole('button', { name: width < 768 ? 'More' : 'Open navigation', exact: true });
       await trigger.click(); await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
+      const sidebar = page.getByRole('complementary', { name: 'Workspace sidebar' });
+      const first = sidebar.getByRole('link', { name: 'EkaVio workspace', exact: true });
+      await expect(first).toBeFocused();
       await page.keyboard.press('Shift+Tab');
-      expect(await page.getByRole('complementary', { name: 'Workspace sidebar' }).evaluate(node => node.contains(document.activeElement))).toBe(true);
-      await capture(page, `${prefix}-navigation`); await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+      await expect(sidebar.getByRole('button', { name: 'Sign out', exact: true })).toBeFocused();
+      expect(await sidebar.evaluate(node => node.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press('Tab'); await expect(first).toBeFocused();
+      await page.keyboard.press('Tab'); await expect(sidebar.getByRole('button', { name: 'Close navigation', exact: true })).toBeFocused();
+      await page.keyboard.press('Tab'); await expect(sidebar.locator('summary').filter({ has: page.getByRole('heading', { name: 'Home', exact: true }) })).toBeFocused();
+      await page.keyboard.press('Tab'); await expect(sidebar.getByRole('link', { name: 'Home', exact: true })).toBeFocused();
+      await capture(page, `${prefix}-navigation`); await page.keyboard.press('Escape'); await expect(sidebar).toBeHidden(); await expect(trigger).toBeFocused();
     } else {
       await page.getByRole('button', { name: 'Collapse sidebar' }).click();
       await expect.poll(async () => (await page.getByRole('complementary', { name: 'Workspace sidebar' }).boundingBox())?.width).toBe(80);
@@ -109,4 +117,10 @@ test('restricted workspace exposes personal destinations only, not inaccessible 
   await expect(page.getByRole('region', { name: 'Operator workspace' })).toHaveCount(0);
   await expect(page.getByRole('main').locator('a[href="/customers"]')).toHaveCount(0);
   await capture(page, '320-light-restricted', true);
+  const more = page.getByRole('button', { name: 'More', exact: true }); await more.click();
+  const sidebar = page.getByRole('complementary', { name: 'Workspace sidebar' });
+  await expect(sidebar.getByRole('link', { name: 'EkaVio workspace', exact: true })).toBeFocused();
+  await expect(sidebar.getByRole('link', { name: 'Customers', exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole('link', { name: 'Platform Operations', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape'); await expect(sidebar).toBeHidden(); await expect(more).toBeFocused();
 });

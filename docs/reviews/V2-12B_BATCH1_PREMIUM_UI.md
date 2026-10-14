@@ -205,3 +205,57 @@ Dashboard8.51kB match the recorded final build with identical loopback inputs.
 Compose configuration validation and whitespace review passed. Valid retained
 expensive local suites were not duplicated. No source changes followed their
 final successful runs; this preparation changes only the acceptance receipt.
+
+## Batch1 CI focus recovery (2026-10-14)
+
+Published candidate `54b09d1b0c1f170eef86188d614fbb9e82620a83` failed exact CI
+[38511360004](https://github.com/afsify/ekavio/actions/runs/38511360004), attempt1:
+117 browser cases passed, nine premium mobile/tablet cases failed immediate
+Shift+Tab containment. Subsequent mandatory steps were skipped, not passed.
+The downloaded sanitized browser artifact SHA256 matched GitHub's digest
+`ed8642656a69f5b7fa76664eb66129c84120b777e2f3b65d1f07cb82610dab75`.
+CI screenshots and trace actions were inspected; they remain in ignored QA output.
+
+Linux Chromium diagnostics established a genuine initial-focus defect: the
+leading brand link retained a layout box but computed hidden visibility when the
+original effect called focus. The call left focus on More/Open navigation. Later
+Tab handling could recover containment, explaining slower local passes without
+proving correct focus entry. Both unchanged local 15-case reproductions passed;
+the stronger initial-focus case then genuinely failed on the original application.
+This is a visibility/focus-initialization race, not a proven Linux-only defect or
+an assertion that should be removed. No unproven Chromium-engine cause is claimed.
+
+One-frame handoff alone still failed the stronger nine cases. A visibility-filtered
+"first available" handoff could select Sign out before leading descendants became
+visible. Neither attempt is acceptance evidence. The final correction waits for
+the intended leading control to be visibly focusable, cancels the rendering-frame
+handoff on close, filters hidden Tab candidates and prevents premature Tab escape.
+Existing close/return-focus and permission/entitlement navigation contracts remain.
+
+Premium tests retain containment and add exact initial focus, both boundary wraps,
+keyboard travel through controls/group/link, hidden-on-Escape and opening-trigger
+focus restoration. Restricted navigation additionally rejects Customer/operator
+links. Desktop compact assertions are unchanged. No timeout/retry/skip relaxation,
+dependency, CSS/theme redesign, domain/API/backend/provider/SQL change is included.
+Only AdminSidebar, premium-overview and this historical acceptance addendum are
+intended corrective publication files. Four planning reports remain untouched.
+Exact correction-commit CI and actual Render SHA/Live verification remain required;
+the immutable final receipt belongs in the final handoff, not a commit amendment.
+NO-GO FOR REAL CUSTOMER DATA and Render Free staging-only remain unchanged.
+
+Final corrected local evidence: exact nine previously failing cases9/9; complete
+premium-overview62/62 (7.2minutes); retained mobile drawer/customer dialog,
+desktop compact keyboard and three-theme accessibility5/5. Linux Chromium,
+two workers, original30s test/10s assertion deadlines and zero retries. Separate
+output directories preserve CI artifacts, original diagnostics and corrected
+screenshots; duplicate rerun cases are not added to distinct coverage totals.
+Final lint/TypeScript/all187 component tests/production-PWA build passed, as did
+focused corrective-file lint, Compose config and whitespace checks. Frontend
+full dependency audit returned zero vulnerabilities. Entry319.91kB/101.68gzip;
+CSS81.16kB/15.69 and Dashboard8.51kB/3.18 unchanged; precache79/1183.85KiB.
+The small entry increase over candidate319.57kB is the focus lifecycle logic,
+not dependencies or assets. Reviewed corrected mobile/tablet drawer and desktop
+compact captures; permission-aware navigation and layout remain intact.
+These are local synthetic presentation proofs, not hosted authentication or
+production-data approval. Successful exact correction CI and Render deployment
+receipt are still mandatory, not inferred from these checks.

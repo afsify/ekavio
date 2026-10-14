@@ -19,19 +19,30 @@ export function AdminSidebar({ isOpen, onClose, compact = false, onCompact }: { 
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     const sidebar = sidebarRef.current;
-    const focusable = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), summary') ?? []).filter((element) => element.getClientRects().length > 0);
-    focusable()[0]?.focus();
+    const focusable = () => Array.from(sidebar?.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), summary') ?? []).filter((element) => element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible');
+    // The closed drawer retains layout boxes. Wait for the intended first
+    // control, not a later descendant whose inherited visibility updates first.
+    const initialFocus = sidebar?.querySelector<HTMLElement>('a[href], button:not(:disabled), summary');
+    let focusFrame: number;
+    const focusWhenVisible = () => {
+      if (initialFocus?.getClientRects().length && getComputedStyle(initialFocus).visibility === 'visible') {
+        initialFocus.focus(); if (document.activeElement === initialFocus) return;
+      }
+      focusFrame = requestAnimationFrame(focusWhenVisible);
+    };
+    focusFrame = requestAnimationFrame(focusWhenVisible);
     document.body.style.overflow = 'hidden';
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
       if (event.key !== 'Tab') return;
       const items = focusable(), first = items[0], last = items.at(-1);
-      if (!sidebar?.contains(document.activeElement)) { event.preventDefault(); first?.focus(); }
+      if (!first) { event.preventDefault(); return; }
+      if (!sidebar?.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
       else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     document.addEventListener('keydown', handleKey);
-    return () => { document.removeEventListener('keydown', handleKey); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+    return () => { cancelAnimationFrame(focusFrame); document.removeEventListener('keydown', handleKey); document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
   }, [isOpen, onClose]);
   const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
   return <>{isOpen && <button className="nav-backdrop" aria-label="Close navigation overlay" onClick={onClose} />}
