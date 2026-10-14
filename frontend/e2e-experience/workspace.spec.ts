@@ -56,6 +56,7 @@ test('real branch switch, server custom filter, customer detail, read-only and c
   await page.getByLabel('Active branch', { exact: true }).selectOption(branch.id);
   await expect(page.getByLabel('Active branch', { exact: true })).toBeEnabled();
   await expect(page.getByLabel('Active branch', { exact: true })).toHaveValue(branch.id); await expect(page.getByRole('heading', { name: 'QA scoped customer', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Custom field filter', exact: true }).selectOption('local_note');
   const filtered = page.waitForResponse(response => {
     const url = new URL(response.url());

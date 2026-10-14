@@ -415,6 +415,55 @@ body { line-height: 1.5; }
 .detail-identity h3 { font-size:var(--font-xl);font-weight:650;margin-bottom:8px;overflow-wrap:anywhere; }
 .detail-identity .record-avatar { width:48px;height:48px;font-size:var(--font-lg); }
 .customer-form [data-dynamic-form]>section { gap:20px; }
+/* Customer workspace: scoped refinement over the accepted experience tokens. */
+.customer-controls { display:grid;gap:16px;padding:20px; }
+.customer-controls .customer-tools { align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px; }
+.customer-search { position:relative;min-width:0; }
+.customer-search>.quiet-button { margin-top:8px; }
+.customer-controls .filter-controls { padding:12px;background:var(--surface-subtle);box-shadow:none; }
+.customer-list-context { padding-top:16px;border-top:1px solid var(--border);gap:12px; }
+.customer-list-context>p,.customer-contact { display:flex;align-items:center;gap:8px;overflow-wrap:anywhere; }
+.customer-contact svg,.customer-list-context svg { flex-shrink:0; }
+.customer-active-filters { display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0; }
+.customer-active-filters .filter-chip { background:var(--primary-subtle,var(--surface-subtle));color:var(--primary-readable);border-color:var(--border);max-width:100%;text-align:left;overflow-wrap:anywhere; }
+.customer-access-note { padding:12px 16px;border-left:3px solid var(--border);background:var(--surface);border-radius:var(--radius-control);font-size:var(--font-sm); }
+.customer-directory .customer-name .record-avatar,.customer-card .record-avatar { background:var(--surface-subtle);color:var(--primary-readable); }
+.customer-directory .customer-name h2 { line-height:1.5; }
+.customer-directory td:last-child { width:200px; }
+.customer-directory .customer-row-actions { flex-wrap:nowrap;gap:8px; }
+.customer-directory .customer-row-actions>.quiet-button { white-space:nowrap;flex-shrink:0; }
+.customer-card .customer-card-status { margin-bottom:12px; }
+.customer-card .customer-name { flex-wrap:nowrap;align-items:flex-start; }
+.customer-card .customer-name h2 { font-size:var(--font-base);line-height:1.5; }
+.customer-card .customer-contact { margin-top:12px; }
+.customer-card .customer-edit-action { flex:1; }
+.customer-editor .customer-form-intro { padding:16px;background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-panel);font-size:var(--font-sm);line-height:1.6; }
+.customer-form-intro>p+p { margin-top:8px;font-size:var(--font-xs); }
+.customer-editor [data-dynamic-form]>.dynamic-section { padding:16px;border:1px solid var(--border);border-radius:var(--radius-panel);background:var(--surface); }
+.customer-editor [data-dynamic-form]>.dynamic-section>h3 { color:var(--text);font-size:var(--font-sm);font-weight:650; }
+.customer-save-error { padding:16px;border:1px solid var(--danger);border-radius:var(--radius-control);font-size:var(--font-sm); }
+.customer-save-error h3 { color:var(--danger);font-weight:650; }
+.customer-save-error p { margin-top:8px;overflow-wrap:anywhere; }
+.customer-detail-drawer .detail-identity { align-items:flex-start;padding:20px;background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-panel); }
+.customer-detail-drawer .detail-identity>div { min-width:0; }
+.customer-detail-drawer .detail-identity .eyebrow { margin-bottom:8px; }
+.customer-detail-drawer .detail-identity h3 { line-height:1.4; }
+.customer-facts { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
+.customer-facts dd { margin-top:6px;font-size:var(--font-sm); }
+.customer-detail-drawer .dialog-actions>button { min-width:0; }
+@media(max-width:1023px) { .customer-controls .customer-tools { grid-template-columns:1fr;gap:16px; } }
+@media(max-width:767px) {
+ .customer-controls { padding:16px; }
+ .customer-directory .table-mobile { padding:0;gap:0; }
+ .customer-directory .customer-card { border:0;border-bottom:1px solid var(--border);border-radius:0;padding:16px; }
+ .customer-directory .table-mobile>div:last-child .customer-card { border-bottom:0; }
+ .customer-detail-drawer .detail-identity { padding:16px;gap:12px; }
+ .customer-detail-drawer .detail-identity h3 { font-size:var(--font-lg); }
+ .customer-facts { grid-template-columns:1fr; }
+ .customer-editor [data-dynamic-form]>.dynamic-section { padding:12px; }
+ .customer-detail-drawer .dialog-actions { gap:8px; }
+ .customer-detail-drawer .dialog-actions>button { padding-inline:8px;font-size:var(--font-xs); }
+}
 @media(min-width:1024px) {
  .workspace-nav.is-compact { width:80px;padding-inline:12px; }
  .workspace-nav.is-compact .brand-wordmark,.workspace-nav.is-compact .nav-link>span,.workspace-nav.is-compact .sidebar-signout>span { display:none; }
