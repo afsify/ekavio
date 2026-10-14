@@ -49,7 +49,7 @@ export const Button: React.FC<ButtonProps> = ({
     danger:
       'danger-button',
     ghost:
-      'bg-transparent text-slate-300 hover:bg-slate-800/40 dark:text-slate-200 dark:hover:bg-slate-800/60',
+      'workspace-ghost-button',
   };
 
   return (
@@ -62,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
     >
       {isLoading ? (
         <>
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
           <span>Processing...</span>
         </>
       ) : (

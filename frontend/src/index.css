@@ -257,14 +257,19 @@ body { line-height: 1.5; }
 .sidebar-brand { display:flex;align-items:center;justify-content:space-between;gap:8px; }
 .sidebar-brand .brand { margin:0 0 24px 10px; }
 .sidebar-collapse { display:flex;gap:8px;width:100%;font-size:var(--font-xs);margin-bottom:20px; }
-.nav-group { margin-bottom:14px; }
+.nav-group { margin-bottom:10px; }
 .nav-group summary { min-height:44px;display:flex;align-items:center;justify-content:space-between;font-size:.7rem;font-weight:650;color:var(--text-secondary);letter-spacing:.04em;padding:8px 12px;list-style:none; }
 .nav-group summary::after { content:'−';font-size:16px; }
 .nav-group summary h2 { font:inherit;color:inherit;letter-spacing:inherit;margin:0;text-transform:none; }
 .nav-group:not([open]) summary::after { content:'+'; }
-.nav-link { display:flex;gap:12px;align-items:center;min-height:44px;padding:10px 12px;border-radius:var(--radius-control);font-size:var(--font-sm);line-height:1.35; }
+.nav-link { display:flex;gap:12px;align-items:center;min-height:44px;padding:10px 12px;border-radius:var(--radius-control);font-size:var(--font-sm);line-height:1.35;transition:background-color 160ms,color 160ms,box-shadow 160ms; }
 .nav-link svg { flex-shrink:0; }
 .nav-link[aria-current=page] { color:var(--primary-readable);background:color-mix(in srgb,var(--primary) 9%,var(--surface));font-weight:650;box-shadow:inset 3px 0 var(--primary); }
+.nav-link>span { min-width:0;overflow-wrap:anywhere; }
+.nav-group summary { border-radius:var(--radius-control); }
+.nav-group summary:hover { background:var(--surface-subtle); }
+.workspace-breadcrumb [aria-current=page] { color:var(--text); }
+.workspace-header .context-label { color:var(--text-secondary);overflow-wrap:anywhere; }
 .sidebar-signout { display:flex;gap:12px;width:100%;margin-top:20px; }
 .nav-close.icon-button { display:none; }
 .icon-button { display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface);color:var(--text);flex-shrink:0; }
@@ -305,7 +310,13 @@ body { line-height: 1.5; }
 .action-card p { font-size:var(--font-xs);margin-top:4px; }
 .metrics-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr));gap:16px; }
 .stat-card { display:flex;flex-direction:column;gap:10px; }
-.stat-card h2 { font-size:var(--font-sm);font-weight:600; }
+.stat-card h2 { font-size:var(--font-sm);font-weight:600;min-width:0;overflow-wrap:anywhere; }
+.stat-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }
+.workspace-card-icon { display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;border-radius:10px;color:var(--primary-readable);background:color-mix(in srgb,var(--primary) 8%,var(--surface)); }
+.action-card>.workspace-card-icon { width:32px;height:32px; }
+.stat-card,.action-card { transition:border-color 160ms,background-color 160ms; }
+.workspace-ghost-button { color:var(--text);background:transparent; }
+.workspace-ghost-button:hover { background:var(--surface-subtle); }
 .stat-value { font-size:1.75rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere; }
 .stat-card>.muted { font-size:var(--font-xs); }
 .stat-link { display:flex;align-items:center;justify-content:space-between;color:var(--primary-readable);font-size:var(--font-xs);margin-top:auto;padding-top:8px; }
@@ -321,6 +332,34 @@ body { line-height: 1.5; }
 .workspace-destinations { display:flex;gap:10px;flex-wrap:wrap; }
 .workspace-destinations>a { flex-wrap:wrap;max-width:100%; }
 .workspace-destinations small { color:var(--text-secondary);font-size:.7rem; }
+/* Premium overview presentation: existing projections and semantic theme tokens. */
+.dashboard-workspace [hidden] { display:none; }
+.dashboard-workspace .dashboard-intro { padding:16px 20px;box-shadow:none; }
+.dashboard-date { display:flex;align-items:center;gap:12px;min-width:0; }
+.dashboard-date>svg { flex-shrink:0;color:var(--primary-readable); }
+.dashboard-date p:first-child { font-size:var(--font-sm);font-weight:650; }
+.dashboard-date .muted { font-size:var(--font-xs);margin-top:3px;overflow-wrap:anywhere; }
+.dashboard-workspace .attention-panel { border-inline-start:3px solid var(--warning);background:color-mix(in srgb,var(--warning) 4%,var(--surface)); }
+.attention-heading { display:flex;align-items:flex-start;gap:12px; }
+.attention-heading>svg { flex-shrink:0;margin-top:3px;color:var(--warning); }
+.dashboard-workspace .attention-panel li>a>span:not(.status-badge) { min-width:0;overflow-wrap:anywhere; }
+.dashboard-workspace .stat-link { border-top:1px solid var(--border);padding-top:12px;margin-top:auto; }
+.dashboard-workspace .stat-card>.muted { flex:1; }
+.dashboard-discovery { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px; }
+.discovery-group { box-shadow:none;min-width:0; }
+.discovery-group h3 { font-size:var(--font-xs);font-weight:650;color:var(--text-secondary);margin-bottom:12px; }
+.discovery-group .workspace-destinations { display:grid;grid-template-columns:1fr;gap:4px; }
+.discovery-group .workspace-destinations>a { justify-content:flex-start;border-color:transparent;padding-inline:8px; }
+.discovery-group .workspace-destinations>a>span { min-width:0;overflow-wrap:anywhere; }
+@media(max-width:767px) {
+ .dashboard-workspace .page-heading { gap:12px; }
+ .dashboard-workspace .page-heading .page-actions { width:auto; }
+ .dashboard-workspace .stat-heading { flex-direction:column-reverse;gap:10px; }
+ .dashboard-workspace .stat-heading .workspace-card-icon { width:30px;height:30px; }
+ .dashboard-workspace .dashboard-intro { padding:14px 16px; }
+ .dashboard-workspace .widget-settings li { flex-wrap:wrap; }
+ .dashboard-workspace .widget-settings label { min-width:0;flex:1 1 180px;overflow-wrap:anywhere; }
+}
 .customer-tools { display:grid;gap:16px;grid-template-columns:minmax(180px,460px) minmax(0,1fr);align-items:end; }
 .filter-panel { display:grid;gap:12px; }
 .filter-panel>.quiet-button { justify-self:start; }

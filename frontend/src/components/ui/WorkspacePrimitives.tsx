@@ -14,11 +14,11 @@ export function PageHeader({ title, description, eyebrow, actions }: { title: st
 export function SectionHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return <div className="section-heading"><div><h2>{title}</h2>{description && <p className="muted">{description}</p>}</div>{actions}</div>;
 }
-export function StatCard({ label, value, description, to }: { label: string; value: string; description: string; to: string }) {
-  return <Link className="panel stat-card" to={to}><h2>{label}</h2><p className="stat-value">{value}</p><p className="muted">{description}</p><span className="stat-link">View workspace <ArrowRight size={16} aria-hidden="true" /></span></Link>;
+export function StatCard({ label, value, description, to, icon }: { label: string; value: string; description: string; to: string; icon?: ReactNode }) {
+  return <Link className="panel stat-card" to={to}><div className="stat-heading"><h2>{label}</h2>{icon && <span className="workspace-card-icon" aria-hidden="true">{icon}</span>}</div><p className="stat-value">{value}</p><p className="muted">{description}</p><span className="stat-link">View workspace <ArrowRight size={16} aria-hidden="true" /></span></Link>;
 }
 export function ActionCard({ title, description, to, icon }: { title: string; description: string; to: string; icon?: ReactNode }) {
-  return <Link className="panel action-card" to={to}>{icon}<div><h3>{title}</h3><p className="muted">{description}</p></div><ArrowRight size={18} aria-hidden="true" /></Link>;
+  return <Link className="panel action-card" to={to}>{icon && <span className="workspace-card-icon" aria-hidden="true">{icon}</span>}<div><h3>{title}</h3><p className="muted">{description}</p></div><ArrowRight size={18} aria-hidden="true" /></Link>;
 }
 export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }) {
   return <span className={`status-badge status-${tone}`}>{children}</span>;
