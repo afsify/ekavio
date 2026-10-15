@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node --test ../scripts/theme-bootstrap.test.mjs && vitest run",
     "test:e2e": "playwright test",
     "test:e2e:identity": "playwright test --config playwright.identity.config.ts",
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",

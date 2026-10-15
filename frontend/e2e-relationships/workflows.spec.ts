@@ -44,7 +44,8 @@ test('CRM server pages, sort, filter reset and accessible pipeline selection', a
   await login(page); await page.goto('/crm'); await expect(page.getByRole('navigation', { name: 'Record pagination' })).toContainText('Page 1 of 2');
   await page.getByRole('navigation', { name: 'Record pagination' }).getByRole('button', { name: 'Next', exact: true }).click(); await expect(page.getByRole('navigation', { name: 'Record pagination' })).toContainText('Page 2 of 2');
   const queried = page.waitForResponse(r => r.url().includes('/crm/leads?') && new URL(r.url()).searchParams.get('search') === 'QA page lead 00'); await page.getByLabel('Search leads').fill('QA page lead 00'); const result = await queried; expect(result.ok()).toBe(true); expect(new URL(result.url()).searchParams.get('page')).toBe('1');
-  await expect(page.getByRole('heading', { name: 'QA page lead 00', exact: true })).toBeVisible(); await page.getByLabel('Sort leads').selectOption('oldest');
+  await expect(page.getByRole('heading', { name: 'QA page lead 00', exact: true })).toBeVisible(); await page.getByText('Lead filters', { exact: true }).click(); await expect(page.getByLabel('Sort leads')).toBeVisible();
+  const sorted = page.waitForResponse(r => r.url().includes('/crm/leads?') && new URL(r.url()).searchParams.get('sort') === 'oldest'); await page.getByLabel('Sort leads').selectOption('oldest'); expect((await sorted).ok()).toBe(true);
   await page.getByRole('button', { name: 'Clear lead filters' }).click(); await page.getByRole('button', { name: 'pipeline', exact: true }).click();
   await page.getByRole('button', { name: 'View stage Contacted', exact: true }).click(); await expect(page.getByRole('button', { name: 'pipeline', exact: true })).toHaveAttribute('aria-pressed', 'true'); await expect(page.getByRole('heading', { name: 'No matching leads' })).toBeVisible();
 });
@@ -70,7 +71,7 @@ for (const path of ['/crm', '/suppliers', '/purchasing']) test(`${path} branch s
   await page.getByLabel(path === '/crm' ? 'Lead name' : path === '/suppliers' ? 'Supplier name' : 'Order notes (optional)', { exact: true }).fill('QA discarded first-branch draft');
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await page.getByLabel('Active branch', { exact: true }).selectOption(branch.id); await expect(page.getByLabel('Active branch', { exact: true })).toBeEnabled();
-  await expect(page.getByRole('dialog')).toHaveCount(0); if (path === '/crm') await expect(page.getByRole('heading', { name: 'No leads yet' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0); if (path === '/crm') { await expect(page.getByRole('heading', { name: 'No leads yet' })).toBeVisible(); await expect.poll(() => new URL(page.url()).searchParams.has('lead')).toBe(false); }
   if (path === '/purchasing') await expect(page.getByRole('heading', { name: 'No Purchase Orders yet' })).toBeVisible();
   if (path === '/suppliers') { await page.getByRole('button', { name: 'View QA relationship supplier', exact: true }).click(); await expect(page.getByRole('dialog').getByText('0 orders · Last ordered: Never', { exact: true })).toBeVisible(); await expect(page.getByRole('dialog').getByText(f.po.human_reference, { exact: true })).toHaveCount(0); }
 });

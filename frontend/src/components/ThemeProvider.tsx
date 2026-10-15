@@ -2,7 +2,7 @@
  * ThemeProvider Functional Component
  * Dynamically synchronizes theme state (dark class & CSS variables) with document.documentElement.
  */
-import React, { useEffect } from 'react';
+import React, { useLayoutEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 
 export interface ThemeProviderProps {
@@ -12,7 +12,7 @@ export interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const theme = useAppStore((state) => state.theme);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');

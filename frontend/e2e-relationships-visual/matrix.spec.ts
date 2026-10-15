@@ -9,7 +9,22 @@ for (const width of [320, 360, 390, 430, 768, 1024, 1440, 1920]) for (const them
   const shot = async (name: string) => { await fits(page); for (const placeholder of await page.locator('.crm-workspace [data-dynamic-form]>section>div:empty').all()) expect(await placeholder.evaluate(e => e.getBoundingClientRect().height)).toBe(0); await page.screenshot({ path: `test-results/relationships-visual/${width}-${theme}-${name}.png`, fullPage: false }); };
   await page.goto('/crm'); await expect(page.getByRole('button', { name: 'View ' + f.lead.name, exact: true })).toBeVisible(); await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'system' ? 'dark' : theme); await shot('crm-overview'); await page.getByRole('heading', { name: 'Lead directory', exact: true }).scrollIntoViewIfNeeded(); await shot('crm-leads');
   if (theme === 'system') { await page.emulateMedia({ colorScheme: 'light' }); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light'); await page.emulateMedia({ colorScheme: 'dark' }); }
-  await page.getByRole('button', { name: 'pipeline', exact: true }).click(); await page.getByText('Lead filters', { exact: true }).click(); if (width < 768) await page.setViewportSize({ width, height: 1100 }); const pipelineStages = page.locator(width < 768 ? '.field.table-mobile' : '.pipeline-stages.table-desktop'); await pipelineStages.scrollIntoViewIfNeeded(); const pipelineLead = page.getByRole('button', { name: 'View ' + f.lead.name, exact: true }); await pipelineLead.scrollIntoViewIfNeeded(); await expect(pipelineStages).toBeInViewport(); await expect(pipelineLead).toBeInViewport(); const pipelineControl = width < 768 ? page.getByLabel('Pipeline stage for this branch') : page.getByRole('button', { name: 'View stage ' + f.stage.name, exact: true }); expect(await pipelineControl.evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true); await shot('pipeline'); if (width < 768) await page.setViewportSize({ width, height: 900 }); await page.getByRole('button', { name: 'leads', exact: true }).click();
+  await page.getByRole('button', { name: 'pipeline', exact: true }).click();
+  const leadFilters = page.locator('details').filter({ has: page.getByText('Lead filters', { exact: true }) });
+  if (await leadFilters.getAttribute('open') !== null) await page.getByText('Lead filters', { exact: true }).click();
+  await expect(leadFilters).not.toHaveAttribute('open', '');
+  if (width < 768) await page.setViewportSize({ width, height: 1100 });
+  const pipelineStages = page.locator(width < 768 ? '.field.table-mobile' : '.pipeline-stages.table-desktop');
+  await pipelineStages.scrollIntoViewIfNeeded();
+  const pipelineLead = page.getByRole('button', { name: 'View ' + f.lead.name, exact: true });
+  await pipelineLead.scrollIntoViewIfNeeded();
+  // Centering the record can put an earlier visible selector behind the sticky
+  // header. Position the mobile stage using the application's real scroll inset.
+  if (width < 768) await pipelineStages.evaluate(node => node.scrollIntoView({ block: 'start' }));
+  await expect(pipelineStages).toBeInViewport(); await expect(pipelineLead).toBeInViewport();
+  const pipelineControl = width < 768 ? page.getByLabel('Pipeline stage for this branch') : page.getByRole('button', { name: 'View stage ' + f.stage.name, exact: true });
+  expect(await pipelineControl.evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+  await shot('pipeline'); if (width < 768) await page.setViewportSize({ width, height: 900 }); await page.getByRole('button', { name: 'leads', exact: true }).click();
   await page.getByRole('button', { name: 'Create lead', exact: true }).click(); await page.getByLabel('Lead name', { exact: true }).fill('QA reviewed enquiry'); await shot('lead-form'); await page.getByRole('button', { name: 'Review', exact: true }).click(); await shot('lead-review'); await close(page);
   await page.getByRole('button', { name: 'View ' + f.lead.name, exact: true }).click(); await expect(page.getByRole('dialog').getByText('Lead created', { exact: false })).toBeVisible(); await shot('lead-detail');
   await page.getByRole('dialog').getByRole('button', { name: 'Add follow-up', exact: true }).click(); await expect(page.getByRole('dialog')).toHaveCount(1); await page.getByLabel('Follow-up subject').fill('QA review next action'); await page.getByLabel('Due date and time').fill('2026-10-07T10:30'); await shot('followup-form'); await page.getByRole('button', { name: 'Review', exact: true }).click(); await shot('followup-review'); await close(page);
