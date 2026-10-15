@@ -21,6 +21,15 @@ for (const width of [320, 360, 390, 430, 768, 1024, 1440, 1920]) for (const them
   // Centering the record can put an earlier visible selector behind the sticky
   // header. Position the mobile stage using the application's real scroll inset.
   if (width < 768) await pipelineStages.evaluate(node => node.scrollIntoView({ block: 'start' }));
+  // The later Lead action may be visible while the earlier desktop stage is
+  // behind the sticky header. Scroll back to that region as a pointer user
+  // would; scrollIntoViewIfNeeded alone ignores sticky-header occlusion.
+  else await pipelineStages.evaluate(region => {
+    const header = document.querySelector('.workspace-header');
+    const visibleTop = (header?.getBoundingClientRect().bottom ?? 0) + 16;
+    const top = region.getBoundingClientRect().top;
+    if (top < visibleTop) window.scrollBy(0, top - visibleTop);
+  });
   await expect(pipelineStages).toBeInViewport(); await expect(pipelineLead).toBeInViewport();
   const pipelineControl = width < 768 ? page.getByLabel('Pipeline stage for this branch') : page.getByRole('button', { name: 'View stage ' + f.stage.name, exact: true });
   expect(await pipelineControl.evaluate(e => { const r = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);

@@ -504,3 +504,126 @@ services and protected readiness records remain independent. Release acceptance
 requires successful exact-new-commit mandatory CI and actual deployment/public
 smoke evidence; neither is assumed from local checks or automatic deploy status.
 **NO-GO FOR REAL CUSTOMER DATA; Render Free remains staging-only.**
+
+## Exact-CI recovery — 2026-10-15
+
+Separate owner approval authorizes a narrow corrective commit/push, exact-new-SHA
+CI and subsequent read-only frontend staging verification; no completion tag.
+Recovery began on `main` at `eef6862a335de900e7b67ead5e87ccf0c216152b`, matching
+origin/main and fresh remote main. Index/tracked tree were clean; only the four
+protected reports were untracked and their recorded hashes remain unchanged.
+The original failed CI `38700451295`, attempt 1, was independently rechecked:
+relationship visual 28 passed / 3 failed, all 768px modes. Seven later configured
+gates were skipped, not passed. The retained 148,949,834-byte artifact's SHA256
+matches `78988a4a726e981922ec80d9708b24264d5bb8a37939e14431a176b7db9e77ae`.
+It contains no relationship traces or failure-time pipeline PNG; pre-failure
+Light/Dark directory images were opened, not mistaken for failure geometry.
+
+### Measured cause and smallest correction
+
+The in-app browser connection failed before navigation. Existing isolated Linux
+QA (Playwright 1.63 and bundled Chromium) was reused, without hosted data access. Its
+initial system font resolved to WenQuanYi, unlike the GitHub artifact: all three
+unchanged 768px journeys passed there. These were not a valid reproduction of
+CI's wrapping. Installing Ubuntu DejaVu core/mono fonts **only in the disposable
+QA container** made system-ui resolve to DejaVu Sans and reproduced the artifact's
+header wrapping. No application/package/lockfile/host font change was made.
+The original three 768px journeys then failed at the same center-hit assertion
+(0 passed / 3 failed), without changing deadlines, retries or assertions.
+
+Geometry-only sanitized diagnostics across 767/768/769/1024 and all three modes:
+
+| Width | Stage control center Y before positioning | Sticky header bottom | Hit result |
+| --- | --- | --- | --- |
+| 767 | 210.875 (native select; 1100px existing mobile test viewport) | 134.609 | Intended SELECT |
+| 768 / 769 | 142.828 (button top 120.828, height 44) | 171 | Header branch SELECT, not the stage |
+| 1024 | 406.828 | 161 | Intended BUTTON |
+
+At 768/769, viewport is 900px high; scrollY is 908. The button is geometrically
+inside the viewport, but entirely behind the sticky header (z-index 35).
+Pipeline ancestors have visible overflow, no transforms and no clipping/stacking
+context causing the miss. A real center-coordinate mouse click leaves the stage
+unselected. This is not a timeout, offscreen center, theme defect, bad count or
+backend failure. The test scrolls the stage region and then the later Lead
+action, invalidating the earlier control's pointer precondition. Ordinary
+scrolling and native Tab/Enter can reach it; a sticky header covering earlier
+content after scrolling a later record is not evidence for redesigning CSS.
+
+Only screenshot setup changes: on desktop-stage widths, if the stage region is
+above the measured header bottom plus 16px spacing, scroll back by that overlap.
+This is legitimate user scrolling, not injected styles, hidden overflow or a
+forced click. Original simultaneous stage-region/Lead viewport assertions and
+the exact center-hit assertion remain unchanged. After positioning at 768px,
+the stage panel starts at 187px, its button center is 323px and both original
+viewport checks pass. Production application source and CSS remain byte-identical.
+
+Recovery evidence is preserved under ignored
+`frontend/test-results/v212b-batch3-linux/recovery-*`; before/positioned/after
+viewport PNGs and bounded geometry logs contain disposable fixtures only.
+Original failures, prior QA evidence, containers and references are preserved.
+The first corrected original 768px Light/Dark/System selection passed **3/3**,
+exit 0 (1.5m), two Linux Chromium workers, zero retries and original 90s deadlines.
+Complete local acceptance was recovered/finished in the continuation below;
+exact-new-commit CI/public staging remain independent publication requirements.
+
+The first corrected diagnostic helper finished 9 passed / 3 failed: its 1024px
+path clicked the already-accessible stage **before** checking screenshot layout,
+adding active-filter chips and moving the Lead action. This state change is not
+in the original visual test. The helper now performs that preliminary miss-click
+only for a measured obstructed center, checks both original viewport conditions
+before the successful click, and explicitly clears selection before Tab/Enter
+to prove keyboard activation. Its subsequent complete boundary diagnostic passed
+**12/12**, exit 0 (1.2m), two workers. The original assertions were not weakened;
+both the diagnostic failure and successful receipts remain preserved separately.
+
+### Final local recovery acceptance
+
+The continuation preserved the same main/HEAD/origin/fresh remote candidate and
+the four protected report hashes. No browser tests were still running. The
+retained log conclusively ends **110 passed (20.0m)**; the guarded driver advanced
+to lint/typecheck/components/build only after the browser process returned zero.
+The component log ends 20 files / **204 passed**, following **4/4** bootstrap
+contracts with zero failures/skips; driver advancement to build likewise recovers
+its zero exit. These completed suites were not rerun just because the session
+resumed. The earlier build log had no completion receipt and is not counted PASS.
+
+| Recovery gate | Result / exit | Preserved receipt under the ignored QA root |
+| --- | --- | --- |
+| Original failed 768px journeys | 3/3; 0 | `recovery-corrected-focused.log` |
+| Four-width/three-theme interaction diagnostics | 12/12; 0 | `recovery-corrected-boundaries-v2.log` |
+| Complete original relationship visual suite | 31/31; 0; 5.7m | `recovery-relationships-full.log` |
+| CRM/theme + foundation + premium navigation/accessibility | 110/110; recovered 0; 20.0m | `recovery-crm-navigation.log`; includes the 15 CRM/theme cases, not an additional disjoint total |
+| Bootstrap / components | 4/4 + 204/204; recovered 0 | `recovery-frontend-test.log` and guarded driver advancement |
+| Fresh lint / TypeScript / production-PWA build | All 0 | `continuation-lint.log`, `continuation-typecheck.log`, `continuation-build.log`; command exits captured directly |
+
+Fresh build sizes remain entry **322.53/102.47**, CSS **92.17/17.32**, CRM
+**40.82/10.74** decimal raw/gzip kB; precache **82 entries/1207.14KiB**.
+The existing ineffective dynamic-import and plugin-timing warnings remain;
+compilation plus Workbox generation completed successfully, not merely Vite's
+intermediate compilation message. No dependencies changed.
+
+Four derived `recovery-review-{767,768,769,1024}.png` contact sheets were generated
+from preserved originals and opened. Each covers Light/Dark/System before and
+after positioning (767 shows native selection before/after interaction). At
+768/769 the stage and Lead action remain visible together after legitimate
+scrolling; 1024 needs no repositioning and the mobile selector stays accessible.
+The original 768px Light pipeline image was also inspected at readable size.
+The review helper reports bundled Chromium **153.0.8010.12**. This is sanitized
+Linux evidence, not hosted authenticated or physical-device acceptance.
+
+Only `frontend/e2e-relationships-visual/matrix.spec.ts` and this report are intended
+for the corrective commit. The four locally created helpers
+`recovery-diagnostic.spec.ts`, `recovery-css.mjs`, `recovery-acceptance.ps1` and
+`recovery-review.mjs`, plus all logs/images/artifacts, stay ignored and unstaged.
+Application/CSS/backend/CI/dependency files, references, canonical V2-10 registers
+and the four protected reports are unchanged. Diff/whitespace and exact-path
+staging review are required before publication. No credentials or QA artifacts
+belong in the commit. No new tag, hosted authentication, provider write, manual
+deployment, database operation or further product work is authorized.
+
+The final handoff must record the corrective SHA, normal push, exact foundation
+CI attempt/conclusion (including later administration/Forms Studio/Docker gates)
+and only then actual frontend deployment/public smoke. A backup watchdog run,
+old CI, auto-deployment or source equivalence is not a substitute. Reference
+visual comparison is deferred to a separately approved session per the latest
+continuation. **NO-GO FOR REAL CUSTOMER DATA; Render Free staging-only.**
