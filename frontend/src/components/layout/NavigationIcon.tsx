@@ -3,7 +3,7 @@ const icons = {
   '/dashboard': Home, '/customers': Users, '/services': Layers, '/queue': ClipboardList,
   '/appointments': CalendarDays, '/attendance': Activity, '/hr': BriefcaseBusiness,
   '/ledger': CreditCard, '/crm': Users, '/inventory': Package, '/suppliers': Truck,
-  '/purchasing': ClipboardList, '/staff': UserRound, '/reports': ChartNoAxesCombined,
+  '/tasks': ClipboardList, '/purchasing': ClipboardList, '/staff': UserRound, '/reports': ChartNoAxesCombined,
   '/settings': Settings, '/notifications': Bell, '/help': BookOpen, '/roles': ShieldCheck,
   '/audit': ShieldCheck, '/billing': CreditCard,
 };
