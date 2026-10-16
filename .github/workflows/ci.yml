@@ -63,6 +63,10 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Audit backend dependencies
+        working-directory: backend
+        run: npm audit
+
       - name: Lint backend
         working-directory: backend
         run: npm run lint
@@ -207,6 +211,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit
+
       - name: Lint frontend
         working-directory: frontend
         run: npm run lint
@@ -282,6 +290,20 @@ jobs:
         working-directory: backend
         run: npm run test:hr
 
+      - name: Test PostgreSQL Tasks assignment lifecycle and API authority
+        working-directory: backend
+        run: npm run test:tasks
+
+      - name: Restore populated Task archive in disposable PostgreSQL
+        working-directory: backend
+        env:
+          TASKS_QA_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: npm run test:tasks-recovery
+
+      - name: Test PostgreSQL-backed Tasks workflows responsive states and accessibility
+        working-directory: frontend
+        run: npx playwright test --config playwright.tasks.config.ts
+
       - name: Test current-schema count-only recovery acceptance
         working-directory: backend
         run: npx tsx --test tests/recoveryAcceptance.integration.ts
@@ -340,7 +362,7 @@ jobs:
 
       - name: Upload frontend QA evidence
         # V2-11E Batches 1–4 add only explicit sanitized presentation screenshots.
-        # HR acceptance uses disposable private fixtures and no uploaded traces.
+        # HR and Tasks use disposable private fixtures; exclude their evidence.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
         uses: actions/upload-artifact@v4
@@ -356,6 +378,9 @@ jobs:
             !frontend/test-results/crm/**
             !frontend/test-results/purchasing/**
             !frontend/test-results/hr/**
+            !frontend/test-results/tasks/**
+            !frontend/test-results/tasks-screenshots/**
+            !frontend/test-results/tasks-attention/**
             !frontend/test-results/experience/**
             !frontend/test-results/operations/**
             !frontend/test-results/relationships/**

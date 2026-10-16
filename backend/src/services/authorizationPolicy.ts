@@ -1,6 +1,10 @@
 import type { MembershipRole } from '../models/Membership.js';
 
 export const permissions = {
+  TASKS_READ_OWN: 'tasks.read_own',
+  TASKS_MANAGE_OWN: 'tasks.manage_own',
+  TASKS_READ: 'tasks.read',
+  TASKS_MANAGE: 'tasks.manage',
   HR_PLUS_READ: 'hr_plus.read',
   HR_PLUS_MANAGE: 'hr_plus.manage',
   HR_PLUS_APPROVE: 'hr_plus.approve',
@@ -57,6 +61,7 @@ const operationalPermissions: readonly Permission[] = [
 ];
 
 const administratorPermissions: readonly Permission[] = [
+  permissions.TASKS_READ_OWN, permissions.TASKS_MANAGE_OWN, permissions.TASKS_READ, permissions.TASKS_MANAGE,
   permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE, permissions.HR_PLUS_APPROVE,
   permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE,
   permissions.CRM_READ, permissions.CRM_MANAGE,
@@ -73,7 +78,7 @@ const administratorPermissions: readonly Permission[] = [
 const rolePermissions: Record<MembershipRole, readonly Permission[]> = {
   owner: administratorPermissions,
   admin: administratorPermissions,
-  manager: [...operationalPermissions, permissions.CRM_READ, permissions.CRM_MANAGE, permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE, permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE],
+  manager: [...operationalPermissions, permissions.TASKS_READ_OWN, permissions.TASKS_MANAGE_OWN, permissions.TASKS_READ, permissions.TASKS_MANAGE, permissions.CRM_READ, permissions.CRM_MANAGE, permissions.PURCHASING_READ, permissions.PURCHASING_MANAGE, permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE],
   hr: [
     permissions.HR_PLUS_READ, permissions.HR_PLUS_MANAGE, permissions.HR_PLUS_APPROVE,
     permissions.ORGANIZATION_READ, permissions.BRANCHES_READ,
@@ -82,7 +87,7 @@ const rolePermissions: Record<MembershipRole, readonly Permission[]> = {
     permissions.ATTENDANCE_MANAGE,
     permissions.REPORTS_READ,
   ],
-  staff: operationalPermissions,
+  staff: [...operationalPermissions, permissions.TASKS_READ_OWN, permissions.TASKS_MANAGE_OWN],
 };
 
 export const permissionsForRole = (role: MembershipRole): Permission[] => [
@@ -96,6 +101,11 @@ export const hasPermission = (
 
 // The sole tenant catalogue. Platform/provider authority is deliberately absent.
 export const permissionCatalogue = Object.values(permissions).map((key) => {
+  if (key.startsWith('tasks.')) {
+    const own = key.endsWith('_own');
+    const read = key === 'tasks.read' || key === 'tasks.read_own';
+    return { key, category: 'Tasks', label: read ? (own ? 'View assigned tasks' : 'View branch tasks') : own ? 'Update assigned task progress' : 'Manage branch tasks', description: `${read ? 'Read' : own ? 'Change permitted progress only for' : 'Create, edit, assign and explicitly cancel/reopen'} ${own ? 'currently assigned own tasks' : 'authorized selected-branch tasks'}. Active membership, branch and independent Tasks entitlement are required.` };
+  }
   const [category, operation] = key.split('.');
   const subject = category === 'hr_plus' ? 'HR Plus' : category === 'ledger' ? 'Customer dues' : category![0]!.toUpperCase() + category!.slice(1);
   return { key, category: subject, label: `${operation === 'read' ? 'View' : operation==='approve'?'Review leave in':'Manage'} ${subject.toLowerCase()}`, description: `${operation === 'read' ? 'Read' : operation==='approve'?'Approve/reject with full assigned-branch coverage; no self review.':'Change'} organization-scoped ${subject.toLowerCase()} records. ${category==='customers'||category==='services'?'Core capability; no Queue subscription required.':'Commercial capabilities, where applicable, remain independent.'}` };

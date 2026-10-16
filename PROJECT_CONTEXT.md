@@ -1,5 +1,30 @@
 # EkaVio Project Context
 
+## Current local backend work: V2-12C Batch 1 (final local acceptance 2026-10-16)
+
+Owner-approved local-only Tasks backend builds on accepted
+`374fe470e4c2f0c1ac3e30078dea2ec9f68fb7c4`. Additive 021 supplies independent
+branch-scoped Tasks, immutable events and durable command results; 001–020 remain
+unchanged. Optional Tasks metadata has no public price, plan inclusion, automatic
+grant or hosted activation. Live own/team grants, eligible canonical membership,
+branch/tenant isolation, explicit lifecycle, versions and transactional replay are
+required. HR My Work, CRM follow-ups and other modules retain their semantics.
+Retained full units 219, final focused selection 75 (including 24 Task units and
+29 Task integration cases), populated archive restore 1, retained integration 269
+(completed selection plus focused harness rerun) and 23 operational contracts pass.
+These overlapping selections are not additive unique totals. Final backend
+lint/typecheck/build and Compose validation pass; retained audits report zero. See
+[ADR 0030](docs/adr/0030-work-tasks.md) and
+[Batch 1 acceptance](docs/reviews/V2-12C_BATCH1_TASK_BACKEND_ACCEPTANCE.md).
+Changes remain uncommitted; no frontend implementation, provider action, hosted
+migration, commit/push/tag/deployment or new exact-commit CI is authorized/performed.
+Five existing planning reports remain byte-identical. Hosted current-schema recovery
+and readiness remain OPEN. **NO-GO FOR REAL CUSTOMER DATA; Render Free staging-only.**
+Backend auto-deploy remains unverified; readiness is not a migration barrier.
+021 hosted execution, coordinated rollout and prior-binary rollback/recovery proof
+require separate approval/evidence. Wait for publication/frontend approval; do not
+start Batch 2 automatically.
+
 ## Current experience work: V2-11E final Batch 4 (2026-10-13)
 
 Batch 4 resumes the accepted Batch 3 main baseline

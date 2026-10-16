@@ -21,6 +21,7 @@ const CrmPage = React.lazy(()=>import('./pages/CRM/CrmPage'));
 const SuppliersPage = React.lazy(()=>import('./pages/Purchasing/SuppliersPage'));
 const PurchasingPage = React.lazy(()=>import('./pages/Purchasing/PurchasingPage'));
 const HrPage = React.lazy(()=>import('./pages/HR/HrPage'));
+const TasksPage = React.lazy(() => import('./pages/Tasks/TasksPage'));
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const ReportsPage=React.lazy(()=>import('./pages/Reports/ReportsPage'));
 const NotificationsPage=React.lazy(()=>import('./pages/Notifications/NotificationsPage'));
@@ -185,6 +186,7 @@ export const App: React.FC = () => {
             <Route path="/suppliers" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.PURCHASING}><PermissionGuard permission="purchasing.read"><SuppliersPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/purchasing" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.PURCHASING}><PermissionGuard permission="purchasing.read"><PurchasingPage /></PermissionGuard></ModuleGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/hr" element={<ProtectedRoute><AdminLayout><ModuleGuard module={MODULES.HR_PLUS}><HrPage /></ModuleGuard></AdminLayout></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><AdminLayout><TasksPage /></AdminLayout></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><AdminLayout><PermissionGuard permission="reports.read"><ReportsPage /></PermissionGuard></AdminLayout></ProtectedRoute>} />
             <Route path="/notifications" element={<ProtectedRoute><AdminLayout><NotificationsPage /></AdminLayout></ProtectedRoute>} />
             <Route path="/help" element={<ProtectedRoute><AdminLayout><FoundationPage name="Help & Support" /></AdminLayout></ProtectedRoute>} />

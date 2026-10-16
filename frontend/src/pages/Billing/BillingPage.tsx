@@ -25,6 +25,7 @@ import { formatInrMinor } from '../../commercial/publicCommercial';
 import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 
 const moduleIcons: Record<ModuleKey, React.ElementType> = {
+  [MODULES.TASKS]: BookOpenCheck,
   [MODULES.HR_PLUS]: Users,
   [MODULES.LEDGER]: BookOpenCheck,
   [MODULES.INVENTORY]: PackageCheck,
