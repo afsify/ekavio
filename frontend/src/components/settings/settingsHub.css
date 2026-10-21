@@ -1,0 +1,22 @@
+.settings-hub { min-width:0; }
+.settings-hub h2 { font-size:1.4rem; font-weight:700; letter-spacing:-.025em; }
+.settings-hub h3 { font-size:1.08rem; font-weight:650; }
+.settings-hub-intro { display:grid; gap:20px; background:var(--surface); }
+.settings-hub-intro p { max-width:65ch; margin-top:8px; color:var(--text-secondary); }
+.settings-hub-intro .settings-eyebrow { color:var(--primary-readable); font-size:.78rem; font-weight:650; margin:0 0 8px; }
+.settings-context { display:flex; gap:10px; align-items:center; min-width:0; color:var(--text-secondary); }
+.settings-context span { overflow-wrap:anywhere; }
+.settings-context svg { flex-shrink:0; }
+.settings-destination-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:12px; }
+.settings-destination { display:flex; align-items:start; gap:14px; min-width:0; min-height:120px; text-decoration:none; transition:border-color .15s; }
+.settings-destination:hover { border-color:var(--primary-color); }
+.settings-hub .settings-destination:focus-visible { outline:3px solid var(--primary-readable); outline-offset:3px; }
+.settings-destination > div { min-width:0; flex:1; }
+.settings-destination h4 { font-weight:650; color:var(--text); overflow-wrap:anywhere; }
+.settings-destination p { margin:6px 0; color:var(--text-secondary); font-size:.875rem; overflow-wrap:anywhere; }
+.settings-card-icon { display:grid; place-items:center; flex-shrink:0; width:38px; height:38px; border-radius:10px; background:var(--surface-muted,var(--surface)); color:var(--primary-readable); border:1px solid var(--border); }
+.settings-card-arrow { flex-shrink:0; color:var(--text-muted); }
+.settings-access { display:inline-block; font-size:.75rem; color:var(--text-secondary); border:1px solid var(--border); border-radius:6px; padding:3px 7px; }
+@media(min-width:768px) { .settings-destination-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(min-width:1440px) { .settings-destination-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .settings-hub-intro { grid-template-columns:minmax(0,2fr) minmax(0,1fr); align-items:center; } }
+@media(prefers-reduced-motion:reduce) { .settings-destination { transition:none; } }
