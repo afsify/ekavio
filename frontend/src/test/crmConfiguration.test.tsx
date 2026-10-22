@@ -9,7 +9,7 @@ import { client } from '../api/client';
 import { AxiosError } from 'axios';
 import { useAppStore } from '../store/useAppStore';
 
-vi.mock('../api/client', () => ({ client: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('../api/client', () => ({ client: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn() } }));
 const catalogue = [
   { key: 'customers.read', label: 'View customers', category: 'Customers', description: 'Read customer records' },
   { key: 'customers.manage', label: 'Manage customers', category: 'Customers', description: 'Change customer records' },
@@ -59,7 +59,7 @@ it('dirty layout still guards URL-backed entity selection', async () => {
   expect(screen.getByLabelText('Section 1 title')).toHaveProperty('value', 'QA draft');
   expect(screen.getByRole('combobox', { name: 'Record type' })).toHaveProperty('value', 'lead');
 });
-for (const change of ['account', 'organization', 'branch', 'permission', 'entitlement', 'operator'] as const) it(`closes stale CRM editor on ${change} replacement`, async () => {
+for (const change of ['account', 'organization', 'branch', 'permission', 'permission-addition', 'entitlement', 'operator'] as const) it(`closes stale CRM editor on ${change} replacement`, async () => {
   mount(); await screen.findByRole('heading', { name: 'No leads yet' });
   fireEvent.click(screen.getByRole('button', { name: 'Create lead' }));
   await screen.findByRole('dialog');
@@ -68,6 +68,7 @@ for (const change of ['account', 'organization', 'branch', 'permission', 'entitl
     change === 'organization' ? { activeTenantId: 'other' } :
     change === 'branch' ? { activeBranchId: 'other' } :
     change === 'permission' ? { user: { ...state.user!, permissions: ['crm.read'] } } :
+    change === 'permission-addition' ? { user: { ...state.user!, permissions: [...state.user!.permissions!, 'audit.read'] } } :
     change === 'entitlement' ? { entitlements: null } : { isPlatformOperator: true }); });
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(client.post).not.toHaveBeenCalled(); expect(client.patch).not.toHaveBeenCalled();
@@ -79,6 +80,36 @@ it('same-scope CRM draft still requires explicit discard', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.getByRole('dialog').textContent).toContain('Discard unsaved changes?');
   fireEvent.click(screen.getByRole('button', { name: 'Keep editing' })); expect(screen.getByLabelText('Lead name')).toHaveProperty('value', 'QA unsaved');
+});
+it('permission ordering alone preserves an unsaved CRM draft', async () => {
+  mount(); await screen.findByRole('heading', { name: 'No leads yet' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create lead' }));
+  fireEvent.change(await screen.findByLabelText('Lead name'), { target: { value: 'QA retained ordering draft' } });
+  const expectedOrder = [...useAppStore.getState().user!.permissions!].reverse();
+  act(() => { const user = useAppStore.getState().user!; useAppStore.setState({ user: { ...user, permissions: [...expectedOrder] } }); });
+  expect(useAppStore.getState().user!.permissions).toEqual(expectedOrder);
+  expect(screen.getByLabelText('Lead name')).toHaveProperty('value', 'QA retained ordering draft');
+  expect(client.post).not.toHaveBeenCalled(); expect(client.patch).not.toHaveBeenCalled();
+});
+it('permission ordering alone preserves an unsaved Lead layout draft', async () => {
+  const pending: { resolve?: (value: unknown) => void } = {};
+  vi.mocked(client.put).mockReturnValue(new Promise(resolve => { pending.resolve = resolve; }) as never);
+  mount('/custom-fields?entity=lead');
+  fireEvent.change(await screen.findByLabelText('Section 1 title'), { target: { value: 'QA retained layout ordering draft' } });
+  act(() => { const user = useAppStore.getState().user!; useAppStore.setState({ user: { ...user, permissions: [...user.permissions!].reverse() } }); });
+  expect(await screen.findByLabelText('Section 1 title')).toHaveProperty('value', 'QA retained layout ordering draft');
+  expect(screen.getByRole('button', { name: /^Save layout$/ })).toHaveProperty('disabled', false);
+  fireEvent.click(screen.getByRole('button', { name: /^Save layout$/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm layout save' }));
+  await waitFor(() => expect(client.put).toHaveBeenCalledTimes(1));
+  expect(client.put).toHaveBeenCalledWith('/forms/lead/layout', expect.objectContaining({ version: 0 }), expect.any(Object));
+  const signal = vi.mocked(client.put).mock.calls[0][2]?.signal;
+  act(() => { const user = useAppStore.getState().user!; useAppStore.setState({ user: { ...user, permissions: user.permissions!.filter(key => key !== 'fields.manage') } }); });
+  expect(signal?.aborted).toBe(true);
+  await act(async () => { pending.resolve?.({}); });
+  expect(await screen.findByLabelText('Section 1 title')).toHaveProperty('value', 'General');
+  expect(screen.queryByRole('button', { name: /^Save layout$/ })).toBeNull();
+  expect(client.post).not.toHaveBeenCalled(); expect(client.patch).not.toHaveBeenCalled();
 });
 it('shows human stage order while retaining zero-based position and original version', async () => {
   vi.mocked(client.patch).mockResolvedValue({}); mount(); await screen.findByRole('heading', { name: 'No leads yet' });
