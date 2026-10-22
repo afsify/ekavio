@@ -1,9 +1,10 @@
 import { hasEntitlement, type EffectiveEntitlements, type ModuleKey } from '../../commercial/catalogue';
-export interface Destination { name: string; path: string; group: 'Workspace' | 'Operations' | 'Administration' | 'Platform operations'; permission?: string; module?: ModuleKey; operator?: boolean }
+export interface Destination { name: string; path: string; group: 'Workspace' | 'Operations' | 'Administration' | 'Platform operations'; permission?: string; anyPermissions?: string[]; module?: ModuleKey; operator?: boolean }
 export const destinations: Destination[] = [
   { name: 'Home', path: '/dashboard', group: 'Workspace' },
   { name: 'Customers', path: '/customers', group: 'Workspace', permission: 'customers.read' },
   { name: 'Services', path: '/services', group: 'Workspace', permission: 'services.read' },
+  { name: 'Tasks', path: '/tasks', group: 'Operations', module: 'tasks', anyPermissions: ['tasks.read_own', 'tasks.read'] },
   { name: 'Queue', path: '/queue', group: 'Operations', permission: 'queue.read', module: 'queue' },
   { name: 'Appointments', path: '/appointments', group: 'Operations', permission: 'queue.read', module: 'queue' },
   { name: 'Attendance', path: '/attendance', group: 'Operations', permission: 'attendance.read', module: 'attendance' },
@@ -30,7 +31,7 @@ export const destinations: Destination[] = [
   { name: 'Corporate HQ', path: '/corporate', group: 'Platform operations', permission: 'corporate.manage', operator: true },
 ];
 export const visibleDestinations = (permissions: string[], entitlements: EffectiveEntitlements | null, operator: boolean) => destinations.filter((item) =>
-  (!item.permission || permissions.includes(item.permission)) && (!item.module || hasEntitlement(entitlements, item.module)) && (!item.operator || operator));
+  (!item.permission || permissions.includes(item.permission)) && (!item.anyPermissions || item.anyPermissions.some(permission => permissions.includes(permission))) && (!item.module || hasEntitlement(entitlements, item.module)) && (!item.operator || operator));
 
 /** Presentation only. The permission/entitlement catalogue above remains authority. */
 export const navigationGroups = ['Home', 'Daily operations', 'Customers & relationships', 'Team & workforce', 'Stock & purchasing', 'Insights', 'Administration', 'Account & settings', 'Platform operations'] as const;
@@ -40,13 +41,13 @@ export function navigationGroup(item: Destination): NavigationGroup {
   if (item.path === '/dashboard') return 'Home';
   if (['/queue', '/appointments', '/services'].includes(item.path)) return 'Daily operations';
   if (['/customers', '/crm', '/ledger'].includes(item.path)) return 'Customers & relationships';
-  if (['/staff', '/attendance', '/hr'].includes(item.path)) return 'Team & workforce';
+  if (['/staff', '/attendance', '/hr', '/tasks'].includes(item.path)) return 'Team & workforce';
   if (['/inventory', '/suppliers', '/purchasing'].includes(item.path)) return 'Stock & purchasing';
   if (item.path === '/reports') return 'Insights';
   if (['/settings', '/notifications', '/help'].includes(item.path)) return 'Account & settings';
   return 'Administration';
 }
 export function mobileDestinations(items: Destination[]) {
-  const work = ['/queue', '/crm', '/hr', '/inventory'].find(path => items.some(item => item.path === path));
+  const work = ['/queue', '/crm', '/tasks', '/hr', '/inventory'].find(path => items.some(item => item.path === path));
   return ['/dashboard', work, '/customers'].flatMap(path => items.filter(item => item.path === path));
 }

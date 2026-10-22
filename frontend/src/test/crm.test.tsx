@@ -67,7 +67,9 @@ it('late Follow-up edit reads cannot open a form after management authority chan
  fireEvent.click(screen.getByRole('button', { name: 'Edit follow-up' })); await screen.findByText('Loading current Lead for follow-up…');
  act(()=>useAppStore.setState({user:{...useAppStore.getState().user!,permissions:['crm.read']}}));
  await act(async()=>release({id:'qa-lead',name:'QA lead',status:'active',version:1}));
- await screen.findByRole('heading', { name: 'Follow-up could not be opened' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.queryByRole('button', { name: 'Retry Lead' })).toBeNull(); expect(client.post).not.toHaveBeenCalled(); expect(client.patch).not.toHaveBeenCalled();
+ // Authority replacement now unmounts the entire old CRM workspace, including
+ // its pending-command error UI. The late result must not restore any old form.
+ await screen.findByRole('heading', { name: 'No leads yet' }); expect(screen.queryByRole('heading', { name: 'Follow-up could not be opened' })).toBeNull(); expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.queryByRole('button', { name: 'Retry Lead' })).toBeNull(); expect(screen.queryByRole('button', { name: 'Create lead' })).toBeNull(); expect(client.post).not.toHaveBeenCalled(); expect(client.patch).not.toHaveBeenCalled();
 });
 it('CRM writes invalidate actual dashboard and notification cache keys', async () => {
  vi.mocked(client.post).mockResolvedValue({data:{data:{created:5}}});

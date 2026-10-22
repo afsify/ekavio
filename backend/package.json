@@ -14,6 +14,8 @@
     "test:crm": "tsx --test tests/crm.integration.ts",
     "test:purchasing": "tsx --test tests/purchasing.integration.ts",
     "test:hr": "tsx --test tests/hr.integration.ts",
+    "test:tasks": "tsx --test tests/tasks.integration.ts",
+    "test:tasks-recovery": "tsx --test tests/tasksRecovery.integration.ts",
     "test:analytics-notifications": "tsx --test tests/analyticsNotifications.integration.ts",
     "notifications:prune": "node dist/scripts/notificationPrune.js",
     "test:postgres": "tsx --test tests/postgres.integration.ts",
