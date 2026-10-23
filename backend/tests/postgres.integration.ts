@@ -388,6 +388,7 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
       identities: identityRepository,
       sessions: {
         create: async () => { sessionCreateCount += 1; throw new Error('must not create'); },
+        validate: async () => { throw new Error('not used'); },
         rotate: async () => { throw new Error('not used'); },
         revoke: async () => undefined,
         revokeAllForUser: async () => undefined,

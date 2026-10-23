@@ -4,7 +4,7 @@
  * Protected routes, and Toast notifications.
  */
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 // Install the bounded layout-history relay before BrowserRouter listens.
 import './hooks/useLayoutNavigationGuard';
 import { Toaster } from "react-hot-toast";
@@ -12,6 +12,8 @@ import { useAppStore } from "./store/useAppStore";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
+import { WorkspaceStartup } from './components/layout/WorkspaceStartup';
+import { markStartup } from './utils/startupDiagnostics';
 const Login = React.lazy(() => import('./pages/Login'));
 const AccountActionPage = React.lazy(() => import('./pages/Identity/AccountActionPage'));
 import { hasEntitlement, MODULES, type ModuleKey } from './commercial/catalogue';
@@ -63,6 +65,10 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const isBootstrapping = useAppStore((state) => state.isBootstrapping);
+  const startupError = useAppStore((state) => state.startupError);
+
+  if (isBootstrapping || startupError) return <WorkspaceStartup key={isBootstrapping ? 'pending' : 'error'} />;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -132,21 +138,23 @@ const PlatformOperatorGuard: React.FC<{ children: React.ReactNode }> = ({ childr
 
 const PageLoader = () => (
   <div className="route-loader" role="status">
-    <div className="route-spinner" aria-hidden="true" /><span>Loading workspace…</span>
+    <div className="route-spinner" aria-hidden="true" /><span>Loading page…</span>
   </div>
 );
 
+const PUBLIC_ROUTES = new Set(['/', '/login', '/forgot-password', '/reset-password', '/verify-email', '/accept-invitation', '/privacy', '/onboarding']);
+function RouteDiagnostics() {
+  const { pathname } = useLocation();
+  const ready = useAppStore((state) => state.isAuthenticated && !state.isBootstrapping && !state.startupError);
+  React.useEffect(() => {
+    if (PUBLIC_ROUTES.has(pathname)) markStartup('public-render');
+    else if (ready) markStartup('workspace-shell');
+  }, [pathname, ready]);
+  return null;
+}
+
 export const App: React.FC = () => {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
-  const isBootstrapping = useAppStore((state) => state.isBootstrapping);
-
-  if (isBootstrapping) {
-    return (
-      <ThemeProvider>
-        <PageLoader />
-      </ThemeProvider>
-    );
-  }
 
   return (
     <ThemeProvider>
@@ -353,6 +361,7 @@ export const App: React.FC = () => {
             <Route path="/privacy" element={<PublicLayout><PrivacyPage /></PublicLayout>} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+          <RouteDiagnostics />
         </React.Suspense>
       </BrowserRouter>
     </ThemeProvider>
