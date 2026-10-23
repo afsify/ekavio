@@ -48,6 +48,7 @@ export interface RefreshSession {
 
 export interface RefreshSessionManager {
   create(userId: string, metadata?: SessionMetadata, expectedPasswordHash?: string): Promise<RefreshSession>;
+  validate(refreshCredential: string): Promise<Pick<RefreshSession, 'sessionId' | 'userId'>>;
   rotate(refreshCredential: string): Promise<RefreshSession>;
   revoke(refreshCredential: string | undefined): Promise<void>;
   revokeAllForUser(userId: string): Promise<void>;
@@ -100,6 +101,26 @@ export const createRefreshSessionManager = ({
   const createCredential = (sessionId = random(16).toString('hex')): string =>
     `${sessionId}.${random(32).toString('base64url')}`;
 
+  // Read-only validation does not extend or consume the credential. Rotation
+  // must validate again after preparation, then win the repository's atomic CAS.
+  const validateCredential = async (refreshCredential: string) => {
+    const parsed = parseCredential(refreshCredential);
+    if (!parsed) throw new AppError('Invalid refresh session', 401);
+
+    const session = await repository.findBySessionId(parsed.sessionId);
+    const checkedAt = now();
+    const suppliedHash = hash(refreshCredential);
+    if (
+      !session ||
+      session.revokedAt ||
+      session.expiresAt.getTime() <= checkedAt.getTime() ||
+      !hashesMatch(session.refreshTokenHash, suppliedHash)
+    ) {
+      throw new AppError('Invalid or expired refresh session', 401);
+    }
+    return { session, suppliedHash, checkedAt };
+  };
+
   return {
     async create(userId, metadata = {}, expectedPasswordHash) {
       const createdAt = now();
@@ -125,29 +146,17 @@ export const createRefreshSessionManager = ({
       return { sessionId: parsed.sessionId, userId, refreshCredential, expiresAt };
     },
 
+    async validate(refreshCredential) {
+      const { session } = await validateCredential(refreshCredential);
+      return { sessionId: session.sessionId, userId: session.userId };
+    },
+
     async rotate(refreshCredential) {
-      const parsed = parseCredential(refreshCredential);
-      if (!parsed) {
-        throw new AppError('Invalid refresh session', 401);
-      }
-
-      const session = await repository.findBySessionId(parsed.sessionId);
-      const rotatedAt = now();
-      const suppliedHash = hash(refreshCredential);
-
-      if (
-        !session ||
-        session.revokedAt ||
-        session.expiresAt.getTime() <= rotatedAt.getTime() ||
-        !hashesMatch(session.refreshTokenHash, suppliedHash)
-      ) {
-        throw new AppError('Invalid or expired refresh session', 401);
-      }
-
-      const nextCredential = createCredential(parsed.sessionId);
+      const { session, suppliedHash, checkedAt: rotatedAt } = await validateCredential(refreshCredential);
+      const nextCredential = createCredential(session.sessionId);
       const nextExpiresAt = new Date(rotatedAt.getTime() + REFRESH_SESSION_MAX_AGE_MS);
       const rotated = await repository.rotate(
-        parsed.sessionId,
+        session.sessionId,
         suppliedHash,
         hash(nextCredential),
         rotatedAt,
@@ -159,7 +168,7 @@ export const createRefreshSessionManager = ({
       }
 
       return {
-        sessionId: parsed.sessionId,
+        sessionId: session.sessionId,
         userId: session.userId,
         refreshCredential: nextCredential,
         expiresAt: nextExpiresAt,

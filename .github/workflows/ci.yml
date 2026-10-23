@@ -8,7 +8,13 @@ on:
 
 jobs:
   foundation:
-    runs-on: ubuntu-latest
+    # Temporary kernel compatibility pin for legacy Mongo parity (SERVER-121912).
+    # Failed ubuntu24/20261018.339 uses 7.0.0-1017-azure; ubuntu22/20261012.322
+    # uses compatible 6.8.0-1064-azure. A newer tag alone does not fix Ubuntu's
+    # kernel exemption (SERVER-131779, MongoDB 8.0.35; current official image 8.0.34).
+    # Revisit before ubuntu-22.04 retirement on 2027-04-17; never bypass the guard.
+    # https://github.com/actions/runner-images/blob/ubuntu22/20261012.322/images/ubuntu/Ubuntu2204-Readme.md
+    runs-on: ubuntu-22.04
     services:
       mongo:
         image: mongo:8.0.30-noble@sha256:f40b97b97ce805c48ab428ce4422180ae0ef0de6dacadf1e32c6e6a1cbc9353d
@@ -17,6 +23,14 @@ jobs:
           MONGO_INITDB_ROOT_PASSWORD: ci-mongo-only
         ports:
           - 27017:27017
+        # Authenticate as the synthetic CI user, not merely a TCP/unauthenticated ping.
+        # Fail during service initialization with container diagnostics, before parity.
+        options: >-
+          --health-cmd "mongosh --quiet --host 127.0.0.1 --username ekavio --password ci-mongo-only --authenticationDatabase admin --eval 'quit(db.runCommand({ ping: 1 }).ok === 1 ? 0 : 1)'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 6
+          --health-start-period 10s
       postgres:
         image: postgres:17.11-alpine3.23@sha256:9ae4e8f8d0284836a505f0b2e825144e32e20499856e7dc5f7b99e19d10eedd6
         env:
@@ -62,6 +76,10 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
+
+      - name: Audit backend dependencies
+        working-directory: backend
+        run: npm audit
 
       - name: Lint backend
         working-directory: backend
@@ -207,6 +225,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit
+
       - name: Lint frontend
         working-directory: frontend
         run: npm run lint
@@ -282,6 +304,20 @@ jobs:
         working-directory: backend
         run: npm run test:hr
 
+      - name: Test PostgreSQL Tasks assignment lifecycle and API authority
+        working-directory: backend
+        run: npm run test:tasks
+
+      - name: Restore populated Task archive in disposable PostgreSQL
+        working-directory: backend
+        env:
+          TASKS_QA_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: npm run test:tasks-recovery
+
+      - name: Test PostgreSQL-backed Tasks workflows responsive states and accessibility
+        working-directory: frontend
+        run: npx playwright test --config playwright.tasks.config.ts
+
       - name: Test current-schema count-only recovery acceptance
         working-directory: backend
         run: npx tsx --test tests/recoveryAcceptance.integration.ts
@@ -340,7 +376,7 @@ jobs:
 
       - name: Upload frontend QA evidence
         # V2-11E Batches 1–4 add only explicit sanitized presentation screenshots.
-        # HR acceptance uses disposable private fixtures and no uploaded traces.
+        # HR and Tasks use disposable private fixtures; exclude their evidence.
         # Authenticated fixtures never enter uploaded traces/screenshots.
         if: always()
         uses: actions/upload-artifact@v4
@@ -356,6 +392,9 @@ jobs:
             !frontend/test-results/crm/**
             !frontend/test-results/purchasing/**
             !frontend/test-results/hr/**
+            !frontend/test-results/tasks/**
+            !frontend/test-results/tasks-screenshots/**
+            !frontend/test-results/tasks-attention/**
             !frontend/test-results/experience/**
             !frontend/test-results/operations/**
             !frontend/test-results/relationships/**
