@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { workspace } from './fixtures';
+import type { PublicCommercialCatalogue } from '../src/commercial/publicCommercial';
 
 async function holdSession(page: Page) {
   const fixture = await workspace(page);
@@ -37,8 +38,15 @@ for (const width of [390, 768, 1440]) for (const theme of ['light', 'dark', 'sys
 }
 
 test('landing renders before a held backend response and never redirects an authorized visitor', async ({ page }, info) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
   const held = await holdSession(page);
+  // The workspace catch-all returns a list; the public landing requires a catalogue object.
+  const catalogue: PublicCommercialCatalogue = { currency: 'INR', plans: [], addOns: [] };
+  await page.route('**/api/public/commercial/catalogue', route => route.fulfill({ json: { data: catalogue } }));
+  const catalogueResponse = page.waitForResponse('**/api/public/commercial/catalogue');
   await page.goto('/');
+  expect((await catalogueResponse).status()).toBe(200);
   await expect(page.getByRole('navigation', { name: 'Public navigation' })).toBeVisible();
   await expect(page.locator('h1')).toBeVisible();
   await expect(page.getByRole('complementary', { name: 'Workspace sidebar' })).toHaveCount(0);
@@ -49,6 +57,9 @@ test('landing renders before a held backend response and never redirects an auth
   await held.pending()!.fulfill({ json: held.fixture.session });
   await expect.poll(async () => (await timings(page)).some(entry => entry.name.endsWith(':authorization-ready'))).toBe(true);
   await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('navigation', { name: 'Public navigation' })).toBeVisible();
+  await expect(page.locator('h1')).toBeVisible();
+  expect(pageErrors).toEqual([]);
   await info.attach('held-backend-timings', { body: JSON.stringify({ fixture: 'manually held until public content assertions pass; not Render cold-start evidence', entries: await timings(page) }), contentType: 'application/json' });
 });
 
