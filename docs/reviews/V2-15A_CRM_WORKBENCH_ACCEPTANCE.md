@@ -135,3 +135,39 @@ CRM remains lazy-loaded: production `CrmPage` JS **46,462 bytes** (12.00 kB gzip
 Publish only this feature branch and create a DRAFT PR dependent on draft PR #5. Existing CI runs only for PRs targeting main, so the proposed main comparison necessarily contains the unmerged PR #5/#4 ancestry as well as this six-file V2-15A increment. It must not be represented as a standalone six-file main diff or merged independently. Trigger the normal full workflow once by opening the draft; record exact SHA/run status externally after publication, without a report-only follow-up commit that would invalidate exact-head CI. No completion tag is authorized.
 
 **NO-GO FOR REAL CUSTOMER DATA remains unchanged. Render Free remains synthetic staging-only. No merge, deployment, hosted migration or provider write is authorized.**
+
+## Exact-head CI failure and bounded dependency correction — 2026-10-25
+
+The original six-file UI candidate was committed/pushed as `d6ecce499caeff4d01406312e3ea9521427fe6cb` and published in DRAFT PR #6, dependent on #5. [Exact-head CI 40199813099](https://github.com/afsify/ekavio/actions/runs/40199813099) FAILED at **Audit backend dependencies** (exit 1). The application, PostgreSQL, browser, Tasks, Forms Studio, session and Docker gates did not execute; skipped gates are not passes. No application regression was established by that audit failure.
+
+Only the failed dependency gate was investigated. Backend audit reported 4 vulnerable packages (2 high, 2 moderate). A bounded frontend audit confirmed the same fast-uri/Zod advisories plus a build-serialization advisory: 3 vulnerable packages (1 high, 1 moderate, 1 low). No forced audit fix, threshold relaxation, ignored advisory or unrelated upgrade was used.
+
+| Package | Previous lock | Corrected lock | Scope |
+| --- | --- | --- | --- |
+| body-parser | 2.3.0 | 2.4.0 | Backend; upstream-required content-type 2.1.0, iconv-lite 0.7.3 and qs 6.16.1 are the only additional transitive updates |
+| fast-uri | 3.1.8 | 3.1.9 | Both locks |
+| nodemailer | 10.0.15 | 10.1.4 | Backend exact manifest pin retained, advanced to upstream-fixed version |
+| zod | 4.4.3 | 4.6.7 | Both locks, within existing same-major declared range |
+| serialize-javascript | 7.0.7 | 7.1.4 | Frontend build dependency, within existing parent range |
+
+Upstream patch floors were checked against the primary advisories: [body-parser](https://github.com/advisories/GHSA-27r3-jxmh-p828), [fast-uri](https://github.com/advisories/GHSA-w74x-v6f9-j3xg), [Nodemailer](https://github.com/advisories/GHSA-85x2-q946-cp5h), [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), [serialization](https://github.com/advisories/GHSA-m5mm-p8h7-m29v). Every changed lock entry was reviewed; no unrelated package change was found. HTTP/session/SMTP TLS policy, schemas and application code are unchanged.
+
+Additional files for this correction (four, giving **ten distinct branch-increment files** including the six above):
+
+- `backend/package.json` — exact Nodemailer pin only.
+- `backend/package-lock.json` — four audit targets and body-parser's three required dependencies.
+- `frontend/package-lock.json` — three confirmed audit targets only; no frontend manifest change.
+- `backend/tests/dependencySecurity.test.ts` — three offline regressions: backend/frontend security-version floors and the quoted greater-than recipient-domain parser case. No email is sent and no hosted resource is used.
+
+Post-correction evidence:
+
+- Full backend npm audit: **0 vulnerabilities**, exit 0.
+- Full frontend npm audit: **0 vulnerabilities**, exit 0.
+- Task-local backend `npm ci --ignore-scripts`: PASS, exit 0, 313 packages; existing shared dependency installations and original worktrees untouched.
+- Focused backend selection (`dependencySecurity`, `authSession`, `identityAccount`, `authMiddleware`, `authorizationTenancy`, `profileSession`): **63 passed, 0 failed, 0 skipped, 0 cancelled**, exit 0, 18.41s. Includes the three new offline regressions, one-winner refresh rotation, revocation, cookie preservation, tenant isolation and SMTP fail-closed boundaries.
+- Focused backend ESLint and backend TypeScript: PASS, exit 0, sequential with a 1,024 MiB Node heap cap.
+- Resource check: 2,364 MiB physical RAM available and 18.89 GiB commit headroom; free disk approximately 37 GiB. No unrelated process termination or paging modification.
+
+The original frontend 45/45 components, 22 distinct browser cases, screenshots and production build remain valid evidence for the unchanged **UI source at d6ecce4**, not fabricated proof of the updated dependency runtime. The shared frontend installation was intentionally not rewritten. Post-correction frontend clean install/build/full regressions, full backend/PostgreSQL/Tasks/Forms/session/Docker acceptance remain **PENDING the new exact-head Linux CI**. No additional full local browser matrix or build was repeated against stale dependencies. The follow-up correction commit is separately reviewable and does not rewrite the original UI commit.
+
+The final PR description must distinguish the original six-file UI increment from this dependency-only CI repair. Publish normally to the same V2-15A branch, keeping PR #6 DRAFT and #1–#5 unchanged. The automatic synchronize run for the corrected exact SHA is the required new candidate CI; do not manually rerun the known-vulnerable old candidate. Full integrated acceptance remains withheld until all mandatory gates succeed.
