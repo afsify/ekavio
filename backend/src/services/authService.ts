@@ -184,21 +184,25 @@ export const createAuthService = ({
   },
 
   async refresh(refreshCredential, selection) {
-    const session = await sessions.rotate(refreshCredential);
+    const session = await sessions.validate(refreshCredential);
     const user = await identities.findById(session.userId);
     if (!user) {
-      await sessions.revoke(session.refreshCredential);
+      await sessions.revoke(refreshCredential);
       throw new AppError('Invalid refresh session', 401);
     }
 
     await prepareAuthorization(user.id);
     const context = await identities.buildContext(user, selection);
+    const response = {
+      accessToken: signAccessToken(context, session.sessionId),
+      ...context,
+    };
+    // Do not consume the credential on preparation/signing failure. The final
+    // rotation rechecks validity and must win CAS before either token is returned.
+    const rotated = await sessions.rotate(refreshCredential);
     return {
-      refreshCredential: session.refreshCredential,
-      response: {
-        accessToken: signAccessToken(context, session.sessionId),
-        ...context,
-      },
+      refreshCredential: rotated.refreshCredential,
+      response,
     };
   },
 

@@ -33,7 +33,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const current = items.find((item) => item.path === location.pathname);
   const membership = user?.memberships?.find((item) => item.organizationId === activeTenantId);
   const branch = membership?.branches.find((item) => item.id === activeBranchId);
-  const scope = [user?.id, activeTenantId, activeBranchId, contextRevision, user?.permissions?.join(',')].join(':');
+  // Authority is a set. A harmless server ordering change must not unmount an
+  // open workspace/draft; real grant additions/removals still replace it.
+  const scope = [user?.id, activeTenantId, activeBranchId, contextRevision, [...(user?.permissions ?? [])].sort().join(',')].join(':');
   const toggleCompact = () => { setCompact(value => { try { sessionStorage.setItem('ekavio-compact-navigation', String(!value)); } catch { /* Nonessential display preference. */ } return !value; }); };
   return <div className="app-shell"><a className="workspace-skip" href="#workspace-main">Skip to workspace content</a><AdminSidebar isOpen={open} onClose={closeNavigation} compact={compact} onCompact={toggleCompact} /><div className="workspace">
     <header className="workspace-header"><div className="workspace-heading"><button className="menu-toggle icon-button" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} aria-hidden="true" /></button><div><nav className="workspace-breadcrumb" aria-label="Breadcrumb"><Link to="/dashboard">{current?.operator ? 'Platform operations' : 'Workspace'}</Link><span aria-hidden="true">/</span><span aria-current="page">{current?.name ?? 'Home'}</span></nav><p className="context-label">{membership?.orgName ?? 'Your workspace'} · {branch?.name ?? 'Selected branch'}</p></div></div>

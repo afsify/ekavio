@@ -1,0 +1,70 @@
+.tasks-page {min-width:0}
+.tasks-page :is(button,input,select,textarea) {scroll-margin-block:150px 100px}
+.tasks-page .task-context {display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--text-muted);font-size:.85rem}
+.tasks-page .task-views {display:flex;flex-wrap:wrap;gap:8px}
+.tasks-page .task-views button[aria-pressed=true],.tasks-page .task-work-views button[aria-pressed=true] {background:var(--surface-subtle);border-color:var(--primary-readable);color:var(--primary-readable);font-weight:650}
+.tasks-page .task-work-views {display:flex;flex-wrap:wrap;gap:6px}
+.tasks-page .task-work-views button {min-height:44px;padding:8px 12px}
+.tasks-page .task-filter-chips {display:flex;flex-wrap:wrap;gap:8px}
+.tasks-page .task-filter-chips button {max-width:100%;overflow-wrap:anywhere;text-align:start}
+.tasks-page .task-filters {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(165px,100%),1fr));gap:14px;align-items:end}
+.tasks-page .filter-controls {display:block;margin-top:12px;background:var(--surface-muted)}
+.tasks-page .filter-controls>.task-filters+div {margin-top:16px}
+.tasks-page .task-toolbar {display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+.tasks-page .task-toolbar>div:first-child {flex:1;min-width:min(250px,100%)}
+.tasks-page .task-identity {display:grid;gap:6px;min-width:0;max-width:460px}
+.task-identity h3,.task-identity button,.task-title,.task-description {overflow-wrap:anywhere;white-space:pre-wrap}
+.task-preview {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;color:var(--text-muted);font-size:.85rem}
+.task-card {display:grid;gap:12px;padding:16px}
+.tasks-page button.task-title {font-weight:650;font-size:var(--font-sm);line-height:1.5;text-align:start}
+.tasks-page button.task-title:hover {color:var(--primary-readable);text-decoration:underline;text-underline-offset:3px}
+.task-card-facts {display:grid;gap:10px;padding-block:12px;border-block:1px solid var(--border)}
+.task-card-footer {display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:var(--font-xs)}
+.task-assignee,.task-deadline {display:flex;align-items:flex-start;gap:8px;overflow-wrap:anywhere;min-width:0}
+.task-assignee svg,.task-deadline svg {flex-shrink:0;margin-top:3px;color:var(--text-secondary)}
+.task-assignee small,.task-deadline small {display:block;font-size:var(--font-xs);color:var(--text-secondary);margin-top:4px}
+.task-deadline.is-overdue {color:var(--danger);font-weight:600}
+.task-detail-identity {display:grid;gap:12px;padding:16px;background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-panel)}
+.task-detail-identity h3 {font-size:var(--font-lg);font-weight:650;line-height:1.5}
+.task-form-context,.task-review,.task-read-only {padding:16px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface-subtle);overflow-wrap:anywhere}
+.task-review {display:grid;gap:12px}
+.task-dialog .task-form-section,.task-dialog .task-assignment {padding:16px;border:1px solid var(--border);border-radius:var(--radius-control)}
+.task-dialog .task-form-section h3,.task-dialog .task-assignment legend {font-weight:650}
+.task-dialog .task-assignment legend {padding-inline:6px}
+.task-card-header,.task-badges {display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.task-badges {justify-content:flex-start}
+.task-meta {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:16px;margin:0}
+.task-meta dt {font-size:.8rem;color:var(--text-muted);margin-bottom:5px}
+.task-meta dd {margin:0;overflow-wrap:anywhere}
+.task-dialog .field,.task-dialog input,.task-dialog select,.task-dialog textarea {min-width:0;max-width:100%}
+.task-dialog .field {display:grid;gap:7px}
+.task-dialog textarea {width:100%;min-height:130px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);resize:vertical}
+.task-dialog .task-form-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.task-dialog .task-form-grid>.task-wide {grid-column:1/-1}
+.task-dialog fieldset {min-width:0;border:0;padding:0;margin:0}
+.task-dialog .task-history {list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.task-history li {border-inline-start:3px solid var(--border);padding:12px 14px;background:var(--surface-subtle);border-radius:0 var(--radius-control) var(--radius-control) 0;overflow-wrap:anywhere}
+.task-history h4 {font-weight:650;margin-bottom:4px}
+.task-dialog .task-warning {padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface-alt,var(--surface));overflow-wrap:anywhere}
+.task-dialog .task-actions {display:flex;flex-wrap:wrap;gap:10px}
+.task-dialog .task-actions button {min-height:44px}
+.tasks-page .data-table td {vertical-align:top}
+.tasks-page .task-directory table {table-layout:fixed;width:100%}
+.tasks-page .task-directory :is(th,td):first-child {width:40%}
+.tasks-page .task-directory :is(th,td):nth-child(2) {width:20%}
+.tasks-page .task-directory :is(th,td) {overflow-wrap:anywhere}
+@media(max-width:600px){.task-dialog .task-form-grid {grid-template-columns:minmax(0,1fr)}.task-dialog .task-form-grid>.task-wide {grid-column:auto}.task-dialog .dialog-actions>* {flex:1}.tasks-page .page-actions {width:100%}.tasks-page .page-actions>button {width:100%}}
+@media(max-width:767px){
+  .tasks-page {gap:12px}
+  .tasks-page .page-heading {gap:12px}
+  /* Keep actual records/actions first; the desktop tagline/table explanation
+     is supplemental, not task data or pagination feedback. */
+  .tasks-page .page-heading>div>p:not(.eyebrow),.tasks-page .table-toolbar>div>p {display:none}
+  .tasks-page .task-search-panel {gap:10px;padding:12px}
+  .tasks-page .task-toolbar {gap:8px}
+  .tasks-page .task-work-views {gap:4px}
+  .tasks-page .task-work-views button {flex:1 0 auto;padding:6px 10px}
+  .tasks-page .table-toolbar {padding:12px 16px}
+  .tasks-page .task-card {border:0;border-radius:0;border-bottom:1px solid var(--border)}
+  .task-dialog .task-actions button {flex:1 1 auto}
+}
