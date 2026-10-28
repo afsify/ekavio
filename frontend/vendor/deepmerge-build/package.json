@@ -1,0 +1,8 @@
+{
+  "name": "@ekavio/deepmerge-build",
+  "version": "4.3.1-ekavio.1",
+  "private": true,
+  "description": "Reviewed build-only deepmerge 4.3.1 fork with prototype-key hardening",
+  "main": "index.cjs",
+  "license": "MIT"
+}

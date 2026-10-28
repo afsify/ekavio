@@ -9,8 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "preview": "vite preview",
-    "test": "node --test ../scripts/theme-bootstrap.test.mjs && vitest run",
-    "test:e2e": "playwright test",
+    "test": "node --test ../scripts/theme-bootstrap.test.mjs ../scripts/pwa-dependency.test.mjs && vitest run",
+    "test:e2e": "node --test ../scripts/pwa-build.test.mjs && playwright test",
     "test:e2e:identity": "playwright test --config playwright.identity.config.ts",
     "test:e2e:admin": "playwright test --config playwright.admin.config.ts",
     "test:e2e:fields": "playwright test --config playwright.fields.config.ts",
@@ -46,7 +46,11 @@
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
+  "overrides": {
+    "deepmerge": "$deepmerge"
+  },
   "devDependencies": {
+    "deepmerge": "file:vendor/deepmerge-build",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.63.0",
     "@testing-library/dom": "10.4.1",

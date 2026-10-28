@@ -113,3 +113,118 @@ The unchanged workflow runs full CI for PRs targeting main (branch pushes alone 
 Exact-head full Linux CI is still required for integrated acceptance: backend/frontend audits, PostgreSQL/session/business contracts, browser/visual matrices and Docker gates. No pending/skipped check is a pass. Record actual run/job/step statuses in the publication handoff; do not claim production or staging-release approval from local tests.
 
 Deferred UX-02 recommendations, not started: independently prioritized domain-page polish, larger real synthetic multi-organization fixtures under separate authorization, and manual assistive-technology review. Server-global search, new backend capabilities and operational production-readiness work are not part of UX-01. Staging integration/backup/migration/deployment approvals remain independent gates.
+
+## Security repair checkpoint — 2026-10-28 (publication BLOCKED)
+
+This addendum supersedes the earlier pending-CI wording only for the published
+candidate: draft PR #7 HEAD `87c54b129b14fea5744e29c659171129ab1a911a` failed
+[CI 40665021613](https://github.com/afsify/ekavio/actions/runs/40665021613)
+at **Audit frontend dependencies**. Subsequent skipped gates are not passes.
+The accepted UI source and its historical local evidence remain unchanged.
+
+### Finding and bounded remediation
+
+- GHSA-gcqx-w48m-w2h4 affects `deepmerge@4.3.1`, reached through
+  `vite-plugin-pwa@1.3.0 -> workbox-build@7.4.1 -> @rollup/plugin-node-resolve@16.0.3`.
+  These are dev/build dependencies. The inspected resolver uses the merge for
+  static DEFAULTS, not customer input. No application source imports this chain;
+  verification of the newly generated production assets is still pending.
+- Upstream had no published patched version at investigation time. The repair is
+  an explicitly application-maintained MIT fork, `@ekavio/deepmerge-build@4.3.1-ekavio.1`,
+  not a claim of an upstream fix. Source tarball, integrity, license and replacement
+  policy are recorded in `frontend/vendor/deepmerge-build/README.md`.
+- Both copy paths reject `__proto__`, `constructor` and `prototype` before reading
+  values, use own data-property definitions, and fail closed on unsafe target
+  membership inspection. Compatibility checks cover clone/merge options, arrays,
+  symbols, special values and actual Rollup resolver construction. Custom callbacks
+  remain trusted configuration; this is not a general sandbox.
+- Root devDependency `deepmerge: file:vendor/deepmerge-build` plus
+  `overrides.deepmerge: $deepmerge` resolves the actual Rollup dependency to the
+  reviewed local fork. Earlier nested relative overrides produced invalid links
+  and were rejected. A clean audit with an unresolved dependency was **not** accepted.
+  The graph regression also guards against new transitive/runtime consumers.
+- npm audit remains enabled and unchanged. Its zero finding does not certify a
+  local fork; the source review and executable regressions are separate evidence.
+
+### Exact completed and outstanding checks
+
+| Check | Result |
+| --- | --- |
+| Fail-first reproduction on upstream | Four security failures; four compatibility passes in the initial corrected selection |
+| Normal install and actual resolver loading | PASS; valid local fork and deduplicated resolver graph |
+| Clean `npm ci --ignore-scripts --no-fund` | PASS, exit 0; 579 packages added, 581 audited; lifecycle hooks deliberately not executed by this install check |
+| Post-clean-install `npm ls deepmerge --all` | PASS, valid resolved fork; no missing/invalid link |
+| Post-clean-install `node --test ../scripts/pwa-dependency.test.mjs` | **11/11 PASS**, zero failures; actual resolver dependency tested |
+| `npm audit` | PASS, exit 0, **0 vulnerabilities** |
+| `npm audit --omit=dev` | PASS, exit 0, **0 vulnerabilities** |
+| Node syntax checks: fork and two new test scripts | PASS, exit 0 |
+| `git diff --check` | PASS, exit 0 |
+| Frontend ESLint / TypeScript after dependency repair | NOT RUN; resource gate |
+| Production build with repaired dependency | NOT RUN; resource gate; prior UI build is not claimed as patch acceptance |
+| Two targeted production PWA checks | Added but NOT RUN: generated manifest/registration/bundle boundaries and real Chromium service-worker activation, offline shell, API cache exclusion |
+| Standard clean Linux CI including lifecycle/build/browser gates | NOT RUN for this patch; no new commit or push |
+
+The install took approximately eight minutes. RAM fell during execution. The final
+read-only Windows counter showed **490 MiB available physical memory**, committed
+bytes **19,627,839,488**, limit **35,081,060,352** (about 14.39 GiB commit headroom).
+Physical RAM, not commit capacity, is the immediate blocker. A narrowly scoped
+stop check found the installer had already finished; **no process was terminated**.
+No heavy compilation or Chromium startup was attempted at that reading. Resume
+sequential lint/typecheck/build and the two PWA checks when approximately 3 GiB
+physical RAM is available. Do not repeat the successful install/security checks
+without a relevant dependency change or fresh-environment verification need.
+
+### Intended repair inventory and preservation
+
+```text
+frontend/package.json
+frontend/package-lock.json
+frontend/vendor/deepmerge-build/package.json
+frontend/vendor/deepmerge-build/index.cjs
+frontend/vendor/deepmerge-build/LICENSE
+frontend/vendor/deepmerge-build/README.md
+scripts/pwa-dependency.test.mjs
+scripts/pwa-build.test.mjs
+docs/reviews/UX-01_PREMIUM_WORKSPACE_ACCEPTANCE.md
+```
+
+All nine files remain uncommitted; nothing is staged. Application/UX source,
+existing browser assertions, CI configuration and PWA configuration are unchanged.
+No unrelated worktree changes are included. In particular, the separate local-demo
+frontend repair is outside this patch and is not part of this inventory.
+No Docker startup, provider operation, deployment, merge or hosted database action
+occurred. PR #7 remains a draft at the previously published SHA. Publication is
+blocked until the remaining build/PWA/static gates pass, followed by exact-head CI.
+**NO-GO FOR REAL CUSTOMER DATA; Render Free is synthetic staging-only.**
+
+### Authorized CI-validation continuation — 2026-10-28
+
+The owner subsequently authorized publishing this reviewed repair as an
+**unaccepted CI-validation candidate** when local resources cannot safely finish
+the remaining gates. This supersedes the local-build-before-publication restriction
+above, not the exact-head CI acceptance requirement.
+
+At continuation, available physical RAM was **3,422 MiB (3.34 GiB)**, but committed
+memory was **51,148,865,536 / 53,982,031,872 bytes**, leaving only **2.64 GiB** commit
+headroom. No repeated install, compilation or browser startup was attempted.
+Previously passing security tests and audits are retained without reruns.
+
+Fresh remote branch and draft PR #7 both matched `87c54b129b14fea5744e29c659171129ab1a911a`.
+The complete nine-file repair was reviewed, including MIT license, upstream
+provenance, actual local dependency link, lockfile and malicious-input/compatibility
+assertions. No accepted UI implementation or existing assertion is changed.
+The two production-PWA checks are now chained before the existing `test:e2e`
+command. The unchanged CI workflow builds production assets and installs Chromium
+before that command; failure stops the step. The normal frontend `npm test` runs
+the eleven dependency regressions. No audit, timeout, retry or CI gate is weakened.
+
+Remaining evidence must come from the new exact-head Linux run: normal `npm ci`
+with lifecycle scripts, full audit, lint, typecheck, production/PWA generation,
+eleven loaded-dependency regressions, two production-PWA checks, and all existing
+integrated browser/PostgreSQL/security/Docker gates. None is assumed PASS in
+advance. Exact SHA, CI link and conclusion belong in the publication handoff;
+this report is not self-certification of an unfinished CI run.
+
+Only the nine-file inventory is authorized for this commit. Private runtime data,
+credentials, generated builds, screenshots and unrelated worktrees are excluded.
+Keep PR #7 draft; no merge, deployment, main update or provider operation.
