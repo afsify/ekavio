@@ -228,3 +228,107 @@ this report is not self-certification of an unfinished CI run.
 Only the nine-file inventory is authorized for this commit. Private runtime data,
 credentials, generated builds, screenshots and unrelated worktrees are excluded.
 Keep PR #7 draft; no merge, deployment, main update or provider operation.
+
+### Browser compatibility repair checkpoint — 2026-10-28 (NOT VALIDATED)
+
+The published security candidate is `8290837756716c0c0ff1d790f744356c9b14feaf`.
+Authenticated GitHub job logs and step metadata for
+[run 40684284949](https://github.com/afsify/ekavio/actions/runs/40684284949)
+confirm **56 successful, 1 failed, 31 skipped steps**. Normal frontend install,
+audit, lint, typecheck, build and foundation passed. Both new production-PWA
+checks passed (2/2), including Chromium activation/offline shell/API cache exclusion.
+The subsequent product browser suite finished **337 passed / 27 failed**.
+These are separate counts, not 339 browser passes.
+
+All 27 failures are in the two legacy theme suites: 24 at the hard-coded
+`rgb(243, 246, 252)` account foreground assertion, and three at the expected-six
+selected-node assertion (actual seven). Current AccountMenu has four named links,
+three appearance choices and sign-out. Current semantic text tokens are `#202824`
+in Light and `#f1f4f3` in Dark. ThemeControl still follows System, and AdvancedModal
+still traps focus and restores it. This source/CI evidence explains the obsolete
+expectations; it is not a substitute for validation of actual rendered contrast.
+
+Prepared correction (uncommitted, no production source changes):
+
+```text
+frontend/e2e/crm-theme-experience.spec.ts
+frontend/e2e/crm-theme-regressions.spec.ts
+frontend/e2e/accountAppearance.ts
+docs/reviews/UX-01_PREMIUM_WORKSPACE_ACCEPTANCE.md
+```
+
+The shared test-only helper explicitly verifies all four links and destinations,
+identity, Light/Dark/System choices and sign-out. It checks computed semantic
+foregrounds against composited actual ancestor backgrounds at >=4.5:1 contrast,
+including muted identity text and the selected appearance choice, and retains
+zero-duration reduced-motion checks. Existing persistence/theme/geometry scenarios
+remain; account keyboard traversal, wrap, Escape and focus restoration are explicit.
+No cases, retries, deadlines, security guards or production styles were removed or
+changed. Shared helper avoids duplicating the contrast algorithm in both suites.
+
+Local reproduction attempted only two representative original failing cases,
+one worker and unchanged deadlines. It exited 1 at the existing 60-second Vite
+webServer startup timeout: **zero tests executed**, not two assertion failures.
+Direct startup of the same isolated Vite server then succeeded in 6.4 seconds,
+but available RAM fell from 1,807 MiB to 797 MiB and then 536 MiB. The test-owned
+server was stopped through its session; port 4173 had no listener afterward.
+Final reading was **893 MiB available**, committed **24,364,945,408 /
+36,154,802,176 bytes**. Unrelated processes/services were not terminated.
+
+Required next checks remain UNEXECUTED: the 27 affected scenarios, targeted ESLint
+and TypeScript checks, rendered screenshot/contrast review, then reviewed commit,
+push and new exact-head full CI. No further heavy check was started at critically
+low physical RAM. `git diff --check` passes. No new commit/push/merge/deployment
+occurred in this browser-repair continuation. The dependency security patch and
+PWA checks remain unchanged. Engineering acceptance is **BLOCKED**, not PASS.
+
+### Focused browser repair validation completed — 2026-10-28
+
+Resources recovered to **6,376 MiB available RAM** and committed memory
+**11,964,239,872 / 36,154,802,176 bytes**. Sequential validation resumed without
+reinstalling dependencies or repeating the security repair.
+
+| Check | Verified result |
+| --- | --- |
+| Previously failing theme/account selection | **27/27 PASS**, exit 0, 4.6 minutes |
+| Complementary scenarios in the same two files | **39/39 PASS**, exit 0, 3.0 minutes |
+| Distinct total across those files | **66/66 PASS**, zero failed/skipped, one Chromium worker, zero retries |
+| Targeted ESLint on three changed test files | PASS, exit 0 |
+| Normal application `npm run typecheck` (`tsc -b`) | PASS, exit 0 |
+| Explicit standalone TypeScript check of new accountAppearance helper | PASS, exit 0 |
+| `git diff --check` | PASS |
+
+Both runner stdout completion/exit codes and their `.last-run.json` files confirm
+the two browser results. Evidence directories:
+`frontend/test-results/ux01-theme-repair/` and
+`frontend/test-results/ux01-theme-retained/`. These are local ignored artifacts,
+not publication files. The earlier startup timeout remains a failed infrastructure
+attempt with zero executed cases; it is not added to the successful test totals.
+
+Actual rendered screenshots reviewed: `frontend/test-results/crm-theme/320-light-account.png`,
+`768-light-account.png` and `1440-system-account.png`. These filenames describe
+initial preference; the account captures are taken after switching System to a
+dark OS preference. Mobile sheet, tablet/desktop popover, all actions and focus
+indicator were visible without clipping. Automated assertions separately verify
+both actual Light and Dark colors, >=4.5:1 composited text contrast, reduced-motion
+suppression, System transitions, saved preference after reload, keyboard traversal,
+focus wrap and Escape restoration. No production visual defect was demonstrated.
+The retained cases also cover normal-motion geometry, long identities, CRM
+pagination/filter privacy, read-only permissions and explicit error recovery.
+
+Additional diagnostic (not an existing project gate): invoking standalone `tsc`
+over both entire Playwright spec dependency graphs exited 1 on two pre-existing
+fixture typing issues: a string assigned to inferred-null `lead.assignee_name`,
+and a missing `lead` member in the fixture's `Record<FieldEntity,string[]>` map.
+Both lines exist unchanged in published `8290837`. The standard tsconfig checks
+application source, not e2e; no configuration/assertion was weakened to conceal
+this diagnostic. The new helper independently typechecks. Broader fixture type
+cleanup is deferred rather than expanding this browser compatibility repair.
+
+Only the four-file browser-repair inventory above is to be published. Review
+confirmed no diff in production source, vendor patch, dependency manifests,
+PWA scripts/configuration or CI workflow. Existing component/security/build
+evidence is retained; no full local browser or component matrix was repeated.
+This correction is **focused-local validated; integrated engineering acceptance
+pending new exact-head CI**. The final SHA and CI conclusion are recorded in the
+handoff, not assumed here. PR #7 must remain draft; no main merge or deployment.

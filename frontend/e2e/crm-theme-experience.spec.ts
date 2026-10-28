@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { relationshipFixture } from '../e2e-relationships-visual/fixtures';
 import { workspace } from './fixtures';
+import { expectAccountAppearance } from './accountAppearance';
 
 async function fits(page: Page) {
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -38,8 +39,9 @@ for (const width of [320,360,390,430,768,1024,1440,1920]) for (const mode of ['l
     await page.getByRole('button', { name: 'Account menu', exact: true }).click(); const account = page.getByRole('dialog', { name: 'Your account' });
     await account.getByRole('radio', { name: 'System', exact: true }).check(); await expect(toggle).toHaveAttribute('data-mode', 'system');
     await page.emulateMedia({ colorScheme: 'light' }); await expect(page.locator('html')).toHaveAttribute('data-theme', 'light'); await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expectAccountAppearance(account);
     await page.emulateMedia({ colorScheme: 'dark' }); await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    expect(await account.locator('.account-name,.account-sheet a').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).color === 'rgb(243, 246, 252)' && getComputedStyle(node).transitionDuration === '0s'))).toBe(true);
+    await expectAccountAppearance(account);
     await shot(page, `${width}-${mode}-account`);
     await page.keyboard.press('Escape'); await expect(page.getByRole('button', { name: 'Account menu', exact: true })).toBeFocused();
     await page.goto('/settings?section=appearance'); await expect(page.getByRole('radio', { name: 'System', exact: true })).toBeChecked(); await shot(page, `${width}-${mode}-appearance`);
