@@ -87,6 +87,16 @@ test('Settings uses human context, hides UUID, and saves profile', async ({ page
   await page.getByLabel('Your name').fill('STAGING V208A Profile'); await page.getByRole('button', { name: 'Save profile' }).click(); await expect(page.getByRole('link', { name: 'Open my profile' })).toHaveText('STAGING V208A Profile');
   await page.getByRole('button', { name: 'Organization', exact: true }).click(); await expect(page.getByRole('main').getByText('STAGING V208A Workspace', { exact: true })).toBeVisible(); await expect(page.getByRole('main').getByText('Main', { exact: true })).toHaveCount(1); await expect(page.getByRole('link',{name:'Open organization administration'})).toHaveAttribute('href','/admin');
 });
+test('Settings organization destinations require explicit read permission, not management alone', async ({ page }) => {
+  await workspace(page, { permissions: ['organization.manage'] });
+  await page.goto('/settings?section=hub');
+  await expect(page.getByRole('region', { name: 'Settings hub', exact: true }).getByRole('link', { name: /Organization information/ })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Organization', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Organization', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Organization settings', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open organization administration' })).toHaveCount(0);
+});
+
 test('commercial operator navigation stays separate and pricing uses exact rupees', async ({ page }) => {
   const state = await workspace(page, { operator: true }); await page.goto('/commercial/requests'); await expect(page.getByRole('heading', { name: 'Platform operations', exact: true })).toBeVisible();
   await expect(page.getByLabel('Monthly price ₹')).toHaveValue('123.45'); await expect(page.getByLabel('Yearly price ₹')).toHaveValue('1000.00'); await page.getByLabel('Monthly price ₹').fill('199.99'); await page.getByRole('button', { name: 'Save pricing' }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Review', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: 'Save pricing', exact: true }).click(); await expect.poll(() => state.pricing()?.monthlyPriceMinor).toBe('19999');

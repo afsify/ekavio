@@ -9,7 +9,7 @@ import { type FormSchema, type Section } from '../components/forms/formSchema';
 
 export function currentLayoutAuthority() {
   const { user, activeTenantId, activeBranchId, entitlements, isPlatformOperator } = useAppStore.getState();
-  return JSON.stringify([user?.id, activeTenantId, activeBranchId, user?.permissions?.join(','), JSON.stringify(entitlements), isPlatformOperator]);
+  return JSON.stringify([user?.id, activeTenantId, activeBranchId, user?.permissions?.slice().sort().join(','), JSON.stringify(entitlements), isPlatformOperator]);
 }
 interface Command { draft: LayoutDraft; reset: boolean }
 export function useLayoutStudio(schema: FormSchema | undefined, authority: string, manage: boolean, refresh: () => Promise<void>) {

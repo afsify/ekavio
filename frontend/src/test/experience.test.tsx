@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AdvancedTable, type ServerTableState } from '../components/ui/AdvancedTable';
 import { Input } from '../components/ui/Input';
 import { AdvancedSearchSelect } from '../components/ui/AdvancedSearchSelect';
@@ -55,9 +55,9 @@ it('same named required inputs have unique IDs, stable labels, and composed help
 });
 it('received-options selector supports keyboard selection, Escape return and bounded search', () => {
   const change = vi.fn(); render(<AdvancedSearchSelect options={rows} value={null} onChange={change} displayKey="name" label="Customer" required />);
-  const trigger = screen.getByRole('button', { name: 'Customer' }); fireEvent.click(trigger);
-  fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'ArrowDown' }); expect(document.activeElement).toBe(screen.getAllByRole('option')[0]);
+  const trigger = screen.getByRole('combobox', { name: 'Customer' }); act(() => trigger.focus());
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' }); expect(document.activeElement).toBe(trigger); expect(trigger.getAttribute('aria-activedescendant')).toBe(screen.getAllByRole('option')[0].id);
   fireEvent.click(screen.getByRole('option', { name: 'Zulu' })); expect(change).toHaveBeenCalledWith(rows[0]); expect(document.activeElement).toBe(trigger);
-  fireEvent.click(trigger); fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Alpha' } }); expect(screen.getAllByRole('option')).toHaveLength(1);
-  fireEvent.keyDown(screen.getByRole('searchbox'), { key: 'Escape' }); expect(screen.queryByRole('listbox')).toBeNull(); expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger); fireEvent.change(trigger, { target: { value: 'Alpha' } }); expect(screen.getAllByRole('option')).toHaveLength(1);
+  fireEvent.keyDown(trigger, { key: 'Escape' }); expect(screen.queryByRole('listbox')).toBeNull(); expect(document.activeElement).toBe(trigger);
 });

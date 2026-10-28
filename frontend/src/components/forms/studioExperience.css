@@ -1,0 +1,11 @@
+.layout-placement-catalogue h3 { font-weight:650; font-size:1.1rem; }
+.layout-placement-catalogue > section { min-width:0; }
+.studio-section-guide { border:1px solid var(--border); border-radius:10px; padding:14px; color:var(--text-secondary); background:var(--surface-muted); }
+.studio-field-position { font-size:.8rem; color:var(--text-secondary); }
+.studio-field-focus:focus { outline:3px solid var(--primary-readable); outline-offset:5px; border-radius:8px; }
+.layout-preview-toolbar { display:flex; flex-wrap:wrap; gap:8px; }
+.layout-preview-toolbar button { min-height:44px; }
+.layout-preview-toolbar [aria-pressed=true] { border-color:var(--primary-readable); color:var(--primary-readable); }
+.layout-preview-toolbar .quiet-button:focus-visible { outline-color:var(--primary-readable); }
+.layout-placement-fact .quiet-button { justify-self:start; white-space:normal; }
+@media(max-width:767px) { .layout-placement-catalogue { padding:16px; } }

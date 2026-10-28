@@ -4,6 +4,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { StatusBadge } from '../ui/WorkspacePrimitives';
 import { types, type Definition } from './formSchema';
 import { filterDefinitions, typeNames } from './fieldDefinitionUtils';
+import { fieldTypeGuidance } from './fieldTypeGuidance';
 
 export function FieldCatalogue({ definitions, manage, onEdit, onInspect, onAdd }: { definitions: Definition[]; manage: boolean; onEdit: (field: Definition) => void; onInspect: (field: Definition) => void; onAdd: () => void }) {
   const [filters, setFilters] = useState({ search: '', status: '', type: '', capability: '' });
@@ -24,6 +25,7 @@ export function FieldCatalogue({ definitions, manage, onEdit, onInspect, onAdd }
     {!rows.length ? <EmptyState title={definitions.length ? 'No matching fields' : 'No custom fields yet'} description={definitions.length ? 'Adjust the loaded-catalogue filters. This does not search record values.' : 'Built-in record fields already work. Add only the extra information your organization needs.'} /> : <div className="catalogue-grid">{rows.map(field => <article className="panel record-card field-catalogue-card" key={field.id}>
       <div className="section-heading"><h3>{field.label}</h3><StatusBadge tone={field.status === 'active' ? 'success' : 'neutral'}>{field.status === 'active' ? 'Active' : 'Archived'}</StatusBadge></div>
       <p className="muted break-words">{typeNames[field.field_type]} · <code>{field.key}</code></p>
+      <p className="muted break-words">{fieldTypeGuidance[field.field_type]}</p>
       <div className="field-indicators"><StatusBadge tone={field.required ? 'info' : 'neutral'}>{field.required ? 'Required' : 'Optional'}</StatusBadge>{(['searchable', 'filterable', 'reportable'] as const).filter(flag => field[flag]).map(flag => <StatusBadge key={flag}>{flag[0].toUpperCase() + flag.slice(1)}</StatusBadge>)}</div>
       {field.help && <p className="muted break-words">{field.help}</p>}
       {!!field.options.length && <p className="muted">{field.options.filter(option => option.status === 'active').length} active options · {field.options.length} retained options</p>}

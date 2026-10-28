@@ -141,16 +141,16 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   await context.test('migrates a clean database and reruns deterministically', async () => {
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 20 }, () => 'pending'),
+      Array.from({ length: 21 }, () => 'pending'),
     );
     await migrate(database);
     await migrate(database);
     assert.deepEqual(
       (await getMigrationStatus(database)).map(({ state }) => state),
-      Array.from({ length: 20 }, () => 'applied'),
+      Array.from({ length: 21 }, () => 'applied'),
     );
     const history = await database.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM schema_migrations');
-    assert.equal(history.rows[0]?.count, '20');
+    assert.equal(history.rows[0]?.count, '21');
   });
 
   const source = new MemorySource(fixture());
@@ -388,6 +388,7 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
       identities: identityRepository,
       sessions: {
         create: async () => { sessionCreateCount += 1; throw new Error('must not create'); },
+        validate: async () => { throw new Error('not used'); },
         rotate: async () => { throw new Error('not used'); },
         revoke: async () => undefined,
         revokeAllForUser: async () => undefined,

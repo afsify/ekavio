@@ -6,6 +6,8 @@ import {
   type ThemePreference,
 } from './sessionPersistence';
 import type { EffectiveEntitlements } from '../commercial/catalogue';
+import { advanceSessionRevision, classifyStartupError, sessionErrorStatus, sessionRevision, sessionSignal, type StartupError } from './sessionLifecycle';
+import { markStartup } from '../utils/startupDiagnostics';
 
 export interface UserAssignment {
   tenantId: string;
@@ -68,12 +70,14 @@ export interface AppState {
   theme: ThemeConfig;
   isAuthenticated: boolean;
   isBootstrapping: boolean;
+  startupError: StartupError | null;
   activeTenantId: string | null;
   activeBranchId: string | null;
   entitlements: EffectiveEntitlements | null;
   isPlatformOperator: boolean;
   establishSession: (payload: SessionPayload) => void;
   bootstrapSession: () => Promise<void>;
+  beginLogin: () => number;
   clearSession: () => void;
   logout: () => Promise<void>;
   setTheme: (mode: ThemeConfig['mode'], primaryColor?: string) => void;
@@ -87,7 +91,7 @@ const browserStorage = (() => { try { return typeof window === 'undefined' ? und
 const initialTheme = browserStorage
   ? migrateAndClearLegacyAuthStorage(browserStorage) ?? DEFAULT_THEME
   : DEFAULT_THEME;
-let bootstrapPromise: Promise<void> | undefined;
+let bootstrapRequest: { revision: number; promise: Promise<void> } | undefined;
 let preferenceSave: Promise<unknown> = Promise.resolve();
 let preferenceRevision = 0;
 
@@ -97,12 +101,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: initialTheme,
   isAuthenticated: false,
   isBootstrapping: true,
+  startupError: null,
   activeTenantId: null,
   activeBranchId: null,
   entitlements: null,
   isPlatformOperator: false,
 
   establishSession: (payload) => {
+    advanceSessionRevision();
     const organizationId =
       payload.organizationId ?? payload.user.organizationId ?? payload.user.tenantId;
     const membership = (payload.memberships ?? payload.user.memberships ?? []).find(
@@ -126,11 +132,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       token: payload.accessToken,
       isAuthenticated: true,
       isBootstrapping: false,
+      startupError: null,
       activeTenantId: organizationId,
       activeBranchId,
       entitlements: payload.entitlements,
       isPlatformOperator: payload.platformOperator === true,
     });
+    markStartup('authorization-ready');
     if (payload.preferences && browserStorage) saveThemePreference(browserStorage, payload.preferences);
     useSocketStore
       .getState()
@@ -138,27 +146,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   bootstrapSession: async () => {
-    if (bootstrapPromise) return bootstrapPromise;
-    bootstrapPromise = (async () => {
+    const currentRevision = sessionRevision();
+    if (bootstrapRequest?.revision === currentRevision) return bootstrapRequest.promise;
+    if (!get().isBootstrapping && !get().startupError) return;
+    const revision = advanceSessionRevision();
+    const signal = sessionSignal();
+    set({ isBootstrapping: true, startupError: null });
+    markStartup('bootstrap-start');
+    const promise = (async () => {
       try {
         const { restoreSession } = await import('../api/client');
-        get().establishSession(await restoreSession());
-      } catch {
-        get().clearSession();
+        if (revision !== sessionRevision()) return;
+        const payload = await restoreSession({}, signal);
+        if (revision === sessionRevision()) get().establishSession(payload);
+      } catch (error) {
+        if (revision !== sessionRevision()) return;
+        if (sessionErrorStatus(error) === 401) get().clearSession();
+        else set({ isBootstrapping: false, startupError: classifyStartupError(error) });
       } finally {
-        set({ isBootstrapping: false });
-        bootstrapPromise = undefined;
+        if (bootstrapRequest?.revision === revision) bootstrapRequest = undefined;
+        markStartup('bootstrap-settled');
       }
     })();
-    return bootstrapPromise;
+    bootstrapRequest = { revision, promise };
+    return promise;
+  },
+
+  beginLogin: () => {
+    const revision = advanceSessionRevision();
+    set({ isBootstrapping: false, startupError: null });
+    return revision;
   },
 
   clearSession: () => {
+    advanceSessionRevision();
     set({
       user: null,
       token: null,
       isAuthenticated: false,
       isBootstrapping: false,
+      startupError: null,
       activeTenantId: null,
       activeBranchId: null,
       entitlements: null,
@@ -168,18 +195,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: async () => {
-    try {
-      const { requestLogout } = await import('../api/client');
-      await requestLogout();
-    } finally {
-      get().clearSession();
-    }
+    // Revoke local authority immediately, even if the logout endpoint is offline.
+    get().clearSession();
+    const { requestLogout } = await import('../api/client');
+    await requestLogout();
   },
 
   setActiveTenant: async (organizationId) => {
+    const revision = advanceSessionRevision();
+    const signal = sessionSignal();
     try {
       const { restoreSession } = await import('../api/client');
-      get().establishSession(await restoreSession({ organizationId }));
+      if (revision !== sessionRevision()) return false;
+      const payload = await restoreSession({ organizationId }, signal);
+      if (revision !== sessionRevision()) return false;
+      get().establishSession(payload);
       return true;
     } catch {
       return false;
@@ -189,9 +219,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveBranch: async (branchId) => {
     const organizationId = get().activeTenantId;
     if (!organizationId) return false;
+    const revision = advanceSessionRevision();
+    const signal = sessionSignal();
     try {
       const { restoreSession } = await import('../api/client');
-      get().establishSession(await restoreSession({ organizationId, branchId }));
+      if (revision !== sessionRevision()) return false;
+      const payload = await restoreSession({ organizationId, branchId }, signal);
+      if (revision !== sessionRevision()) return false;
+      get().establishSession(payload);
       return true;
     } catch {
       return false;
