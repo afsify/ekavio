@@ -1,17 +1,14 @@
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
 import { useAppStore } from '../../store/useAppStore';
 import { visibleDestinations, navigationGroup, navigationGroups } from './navigation';
 import { NavigationIcon } from './NavigationIcon';
-import { PanelLeftClose, PanelLeftOpen, LogOut, X } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { SignOutButton } from './SignOutButton';
 import { BrandLockup } from '../brand/Brand';
 export function AdminSidebar({ isOpen, onClose, compact = false, onCompact }: { isOpen: boolean; onClose: () => void; compact?: boolean; onCompact?: () => void }) {
-  const { user, entitlements, isPlatformOperator, logout } = useAppStore();
-  const [busy, setBusy] = useState(false);
-  const navigate = useNavigate();
-  const cache = useQueryClient();
+  const { user, entitlements, isPlatformOperator } = useAppStore();
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const sidebarRef = useRef<HTMLElement>(null);
   const location = useLocation();
   useEffect(() => {
@@ -53,8 +50,14 @@ export function AdminSidebar({ isOpen, onClose, compact = false, onCompact }: { 
         const members = items.filter(item => navigationGroup(item) === group);
         if (!members.length) return null;
         const links = members.map(item => <NavLink key={item.path} className="nav-link" to={item.path} onClick={onClose} title={compact ? item.name : undefined} aria-label={item.name}><NavigationIcon path={item.path} /><span>{item.name}</span></NavLink>);
-        return compact ? <section className="nav-group" key={group} aria-label={group}>{links}</section> : <details className="nav-group" key={group + location.pathname} open><summary><h2>{group}</h2></summary>{links}</details>;
+        const active = members.some(item => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`));
+        const expanded = active || !collapsed.has(group);
+        return compact ? <section className="nav-group" key={group} aria-label={group}>{links}</section> : <details className="nav-group" key={group} open={expanded}><summary onClick={event => {
+          event.preventDefault();
+          if (active) return; // The current destination must remain visible.
+          setCollapsed(previous => { const next = new Set(previous); if (next.has(group)) next.delete(group); else next.add(group); return next; });
+        }}><h2>{group}</h2></summary>{links}</details>;
       })}</nav>
-      <button className="quiet-button sidebar-signout" aria-label={busy ? 'Signing out…' : 'Sign out'} disabled={busy} onClick={() => { setBusy(true); void logout().catch(() => toast.error('Signed out locally; server revocation unavailable')).finally(() => { cache.clear(); setBusy(false); onClose(); navigate('/login', { replace: true }); }); }}><LogOut size={18} aria-hidden="true" /><span>{busy ? 'Signing out…' : 'Sign out'}</span></button>
+      <SignOutButton className="sidebar-signout" onClose={onClose} />
     </aside></>;
 }

@@ -6,6 +6,7 @@ import { useLayoutNavigationGuard } from '../../hooks/useLayoutNavigationGuard';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { ConfirmationDialog, ErrorState, Pagination } from '../../components/ui/WorkspacePrimitives';
 import { Input } from '../../components/ui/Input';
+import { AdvancedSearchSelect } from '../../components/ui/AdvancedSearchSelect';
 import { blankDraft, draftFor, editPatch, getTaskData, priorityLabels, statusLabels, taskError, type Assignee, type Page, type TaskDetail, type TaskDraft, type TaskStatus } from './contracts';
 
 export function AssigneePicker({ value, name, onChange, scope, disabled = false }: { value: string; name?: string; onChange: (id: string, name: string) => void; scope: readonly unknown[]; disabled?: boolean }) {
@@ -13,14 +14,15 @@ export function AssigneePicker({ value, name, onChange, scope, disabled = false 
   const roster = useQuery({ queryKey: [...scope, 'assignees', search, page], retry: false, gcTime: 0,
     queryFn: ({ signal }) => getTaskData<Page<Assignee>>('/tasks/assignees', { search, page, limit: 20 }, signal) });
   const choices = roster.data?.data ?? [];
+  const received = [...(value && !choices.some(a => a.id === value) ? [{ id: value, name: `${name ?? 'Current assignee'} — retained selection; eligibility rechecked on save` }] : []), ...choices.map(a => ({ id: a.id, name: a.name }))];
   return <fieldset disabled={disabled} className="page-stack task-assignment"><legend className="form-label">Assignment · eligible staff</legend>
     <Input label="Find eligible staff" type="search" value={search} maxLength={200} onChange={e => { setSearch(e.target.value); setPage(1); }} helper="Active members of this branch with their own Task capabilities. Search and pages are server-scoped." />
     {roster.isError ? <ErrorState title="Eligible staff unavailable" message={taskError(roster.error)} retry={() => void roster.refetch()} /> : <>
-      <label className="field">Assign to (required)<select required value={value} disabled={roster.isFetching || disabled} onChange={e => onChange(e.target.value, choices.find(a => a.id === e.target.value)?.name ?? name ?? '')}>
+      {choices.length > 5 ? <AdvancedSearchSelect label="Assign to" required options={received} value={received.find(a => a.id === value) ?? null} displayKey="name" disabled={roster.isFetching || disabled} onChange={selected => { if (selected && !Array.isArray(selected)) onChange(selected.id, choices.find(a => a.id === selected.id)?.name ?? name ?? ''); }} /> : <label className="field">Assign to (required)<select required value={value} disabled={roster.isFetching || disabled} onChange={e => onChange(e.target.value, choices.find(a => a.id === e.target.value)?.name ?? name ?? '')}>
         <option value="">Choose eligible staff</option>
         {value && !choices.some(a => a.id === value) && <option value={value}>{name ?? 'Current assignee'} — retained selection; eligibility rechecked on save</option>}
         {choices.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-      </select></label>
+      </select></label>}
       {roster.isFetching && <p role="status">Loading eligible staff…</p>}
       {!roster.isFetching && !choices.length && <p className="muted">No eligible staff match this page. Try a different search.</p>}
       <Pagination page={page} totalPages={Math.min(200, Math.ceil((roster.data?.total ?? 0) / 20))} onPage={setPage} busy={roster.isFetching} />

@@ -7,6 +7,7 @@ import { getErrorMessage } from '../../api/errors';
 import { useAppStore } from '../../store/useAppStore';
 import { AdvancedModal } from '../../components/ui/AdvancedModal';
 import { Input } from '../../components/ui/Input';
+import { OptionSelect } from '../../components/ui/OptionSelect';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { normalizePhone } from '../../utils/phone';
 import { DynamicForm } from '../../components/forms/DynamicForm';
@@ -113,7 +114,7 @@ function LeadEditor({lead,stages,choices,done,close}:{lead:Lead|null;stages:Stag
   {fields.error&&<LoadError error={fields.error} retry={fields.retry}/>}
   {fields.schema&&<DynamicForm schema={fields.schema} values={fields.values} onChange={fields.change} builtins={{
    name:<Input label="Lead name" required maxLength={200} value={form.name} onChange={e=>set('name',e.target.value)}/>,
-   pipelineStageId:<label className="field">Pipeline stage<select required value={form.pipelineStageId} onChange={e=>set('pipelineStageId',e.target.value)}><option value="">Choose stage</option>{activeStages.map(s=><option key={s.id} value={s.id} disabled={s.status==='archived'&&s.id!==lead?.pipeline_stage_id}>{s.name}{s.status==='archived'?' (archived)':''}</option>)}</select></label>,
+   pipelineStageId:<OptionSelect label="Pipeline stage" required value={form.pipelineStageId} onChange={value=>set('pipelineStageId',value)} placeholder="Choose stage" options={activeStages.map(s=>({id:s.id,name:s.name+(s.status==='archived'?' (archived)':''),disabled:s.status==='archived'&&s.id!==lead?.pipeline_stage_id}))}/>,
    company:<Input label="Company (optional)" maxLength={200} value={form.company} onChange={e=>set('company',e.target.value)}/>,
    phone:<PhoneInput label="Lead phone (optional)" value={form.phone} error={phoneError} onChange={v=>set('phone',v)}/>,
    email:<Input label="Lead email (optional)" type="email" maxLength={254} value={form.email} onChange={e=>set('email',e.target.value)}/>,
@@ -125,7 +126,7 @@ function LeadEditor({lead,stages,choices,done,close}:{lead:Lead|null;stages:Stag
  </div></OperationForm>;
 }
 function LeadActions({lead,manage,view,edit}:{lead:Lead;manage:boolean;view:()=>void;edit:()=>void}){return <div className="record-actions crm-lead-actions"><button className="quiet-button" aria-label={`View ${lead.name}`} onClick={view}>View</button>{manage&&lead.status==='active'&&<button className="quiet-button" aria-label={`Edit ${lead.name}`} onClick={edit}><Pencil size={15} aria-hidden="true"/>Edit</button>}</div>;}
-function Assignee({label,value,choices,historical,onChange}:{label:string;value:string;choices:Choice[];historical?:string|null;onChange:(v:string)=>void}){return <label className="field">{label}<select value={value} onChange={e=>onChange(e.target.value)}><option value="">Unassigned</option>{value&&!choices.some(c=>c.id===value)&&<option value={value}>{historical??'Previous staff'} (inactive)</option>}{choices.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>;}
+function Assignee({label,value,choices,historical,onChange}:{label:string;value:string;choices:Choice[];historical?:string|null;onChange:(v:string)=>void}){return <OptionSelect label={label} value={value} placeholder="Unassigned" options={[...(value&&!choices.some(c=>c.id===value)?[{id:value,name:`${historical??'Previous staff'} (inactive)`}]:[]),...choices.map(c=>({id:c.id,name:c.name}))]} onChange={onChange}/>;}
 function LeadDetails({lead,timezone,stages,choices,manage,refresh,edit,follow,convert,editFollowup}:{lead:Lead;timezone:string;stages:Stage[];choices:Choice[];manage:boolean;refresh:()=>Promise<void>;edit:()=>void;follow:()=>void;convert:()=>void;editFollowup:(record:Followup)=>void}){
  const [terminal,setTerminal]=useState<string|null>(null);
  const followHeading=useRef<HTMLHeadingElement>(null),activityHeading=useRef<HTMLHeadingElement>(null);

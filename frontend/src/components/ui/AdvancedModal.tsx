@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -18,7 +18,8 @@ export interface AdvancedModalProps {
   closeOnBackdropClick?: boolean;
   closeOnEscape?: boolean;
   className?: string;
-  presentation?: 'modal' | 'drawer';
+  presentation?: 'modal' | 'drawer' | 'popover';
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
 export const AdvancedModal: React.FC<AdvancedModalProps> = ({
@@ -33,9 +34,24 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
   closeOnEscape = true,
   className,
   presentation = 'modal',
+  anchorRef,
 }) => {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!isOpen || presentation !== 'popover') return;
+    const place = () => {
+      const anchor = anchorRef?.current?.getBoundingClientRect();
+      const dialog = dialogRef.current;
+      if (!anchor || !dialog) return;
+      dialog.style.setProperty('--popover-top', `${Math.min(anchor.bottom + 8, window.innerHeight - 120)}px`);
+      dialog.style.setProperty('--popover-right', `${Math.max(12, window.innerWidth - anchor.right)}px`);
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [isOpen, presentation, anchorRef]);
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -88,7 +104,7 @@ export const AdvancedModal: React.FC<AdvancedModalProps> = ({
   };
 
   return (
-    <div className={`dialog-layer ${presentation === 'drawer' ? 'drawer-layer' : ''}`}>
+    <div className={`dialog-layer ${presentation === 'drawer' ? 'drawer-layer' : presentation === 'popover' ? 'account-popover-layer' : ''}`}>
       {/* Backdrop */}
       <div
         className="dialog-overlay"

@@ -176,13 +176,13 @@ const BillingWorkspace: React.FC = () => {
               return (
                 <div
                   key={module.key}
-                  className={`flex items-center justify-between rounded-xl border p-4 ${
+                  className={`effective-module-card rounded-xl border p-4 ${
                     module.enabled
                       ? 'border-emerald-500/30 bg-emerald-500/5'
                       : 'border-[var(--border)] bg-[var(--surface-muted)]'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="effective-module-identity">
                     <div className={`rounded-lg p-2 ${module.enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 muted'}`}>
                       <Icon className="h-5 w-5" />
                     </div>
@@ -194,7 +194,7 @@ const BillingWorkspace: React.FC = () => {
                       <p className="text-xs muted">{module.description}</p><p className="text-xs muted">Access source: {module.sources.map(sourceLabel).join(', ') || 'Not assigned'}</p>
                     </div>
                   </div>
-                  <span className={`text-xs font-bold uppercase ${module.enabled ? 'text-emerald-400' : 'muted'}`}>
+                  <span className={`status-badge ${module.enabled ? 'status-success' : ''}`}>
                     {module.enabled ? 'Enabled' : 'Unavailable'}
                   </span>
                 </div>
