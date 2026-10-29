@@ -1,0 +1,32 @@
+/* Page-local refinement. UX-01 navigation, theme and shared primitives stay intact. */
+.dashboard-workspace { gap: 28px; }
+.dashboard-workspace .dashboard-intro { padding: 0 0 20px; border-bottom: 1px solid var(--border); }
+.dashboard-workspace .section-heading { margin-bottom: 16px; }
+.dashboard-workspace .metrics-grid { gap: 12px; }
+.dashboard-workspace .stat-card { padding: 22px; box-shadow: none; gap: 14px; }
+.dashboard-workspace .stat-heading { align-items: flex-start; }
+.dashboard-workspace .stat-heading h2 { color: var(--text-secondary); line-height: 1.5; }
+.dashboard-workspace .stat-value { font-size: clamp(1.75rem, 2.2vw, 2.5rem); font-weight: 650; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dashboard-workspace .workspace-card-icon { background: var(--surface-subtle); color: var(--primary-readable); border-radius: var(--radius-control); }
+.dashboard-workspace .attention-panel { box-shadow: none; }
+.dashboard-workspace .attention-panel .section-heading { margin-bottom: 4px; }
+.dashboard-workspace .attention-panel ul { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); column-gap: 24px; }
+.dashboard-workspace .attention-panel li+li { border-top: 0; }
+.dashboard-workspace .action-card { box-shadow: none; padding: 16px; }
+.dashboard-directory { border-top: 1px solid var(--border); padding-top: 12px; }
+.dashboard-directory>summary { cursor: pointer; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; min-height: 48px; padding: 8px 0; font-weight: 650; }
+.dashboard-directory>summary::after { content: '+'; margin-left: auto; color: var(--primary-readable); }
+.dashboard-directory[open]>summary::after { content: '−'; }
+.dashboard-directory>summary .muted { font-size: var(--font-sm); font-weight: 400; }
+.dashboard-directory .dashboard-discovery { margin-top: 16px; gap: 24px; }
+.dashboard-directory .discovery-group { min-width: 0; padding: 0; }
+.dashboard-directory .discovery-group h3 { color: var(--text-secondary); font-size: var(--font-xs); }
+@media (max-width:767px) {
+  .dashboard-workspace { gap: 20px; }
+  .dashboard-workspace .dashboard-intro { padding: 0 0 16px; gap: 12px; }
+  .dashboard-workspace .stat-card { padding: 16px; gap: 10px; }
+  .dashboard-workspace .stat-heading { flex-direction: row; }
+  .dashboard-workspace .quick-action-grid { grid-template-columns: 1fr; gap: 8px; }
+  .dashboard-workspace .action-card { padding: 12px 16px; }
+  .dashboard-directory>summary .muted { flex-basis: 65%; }
+}

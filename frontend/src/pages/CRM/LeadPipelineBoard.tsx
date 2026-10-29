@@ -24,7 +24,7 @@ export function LeadPipelineBoard({ stages, filters, open }: {
   const start = Math.min(window, Math.max(0, Math.ceil(selected.length / STAGE_WINDOW) - 1)) * STAGE_WINDOW;
   return <section className="crm-board-workspace" aria-label="Lead pipeline board">
     <div className="crm-board-toolbar">
-      <div><h2>Pipeline workbench</h2><p className="muted">Each stage has its own server page and filtered total. Open a Lead to move stages; cards are not draggable.</p></div>
+      <div><h2>Pipeline workbench</h2><p className="muted">Open a lead to plan the next step or change its stage. Each column shows up to five leads per page.</p></div>
       {selected.length > STAGE_WINDOW && <nav aria-label="Board stage windows" className="record-actions">
         <button className="quiet-button" disabled={start === 0} onClick={() => setWindow(start / STAGE_WINDOW - 1)}>Previous stages</button>
         <span role="status">Stages {start + 1}–{Math.min(start + STAGE_WINDOW, selected.length)} of {selected.length}</span>
@@ -51,7 +51,7 @@ function StageColumn({ stage, filters, page, onPage, open }: {
   });
   const result = query.data;
   return <section className="crm-board-column" aria-label={`${stage.name} stage`} aria-busy={query.isFetching}>
-    <header className="crm-board-column-heading"><h3>{stage.name}</h3>{stage.status === 'archived' && <StatusBadge tone="neutral">Archived stage</StatusBadge>}
+    <header className="crm-board-column-heading"><h3><span className="crm-stage-marker" aria-hidden="true" />{stage.name}</h3>{stage.status === 'archived' && <StatusBadge tone="neutral">Archived stage</StatusBadge>}
       {!query.isError && result && <span className="muted">{result.total} matching leads</span>}
     </header>
     {query.isPending ? <Skeleton label={`Loading ${stage.name} leads…`} /> : query.isError ? <ErrorState title="Stage could not be loaded"
@@ -60,9 +60,9 @@ function StageColumn({ stage, filters, page, onPage, open }: {
       {!result.data.length && <div className="crm-board-empty"><p>{page === 1 ? 'No leads match this stage and filters.' : 'No leads remain on this page.'}</p>
         {page > 1 && <button className="quiet-button" onClick={() => onPage(1)}>Back to first page</button>}</div>}
       <div className="crm-board-records">{result.data.map(lead => <article className="crm-board-card" key={lead.id}>
-        <StatusBadge tone={lead.status === 'active' ? 'info' : lead.status === 'converted' ? 'success' : 'neutral'}>{lead.status}</StatusBadge>
         <h4><button className="crm-board-record-link" onClick={() => open(lead)} aria-label={`Open Lead ${lead.name}`}>{lead.name}</button></h4>
         <p className="muted">{lead.company || 'No company provided'}</p>
+        <StatusBadge tone={lead.status === 'active' ? 'info' : lead.status === 'converted' ? 'success' : 'neutral'}>{lead.status}</StatusBadge>
         <p className="crm-assignee"><UserRound size={16} aria-hidden="true" />{lead.assignee_name || 'Unassigned'}{lead.assignee_status && lead.assignee_status !== 'active' ? ' (inactive assignment)' : ''}</p>
         {lead.source && <p className="muted">Source: {lead.source}</p>}
       </article>)}</div>

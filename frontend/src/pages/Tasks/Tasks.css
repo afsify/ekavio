@@ -68,3 +68,40 @@
   .tasks-page .task-card {border:0;border-radius:0;border-bottom:1px solid var(--border)}
   .task-dialog .task-actions button {flex:1 1 auto}
 }
+
+/* UX-02A: a clear scope → time window → records hierarchy. */
+.tasks-page .task-workspace-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+.tasks-page .task-views { padding:4px; gap:4px; border:1px solid var(--border); border-radius:var(--radius-control); background:var(--surface-subtle); }
+.tasks-page .task-views button { background:transparent; border-color:transparent; }
+.tasks-page .task-views button[aria-pressed=true] { background:var(--surface); border-color:var(--border); color:var(--text); }
+.tasks-page .task-search-panel { box-shadow:none; gap:16px; }
+.tasks-page .task-work-views { gap:4px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+.tasks-page .task-work-views button { border-color:transparent; border-radius:var(--radius-control); color:var(--text-secondary); }
+.tasks-page .task-work-views button[aria-pressed=true] { color:var(--primary-readable); background:var(--surface-subtle); border-color:var(--border); }
+.tasks-page .task-toolbar { gap:16px; }
+.tasks-page .task-toolbar>div:first-child { max-width:640px; }
+.tasks-page .task-directory { box-shadow:none; }
+.tasks-page .task-directory .table-toolbar { background:var(--surface); }
+.tasks-page .task-directory td { padding-block:20px; }
+.tasks-page .task-identity { gap:8px; }
+.tasks-page .task-card { gap:14px; }
+.tasks-page .task-card[data-priority=high] { border-inline-start:3px solid var(--warning); }
+.tasks-page .task-card-facts { display:grid; grid-template-columns:1fr; gap:14px; }
+.task-dialog .task-form-section,.task-dialog .task-assignment { padding:20px; background:var(--surface); }
+.task-dialog .task-form-section h3 { font-size:var(--font-base); padding-bottom:12px; border-bottom:1px solid var(--border); }
+.task-dialog .task-detail-identity { padding:20px; }
+.task-dialog .task-detail-identity h3 { font-size:var(--font-xl); letter-spacing:-.02em; }
+.task-dialog .task-history { gap:0; }
+.task-dialog .task-history li { background:transparent; border-radius:0; padding-block:16px; }
+.task-dialog .task-actions { padding-block:4px 16px; border-bottom:1px solid var(--border); }
+@media(max-width:767px) {
+  .tasks-page .task-workspace-bar { padding-bottom:12px; gap:10px; }
+  .tasks-page .task-views { width:100%; }
+  .tasks-page .task-views button { flex:1; }
+  .tasks-page .task-context { font-size:var(--font-xs); gap:4px 8px; }
+  .tasks-page .task-work-views { padding-bottom:8px; }
+  .tasks-page .task-work-views button { flex:1 1 auto; }
+  .tasks-page .task-card { padding:16px; }
+  .tasks-page .task-card-footer>button { min-height:44px; }
+  .task-dialog .task-form-section,.task-dialog .task-assignment,.task-dialog .task-detail-identity { padding:16px; }
+}
