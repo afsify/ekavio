@@ -20,3 +20,56 @@
 .crm-detail-shortcuts { display:flex; flex-wrap:wrap; gap:8px; }
 .crm-detail-anchor:focus { outline:2px solid var(--primary-readable); outline-offset:4px; }
 @media (max-width:1023px) { .crm-board-columns { grid-template-columns:1fr; } }
+
+/* Business-page hierarchy, kept local to CRM and its drawers. */
+.crm-workspace .crm-attention { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+.crm-workspace .crm-metric { border: 0; border-radius: 0; box-shadow: none; padding: 16px 20px; gap: 6px; background: transparent; }
+.crm-workspace .crm-metric+.crm-metric { border-inline-start: 1px solid var(--border); }
+.crm-workspace .crm-metric.needs-attention { background: color-mix(in srgb,var(--warning) 5%,var(--surface)); }
+.crm-workspace .crm-metric .stat-value { font-size: 1.75rem; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.crm-workspace .crm-metric .quiet-button { border-color: transparent; padding-inline: 0; background: transparent; font-size: var(--font-xs); }
+.crm-workspace .crm-metric .quiet-button:hover { text-decoration: underline; text-underline-offset: 4px; }
+.crm-workspace .crm-sections { gap: 4px; padding-bottom: 0; }
+.crm-workspace .crm-sections button { border-color: transparent; border-radius: var(--radius-control) var(--radius-control) 0 0; background: transparent; padding: 12px 16px; }
+.crm-workspace .crm-sections button[aria-pressed=true] { border-bottom: 2px solid var(--primary-readable); background: var(--surface-subtle); }
+.crm-workspace .crm-controls { box-shadow: none; }
+.crm-workspace .crm-controls>div:first-child { max-width: none; }
+.crm-workspace .crm-controls details { border-top: 1px solid var(--border); padding-top: 4px; }
+.crm-workspace .crm-controls .catalogue-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.crm-workspace .crm-record-identity h2 { font-weight: 650; line-height: 1.5; }
+.crm-workspace .crm-lead-card { box-shadow: none; }
+.crm-workspace .crm-followup-list { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+.crm-workspace .crm-followup-card { box-shadow: none; }
+.crm-workspace .crm-followup-controls { box-shadow: none; }
+.crm-board-column { padding: 12px; }
+.crm-board-column-heading h3 { display: flex; align-items: center; gap: 8px; line-height: 1.5; }
+.crm-stage-marker { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--primary-readable); }
+.crm-board-card { border-radius: var(--radius-control); padding: 14px; }
+.crm-board-card h4 { margin-top: 0; }
+.crm-board-card>.status-badge { margin-top: 12px; }
+.crm-board-record-link { color: var(--text); }
+.crm-board-record-link:hover { color: var(--primary-readable); text-decoration: underline; text-underline-offset: 3px; }
+.crm-board-card .crm-assignee { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.crm-lead-details .crm-detail-identity { padding: 20px; }
+.crm-next-step { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-panel); }
+.crm-next-step h3,.crm-record-management>h3 { font-weight: 650; }
+.crm-next-step .record-actions { margin-top: 12px; }
+.crm-record-management { border-top: 1px solid var(--border); padding-top: 20px; }
+.crm-lead-details .crm-detail-facts { gap: 20px; }
+.crm-lead-details .crm-activity>li { box-shadow: none; border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+@media (max-width:1199px) {
+  .crm-workspace .crm-attention { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .crm-workspace .crm-metric:nth-child(3) { border-inline-start: 0; }
+  .crm-workspace .crm-metric:nth-child(n+3) { border-top: 1px solid var(--border); }
+}
+@media (max-width:767px) {
+  .crm-workspace .crm-metric { padding: 12px; }
+  .crm-workspace .crm-metric:nth-child(3) { border-inline-start: 0; }
+  .crm-workspace .crm-metric:nth-child(n+3) { border-top: 1px solid var(--border); }
+  .crm-workspace .crm-metric .stat-value { font-size: 1.35rem; }
+  .crm-workspace .crm-sections { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .crm-workspace .crm-sections button { padding: 10px 8px; }
+  .crm-workspace .crm-controls .catalogue-grid { grid-template-columns: 1fr; }
+  .crm-workspace .crm-followup-list { grid-template-columns: 1fr; }
+  .crm-next-step .record-actions>button { flex: 1 1 auto; min-height: 44px; }
+}
