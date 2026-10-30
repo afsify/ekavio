@@ -1,0 +1,20 @@
+.queue-workspace .queue-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 16px 0; gap: 0; }
+.queue-summary section { padding: 0 20px; min-width: 0; }
+.queue-summary section + section { border-left: 1px solid var(--border); }
+.queue-summary h2 { font-size: .875rem; color: var(--text-secondary); }
+.queue-summary .stat-value { font-size: 1.75rem; margin: 4px 0 0; }
+.queue-token-number { display: inline-block; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.queue-workspace .queue-record-actions { align-items: center; gap: 12px; }
+.queue-workspace .queue-record-actions button { min-height: 44px; }
+.queue-workspace .queue-customer-name { font-size: 1.125rem; font-weight: 600; line-height: 1.5; margin: 12px 0 4px; }
+.queue-detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.queue-detail-heading h2 { flex-basis: 100%; font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.queue-detail .detail-section { border-top: 1px solid var(--border); padding-top: 16px; }
+@media (max-width: 767px) {
+  .queue-summary section { padding: 0 12px; }
+  .queue-summary h2 { font-size: .75rem; }
+  .queue-summary .stat-value { font-size: 1.5rem; }
+  .queue-workspace .queue-record-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; }
+  .queue-workspace .queue-record-actions button { padding-inline: 8px; }
+  .queue-workspace .queue-record-actions button:only-child { grid-column: 1 / -1; }
+}
