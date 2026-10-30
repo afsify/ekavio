@@ -65,8 +65,8 @@ export function ServiceEditor({ service, onSaved, onClose, onUncertain }: Props)
     {!fields.ready && !fields.error && <p role="status">Loading service fields…</p>}
     {fields.error && <p role="alert">Fields unavailable. <button type="button" onClick={fields.retry}>Retry fields</button></p>}
     {fields.schema && !fields.error && <DynamicForm schema={fields.schema} values={fields.values} onChange={fields.change} builtins={{
-      name: <Input label="Service name" required maxLength={200} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />,
-      durationMinutes: <Input label="Duration (minutes)" type="number" min={1} max={1440} step={1} required value={form.durationMinutes} onChange={event => setForm({ ...form, durationMinutes: event.target.value })} />,
+      name: <Input label="Service name" helper="Use a clear name your team can recognize in Queue and Appointments." required maxLength={200} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />,
+      durationMinutes: <Input label="Duration (minutes)" helper="Enter a whole number from 1 to 1,440 minutes." type="number" min={1} max={1440} step={1} required value={form.durationMinutes} onChange={event => setForm({ ...form, durationMinutes: event.target.value })} />,
       description: <div className="field"><label htmlFor="service-description">Description (optional)</label><textarea id="service-description" rows={3} maxLength={2000} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></div>,
       active: serviceId && <label className="flex items-center gap-2"><input type="checkbox" checked={form.active} onChange={event => setForm({ ...form, active: event.target.checked })} />Active service</label>,
     }} />}

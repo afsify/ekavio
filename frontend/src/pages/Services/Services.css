@@ -1,0 +1,25 @@
+.services-workspace .services-toolbar { display: flex; align-items: end; gap: 20px; }
+.services-toolbar > :first-child { flex: 1 1 280px; }
+.services-scope { flex: 1 1 260px; font-size: .875rem; }
+.services-scope p { margin-top: 4px; }
+.services-workspace .catalogue-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.services-workspace .record-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.service-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.service-card-heading h2 { overflow-wrap: anywhere; font-size: 1.125rem; line-height: 1.5; }
+.service-card-heading .status-badge { flex-shrink: 0; }
+.service-branch { border-top: 1px solid var(--border); padding-top: 12px; font-size: .875rem; }
+.service-branch strong { display: block; margin-bottom: 4px; }
+.services-workspace .record-actions { margin-top: auto; padding-top: 4px; display: flex; flex-wrap: wrap; gap: 8px; }
+.services-workspace .record-actions button { flex: 1; min-height: 44px; }
+.service-providers { display: grid; gap: 24px; }
+.service-provider-section { display: grid; gap: 12px; min-width: 0; }
+.service-provider-section h2 { font-weight: 600; }
+.service-provider-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.service-provider-row span { overflow-wrap: anywhere; min-width: 0; }
+.service-provider-row button { min-height: 44px; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .services-workspace .services-toolbar { flex-direction: column; align-items: stretch; }
+  .services-toolbar > :first-child, .services-scope { flex-basis: auto; }
+  .service-card-heading { flex-direction: column; }
+  .service-provider-row { align-items: stretch; flex-direction: column; }
+}
