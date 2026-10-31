@@ -112,6 +112,12 @@
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"
   },
+  "overrides": {
+    "swagger-jsdoc": { "glob": "14.0.3" },
+    "eslint": { "minimatch": "11.0.3" },
+    "@eslint/config-array": { "minimatch": "11.0.3" },
+    "@typescript-eslint/typescript-estree": { "minimatch": "11.0.3" }
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bcryptjs": "^2.4.6",
