@@ -1,6 +1,5 @@
 /* Page-local refinement. UX-01 navigation, theme and shared primitives stay intact. */
 .dashboard-workspace { gap: 28px; }
-.dashboard-workspace .dashboard-intro { padding: 0 0 20px; border-bottom: 1px solid var(--border); }
 .dashboard-workspace .section-heading { margin-bottom: 16px; }
 .dashboard-workspace .metrics-grid { gap: 12px; }
 .dashboard-workspace .stat-card { padding: 22px; box-shadow: none; gap: 14px; }
@@ -23,10 +22,13 @@
 .dashboard-directory .discovery-group h3 { color: var(--text-secondary); font-size: var(--font-xs); }
 @media (max-width:767px) {
   .dashboard-workspace { gap: 20px; }
-  .dashboard-workspace .dashboard-intro { padding: 0 0 16px; gap: 12px; }
   .dashboard-workspace .stat-card { padding: 16px; gap: 10px; }
   .dashboard-workspace .stat-heading { flex-direction: row; }
+  /* The whole card is the link; the footer row only cost height on small screens. */
+  .dashboard-workspace .stat-link { display: none; }
+  .dashboard-workspace .stat-value { font-size: var(--font-xl); }
   .dashboard-workspace .quick-action-grid { grid-template-columns: 1fr; gap: 8px; }
   .dashboard-workspace .action-card { padding: 12px 16px; }
   .dashboard-directory>summary .muted { flex-basis: 65%; }
 }
+@media (max-width:479px) { .dashboard-workspace .stat-card .workspace-card-icon { display: none; } }

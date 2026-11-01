@@ -52,6 +52,8 @@ export function AdminSidebar({ isOpen, onClose, compact = false, onCompact }: { 
         const links = members.map(item => <NavLink key={item.path} className="nav-link" to={item.path} onClick={onClose} title={compact ? item.name : undefined} aria-label={item.name}><NavigationIcon path={item.path} /><span>{item.name}</span></NavLink>);
         const active = members.some(item => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`));
         const expanded = active || !collapsed.has(group);
+        // A group whose only destination shares its name (Home) needs no collapsible heading or extra tab stop.
+        if (!compact && members.length === 1 && members[0]!.name === group) return <div className="nav-group nav-group-solo" key={group}>{links}</div>;
         return compact ? <section className="nav-group" key={group} aria-label={group}>{links}</section> : <details className="nav-group" key={group} open={expanded}><summary onClick={event => {
           event.preventDefault();
           if (active) return; // The current destination must remain visible.

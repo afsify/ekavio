@@ -6,5 +6,9 @@ export interface Notification {id:string;title:string;message:string;category:st
 export interface NotificationData {rows:Notification[];unread:number;total:number;page:number;limit:number}
 export const notificationPath=(action:string)=>action==='settings'?'/settings':action==='crm'?'/crm':action==='hr'?'/hr':null;
 export function exactRupees(minor:string){const v=BigInt(minor),a=v<0n?-v:v;return `${v<0n?'-':''}₹${a/100n}.${String(a%100n).padStart(2,'0')}`;}
+/** Indian digit grouping (12,34,567) on exact integer strings, never via floating point. */
+export function groupIndian(digits:string){const tail=digits.slice(-3),head=digits.slice(0,-3);return head?`${head.replace(/\B(?=(\d{2})+$)/g,',')},${tail}`:tail;}
+export function groupedRupees(minor:string){const v=BigInt(minor),a=v<0n?-v:v;return `${v<0n?'-':''}₹${groupIndian(String(a/100n))}.${String(a%100n).padStart(2,'0')}`;}
+export function groupedCount(value:string){return /^\d+$/.test(value)?groupIndian(value):value;}
 export function arrangeWidgets(widgets:Widget[],order:string[],hidden:string[]){return [...widgets].filter(w=>!hidden.includes(w.key)).sort((a,b)=>{const ai=order.indexOf(a.key),bi=order.indexOf(b.key);return (ai<0?order.length:ai)-(bi<0?order.length:bi);});}
 export function saveCsv(blob:Blob,report:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`ekavio-${report}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
