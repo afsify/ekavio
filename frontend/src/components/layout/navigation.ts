@@ -36,6 +36,7 @@ export const visibleDestinations = (permissions: string[], entitlements: Effecti
 /** Presentation only. The permission/entitlement catalogue above remains authority. */
 export const navigationGroups = ['Home', 'Daily operations', 'Customers & relationships', 'Team & workforce', 'Stock & purchasing', 'Insights', 'Administration', 'Account & settings', 'Platform operations'] as const;
 export type NavigationGroup = typeof navigationGroups[number];
+export const workspaceSidebarId = 'workspace-sidebar';
 export function navigationGroup(item: Destination): NavigationGroup {
   if (item.operator) return 'Platform operations';
   if (item.path === '/dashboard') return 'Home';
