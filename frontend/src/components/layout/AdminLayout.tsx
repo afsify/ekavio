@@ -6,7 +6,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useAppStore } from '../../store/useAppStore';
 import { AdminSidebar } from './AdminSidebar';
 import { TenantSwitcher } from './TenantSwitcher';
-import { visibleDestinations, mobileDestinations } from './navigation';
+import { visibleDestinations, mobileDestinations, workspaceSidebarId } from './navigation';
 import { NavigationIcon } from './NavigationIcon';
 import { AccountMenu } from './AccountMenu';
 import { Menu, MoreHorizontal } from 'lucide-react';
@@ -35,10 +35,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const scope = [user?.id, activeTenantId, activeBranchId, contextRevision, [...(user?.permissions ?? [])].sort().join(',')].join(':');
   const toggleCompact = () => { setCompact(value => { try { sessionStorage.setItem('ekavio-compact-navigation', String(!value)); } catch { /* Nonessential display preference. */ } return !value; }); };
   return <div className="app-shell"><a className="workspace-skip" href="#workspace-main">Skip to workspace content</a><AdminSidebar isOpen={open} onClose={closeNavigation} compact={compact} onCompact={toggleCompact} /><div className="workspace">
-    <header className="workspace-header"><div className="workspace-heading"><button className="menu-toggle icon-button" aria-label="Open navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} aria-hidden="true" /></button><div><nav className="workspace-breadcrumb" aria-label="Breadcrumb"><Link to="/dashboard">{current?.operator ? 'Platform operations' : 'Workspace'}</Link><span aria-hidden="true">/</span><span aria-current="page">{current?.name ?? 'Home'}</span></nav></div></div>
+    <header className="workspace-header"><div className="workspace-heading"><button className="menu-toggle icon-button" aria-label="Open navigation" aria-controls={workspaceSidebarId} aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} aria-hidden="true" /></button><div><nav className="workspace-breadcrumb" aria-label="Breadcrumb"><Link to="/dashboard">{current?.operator ? 'Platform operations' : 'Workspace'}</Link><span aria-hidden="true">/</span><span aria-current="page">{current?.name ?? 'Home'}</span></nav></div></div>
       <div className="header-account"><ThemeSwitch />{!switching && <NotificationBell key={contextRevision} />}<Link to="/settings?section=profile" className="profile-link" aria-label="Open my profile">{user?.name ?? 'My profile'}</Link><AccountMenu key={`${scope}:${switching}`} /></div>
       <TenantSwitcher onSwitching={onSwitching} /></header>
     <main id="workspace-main" tabIndex={-1} className="workspace-content" key={scope}>{switching ? <section className="panel" role="status">Switching workspace context…</section> : children}</main>
-    <nav className="mobile-nav" aria-label="Mobile navigation">{mobileDestinations(items).map(item => <NavLink key={item.path} to={item.path}><NavigationIcon path={item.path} /><span>{item.name === 'CRM & Follow-ups' ? 'CRM' : item.name === 'HR Plus / My Work' ? 'My Work' : item.name}</span></NavLink>)}<button aria-expanded={open} onClick={() => setOpen(true)}><MoreHorizontal size={20} aria-hidden="true" /><span>More</span></button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation">{mobileDestinations(items).map(item => <NavLink key={item.path} to={item.path}><NavigationIcon path={item.path} /><span>{item.name === 'CRM & Follow-ups' ? 'CRM' : item.name === 'HR Plus / My Work' ? 'My Work' : item.name}</span></NavLink>)}<button aria-controls={workspaceSidebarId} aria-expanded={open} onClick={() => setOpen(true)}><MoreHorizontal size={20} aria-hidden="true" /><span>More</span></button></nav>
   </div></div>;
 }

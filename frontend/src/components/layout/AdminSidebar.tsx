@@ -1,7 +1,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { visibleDestinations, navigationGroup, navigationGroups } from './navigation';
+import { visibleDestinations, navigationGroup, navigationGroups, workspaceSidebarId } from './navigation';
 import { NavigationIcon } from './NavigationIcon';
 import { PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { SignOutButton } from './SignOutButton';
@@ -43,7 +43,7 @@ export function AdminSidebar({ isOpen, onClose, compact = false, onCompact }: { 
   }, [isOpen, onClose]);
   const items = visibleDestinations(user?.permissions ?? [], entitlements, isPlatformOperator);
   return <>{isOpen && <button className="nav-backdrop" aria-label="Close navigation overlay" onClick={onClose} />}
-    <aside ref={sidebarRef} className={`workspace-nav ${isOpen ? 'is-open' : ''} ${compact ? 'is-compact' : ''}`} aria-label="Workspace sidebar">
+    <aside id={workspaceSidebarId} ref={sidebarRef} className={`workspace-nav ${isOpen ? 'is-open' : ''} ${compact ? 'is-compact' : ''}`} aria-label="Workspace sidebar">
       <div className="sidebar-brand"><Link className="brand" to="/dashboard" aria-label="EkaVio workspace" onClick={onClose}><BrandLockup /></Link><button className="nav-close icon-button" onClick={onClose} aria-label="Close navigation"><X size={20} aria-hidden="true" /></button></div>
       {onCompact && <button className="sidebar-collapse quiet-button" onClick={onCompact} aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}>{compact ? <PanelLeftOpen size={18} aria-hidden="true" /> : <><PanelLeftClose size={18} aria-hidden="true" /> <span>Compact navigation</span></>}</button>}
       <nav aria-label="Main navigation">{navigationGroups.map(group => {
