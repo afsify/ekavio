@@ -7,6 +7,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const menu = useRef<HTMLElement>(null);
+  const [current, setCurrent] = useState<string | null>(null);
   const theme = useAppStore((state) => state.theme);
   const setTheme = useAppStore((state) => state.setTheme);
   useEffect(() => {
@@ -25,7 +26,18 @@ export function PublicLayout({ children }: { children: ReactNode }) {
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('keydown', key); document.body.style.overflow = overflow; previous?.focus(); };
   }, [open, close]);
-  const links = <>{destinations.map(([label, id]) => <a key={id} href={`/#${id}`} onClick={close}>{label}</a>)}<Link to="/login" onClick={close}>Login</Link><a className="action-link" href="/#pricing" onClick={close}>Request Access</a></>;
+  useEffect(() => {
+    // Mark the landing section in view for navigation; absent observers (tests) simply skip it.
+    if (window.location.pathname !== '/' || typeof IntersectionObserver === 'undefined') return;
+    const visible = new Map<string, number>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) { if (entry.isIntersecting) visible.set(entry.target.id, entry.intersectionRatio); else visible.delete(entry.target.id); }
+      setCurrent([...visible.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null);
+    }, { rootMargin: '-96px 0px -55% 0px', threshold: [0, .25, .5, 1] });
+    for (const [, id] of destinations) { const section = document.getElementById(id); if (section) observer.observe(section); }
+    return () => observer.disconnect();
+  }, []);
+  const links = <>{destinations.map(([label, id]) => <a key={id} href={`/#${id}`} aria-current={current === id ? 'location' : undefined} onClick={close}>{label}</a>)}<Link to="/login" onClick={close}>Login</Link><a className="action-link" href="/#pricing" onClick={close}>Request Access</a></>;
   return <div className="public-site"><a className="skip-link" href="#public-main">Skip to content</a>
     <header className="public-header"><div className="public-container public-header-inner">
       <Link to="/" aria-label="EkaVio home"><BrandLockup /></Link><nav className="public-desktop-nav" aria-label="Public navigation">{links}</nav>
