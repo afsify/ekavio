@@ -53,3 +53,24 @@ it('disabled received records cannot be selected with pointer or keyboard', () =
   fireEvent.keyDown(input, { key: 'ArrowDown' }); expect(input.getAttribute('aria-activedescendant')).toBe(screen.getByRole('option', { name: 'Staff 1' }).id);
   fireEvent.keyDown(input, { key: 'Enter' }); expect(change).toHaveBeenCalledWith(options[1]);
 });
+it('Space reopens a closed list with every option instead of filtering by the selected name', () => {
+  render(<AdvancedSearchSelect label="Customer" options={options} value={options[2]} displayKey="name" onChange={vi.fn()} />);
+  const input = screen.getByRole('combobox'); act(() => input.focus());
+  fireEvent.keyDown(input, { key: 'Escape' }); expect(screen.queryByRole('listbox')).toBeNull();
+  expect(fireEvent.keyDown(input, { key: ' ' })).toBe(false);
+  expect(screen.getAllByRole('option')).toHaveLength(options.length);
+});
+it('restores focus without reopening when a parent disables then re-enables the focused control', () => {
+  const view = (disabled: boolean) => <><button>Elsewhere</button><AdvancedSearchSelect label="Workspace" options={options} value={options[0]} displayKey="name" onChange={vi.fn()} disabled={disabled} /></>;
+  const rendered = render(view(false)); const input = screen.getByRole('combobox'); act(() => input.focus()); fireEvent.keyDown(input, { key: 'Escape' });
+  rendered.rerender(view(true)); act(() => screen.getByText('Elsewhere').focus());
+  rendered.rerender(view(false));
+  expect(document.activeElement).toBe(input); expect(screen.queryByRole('listbox')).toBeNull();
+});
+it('does not steal focus back after the user has moved on', () => {
+  const view = render(<><button>Other</button><AdvancedSearchSelect label="Workspace" options={options} value={options[0]} displayKey="name" onChange={vi.fn()} /></>);
+  const input = screen.getByRole('combobox'); act(() => input.focus()); act(() => screen.getByText('Other').focus());
+  view.rerender(<><button>Other</button><AdvancedSearchSelect label="Workspace" options={options} value={options[0]} displayKey="name" onChange={vi.fn()} disabled /></>);
+  view.rerender(<><button>Other</button><AdvancedSearchSelect label="Workspace" options={options} value={options[0]} displayKey="name" onChange={vi.fn()} /></>);
+  expect(document.activeElement).toBe(screen.getByText('Other'));
+});

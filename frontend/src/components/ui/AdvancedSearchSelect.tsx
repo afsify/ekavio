@@ -13,6 +13,8 @@ export function AdvancedSearchSelect<T extends Record<string, unknown>>({ option
   const id = useId(), input = useRef<HTMLInputElement>(null), container = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false), [search, setSearch] = useState(''), [active, setActive] = useState(-1);
   const [position, setPosition] = useState<CSSProperties>({});
+  // A parent may disable the control mid-selection (e.g. while switching context); the browser then drops focus, so restore it quietly.
+  const hadFocus = useRef(false), skipReveal = useRef(false);
   const open = expanded && !disabled;
   const filtered = useMemo(() => options.filter(option => String(option[displayKey]).toLowerCase().includes(search.toLowerCase())), [options, displayKey, search]);
   const selected = (option: T) => (Array.isArray(value) ? value : value ? [value] : []).some(v => v[valueKey] === option[valueKey]);
@@ -25,7 +27,8 @@ export function AdvancedSearchSelect<T extends Record<string, unknown>>({ option
       const rect = input.current?.getBoundingClientRect();
       if (!rect) return;
       const viewport = window.visualViewport;
-      const bottom = (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
+      const nav = document.querySelector('.mobile-nav'), navTop = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect().top : Infinity;
+      const bottom = Math.min((viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0), navTop);
       const above = rect.top - (viewport?.offsetTop ?? 0) - 8, below = bottom - rect.bottom - 8;
       const upward = below < 220 && above > below;
       setPosition({ position: 'fixed', left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.min(rect.width, window.innerWidth - 16) - 8)), width: Math.min(rect.width, window.innerWidth - 16), top: upward ? undefined : rect.bottom + 4, bottom: upward ? window.innerHeight - rect.top + 4 : undefined, maxHeight: Math.max(0, Math.min(320, upward ? above : below)) });
@@ -37,6 +40,9 @@ export function AdvancedSearchSelect<T extends Record<string, unknown>>({ option
     window.visualViewport?.addEventListener('resize', place);
     return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); window.visualViewport?.removeEventListener('resize', place); };
   }, [open]);
+  useEffect(() => {
+    if (!disabled && hadFocus.current && input.current && document.activeElement !== input.current) { skipReveal.current = true; input.current.focus(); skipReveal.current = false; }
+  }, [disabled]);
   useEffect(() => { if (open && active >= 0) document.getElementById(`${id}-option-${active}`)?.scrollIntoView?.({ block: 'nearest' }); }, [active, id, open]);
   const choose = (option: T) => {
     if (disabled || isOptionDisabled?.(option)) return;
@@ -44,14 +50,15 @@ export function AdvancedSearchSelect<T extends Record<string, unknown>>({ option
     else { onChange(option); close(); setSearch(''); }
   };
   const display = (Array.isArray(value) ? value : value ? [value] : []).map(option => String(option[displayKey])).join(', ');
-  return <div ref={container} className={`search-select ${className}`} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}>
+  return <div ref={container} className={`search-select ${className}`} onBlur={event => { if (!input.current?.disabled) hadFocus.current = false; if (!event.currentTarget.contains(event.relatedTarget)) close(); }}>
     {label && <div className="form-label"><label htmlFor={id}>{label}</label>{required && <span aria-hidden="true"> (required)</span>}</div>}
     <div className="search-select-control">
       <input ref={input} id={id} role="combobox" autoComplete="off" aria-autocomplete="list" aria-label={label ?? placeholder} aria-expanded={open} aria-controls={open ? `${id}-options` : undefined} aria-activedescendant={open && active >= 0 && filtered[active] ? `${id}-option-${active}` : undefined} aria-required={required || undefined} aria-invalid={Boolean(error)} aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`} disabled={disabled} value={open ? search : display} placeholder={open ? display || 'Type to search…' : placeholder} title={display || undefined}
-        onFocus={reveal} onClick={() => { if (!open) reveal(); }} onChange={event => { setSearch(event.target.value); setExpanded(true); setActive(-1); }}
+        onFocus={() => { hadFocus.current = true; if (!skipReveal.current) reveal(); }} onClick={() => { if (!open) reveal(); }} onChange={event => { setSearch(event.target.value); setExpanded(true); setActive(-1); }}
         onKeyDown={event => {
           if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); close(); }
           else if (event.key === 'Tab') close();
+          else if (event.key === ' ' && !open) { event.preventDefault(); reveal(); }
           else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault(); if (!open) reveal();
             setActive(index => {
