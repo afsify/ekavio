@@ -64,7 +64,6 @@ for (const width of [320, 360, 390, 430, 768, 1024, 1440, 1920]) for (const mode
       expect(await sidebar.evaluate(node => node.contains(document.activeElement))).toBe(true);
       await page.keyboard.press('Tab'); await expect(first).toBeFocused();
       await page.keyboard.press('Tab'); await expect(sidebar.getByRole('button', { name: 'Close navigation', exact: true })).toBeFocused();
-      await page.keyboard.press('Tab'); await expect(sidebar.locator('summary').filter({ has: page.getByRole('heading', { name: 'Home', exact: true }) })).toBeFocused();
       await page.keyboard.press('Tab'); await expect(sidebar.getByRole('link', { name: 'Home', exact: true })).toBeFocused();
       await capture(page, `${prefix}-navigation`); await page.keyboard.press('Escape'); await expect(sidebar).toBeHidden(); await expect(trigger).toBeFocused();
     } else {

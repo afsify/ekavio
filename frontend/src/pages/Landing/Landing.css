@@ -40,6 +40,21 @@
 .public-site :is(a, button, summary, select):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; border-radius: 6px; }
 .public-site .public-faq summary { min-height: 44px; display: flex; align-items: center; }
 
+/* UX-03: the access request reads as one guided panel instead of loose headings. */
+.public-site .public-request { margin-top: 32px; padding: 28px; display: grid; gap: 4px; }
+.public-site .public-request-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.public-site .public-request-head h3 { margin: 0; font-size: 1.375rem; letter-spacing: -.02em; }
+.public-site .public-cycle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-subtle); }
+.public-site .public-cycle > button { min-height: 44px; padding-inline: 1.1rem; }
+.public-site .public-cycle > .quiet-button { border-color: transparent; background: transparent; }
+.public-site .public-request .public-wizard-heading { margin-top: 12px; }
+.public-site .public-request .public-wizard-heading h3 { font-size: 1rem; color: var(--text-secondary); }
+.public-site .public-request .commercial-stepper { margin: 8px 0; }
+.public-site .public-request h3 { margin-top: 16px; }
+.public-site .public-empty { padding: 16px; border: 1px dashed var(--border); border-radius: var(--radius-control); font-size: .9rem; }
+.public-site .public-request .public-wizard { max-width: none; margin-top: 20px; background: var(--surface-subtle); box-shadow: none; }
+.public-site .public-request .public-quote { margin-top: 0; }
+
 @keyframes public-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .public-site .public-hero-copy, .public-site .workspace-preview { animation: none; } }
 
@@ -51,4 +66,7 @@
   .public-site .public-actions .action-link, .public-site .public-actions .quiet-button { width: 100%; }
   .public-site .public-reassurance { flex-direction: column; }
   .public-site .public-module { padding: 20px; }
+  .public-site .public-request { padding: 20px 16px; }
+  .public-site .public-cycle { width: 100%; }
+  .public-site .public-cycle > button { flex: 1; }
 }

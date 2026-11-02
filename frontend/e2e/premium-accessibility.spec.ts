@@ -39,8 +39,8 @@ for (const mode of ['light', 'dark', 'system'] as const) test(`overview scoped a
   await page.addInitScript(theme => localStorage.setItem('ekavio-ui-preferences', JSON.stringify({ mode: theme, primaryColor: '#4F46E5' })), mode);
   await page.goto('/dashboard'); await expect(page.getByRole('heading', { name: 'Active customers', exact: true })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'system' ? 'dark' : mode);
-  await expectReadableText(page.locator('.stat-heading h2,.stat-value,.stat-link'), 3);
-  for (const control of await page.locator('.mobile-nav a,.mobile-nav button,.context-control select,.intro-actions button').all()) {
+  await expectReadableText(page.locator('.stat-heading h2,.stat-value,.stat-card>.muted,.stat-link'), 3);
+  for (const control of await page.locator('.mobile-nav a,.mobile-nav button,.context-control select,.page-actions button,.page-actions a').all()) {
     await expect(control).toHaveAccessibleName(/\S/); const box = await control.boundingBox(); expect(box!.height).toBeGreaterThanOrEqual(44);
   }
   await page.keyboard.press('Tab'); await expect(page.getByRole('link', { name: 'Skip to workspace content' })).toBeFocused();
@@ -65,7 +65,7 @@ for (const mode of ['light', 'dark', 'system'] as const) test(`overview scoped a
   if (mode === 'system') {
     await page.emulateMedia({ colorScheme: 'light' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    await expectReadableText(page.locator('.stat-heading h2,.stat-value,.stat-link'), 3);
+    await expectReadableText(page.locator('.stat-heading h2,.stat-value,.stat-card>.muted,.stat-link'), 3);
     await expectReadableText(headings, await headings.count());
   }
   await summary.focus(); await page.keyboard.press('Enter');
