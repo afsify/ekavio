@@ -49,6 +49,7 @@ const requiredTables = Object.freeze({
     'purchase_receipt_lines', 'purchasing_activity_events'],
   hr: ['hr_leave_types', 'hr_work_calendars', 'hr_calendar_days', 'hr_shift_templates',
     'hr_leave_requests', 'hr_shift_assignments', 'hr_events', 'hr_leave_decisions', 'hr_commands'],
+  tasks: ['work_tasks', 'work_task_events', 'work_task_commands'],
   commercialHistory: ['commercial_access_requests', 'commercial_access_request_events',
     'commercial_onboarding_invitations', 'organization_billing_profiles', 'commercial_activation_events',
     'commercial_renewal_events', 'public_offer_pricing', 'public_offer_pricing_events',
@@ -78,6 +79,7 @@ const expectedMigrations = Object.freeze([
   '018_crm_followups.sql',
   '019_suppliers_purchasing.sql',
   '020_hr_plus.sql',
+  '021_work_tasks.sql',
 ] as const);
 
 const identifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
@@ -116,7 +118,7 @@ const verifySnapshot = async (
     names.length < expectedMigrations.length ||
     expectedMigrations.some((name, index) => names[index] !== name)
   ) {
-    throw new Error('Restored database must include applied checksums 001 through 020 and zero pending migrations');
+    throw new Error('Restored database must include applied checksums 001 through 021 and zero pending migrations');
   }
 
   const tables = Object.values(requiredTables).flat();
@@ -222,7 +224,10 @@ const verifySnapshot = async (
       ('purchase_receipt_lines','purchase_receipt_lines_immutable'),
       ('hr_events','hr_events_immutable'),('hr_leave_decisions','hr_decisions_immutable'),
       ('hr_commands','hr_commands_immutable'),('hr_leave_requests','hr_guard'),
-      ('hr_shift_assignments','hr_guard')) required(relation,name)
+      ('hr_shift_assignments','hr_guard'),('work_tasks','work_tasks_guard'),
+      ('work_tasks','work_tasks_history'),('work_tasks','work_tasks_complete'),
+      ('work_task_events','work_task_events_immutable'),
+      ('work_task_commands','work_task_commands_immutable')) required(relation,name)
     WHERE NOT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class r ON r.oid=t.tgrelid
       JOIN pg_namespace n ON n.oid=r.relnamespace WHERE n.nspname='public'
       AND r.relname=required.relation AND t.tgname=required.name AND t.tgenabled='O')
@@ -267,6 +272,41 @@ const verifySnapshot = async (
         daterange((s.starts_at AT TIME ZONE s.timezone_snapshot)::date,
         ((s.ends_at-interval '1 microsecond') AT TIME ZONE s.timezone_snapshot)::date,'[]')
   `);
+  integrity.task_projection_mismatches = await countIntegrityFailures(database, `
+    SELECT count(*)::text AS count FROM work_tasks t
+    LEFT JOIN work_task_events e ON e.task_id=t.id AND e.organization_id=t.organization_id
+      AND e.branch_id=t.branch_id AND e.resulting_version=t.version
+    WHERE e.id IS NULL OR (SELECT count(*) FROM work_task_events all_events WHERE all_events.task_id=t.id)<>t.version
+      OR (e.new_status,e.new_assignee,e.new_due_at,e.new_priority,e.new_due_timezone,e.action,e.actor_user_id,e.actor_membership_id,e.reason,e.occurred_at)
+      IS DISTINCT FROM (t.status,t.assigned_membership_id,t.due_at,t.priority,t.due_timezone,t.last_action,t.updated_by,t.actor_membership_id,t.last_reason,t.updated_at)
+  `);
+  integrity.task_history_chain_mismatches = await countIntegrityFailures(database, `
+    WITH chain AS (SELECT e.*,lag(new_status) OVER w AS previous_status,lag(new_assignee) OVER w AS previous_assignee,
+      lag(new_due_at) OVER w AS previous_due,lag(new_priority) OVER w AS previous_priority,
+      lag(new_due_timezone) OVER w AS previous_zone,lag(resulting_version) OVER w AS previous_version
+      FROM work_task_events e WINDOW w AS (PARTITION BY task_id ORDER BY resulting_version))
+    SELECT count(*)::text AS count FROM chain e WHERE
+      (resulting_version=1 AND (action<>'task.created' OR old_status IS NOT NULL OR new_status<>'todo')) OR
+      (resulting_version>1 AND (previous_version IS DISTINCT FROM resulting_version-1 OR
+       (old_status,old_assignee,old_due_at,old_priority,old_due_timezone) IS DISTINCT FROM
+       (previous_status,previous_assignee,previous_due,previous_priority,previous_zone))) OR
+      new_status NOT IN ('todo','in_progress','completed','cancelled') OR
+      (action='task.started' AND (old_status,new_status) IS DISTINCT FROM ('todo','in_progress')) OR
+      (action='task.reset' AND (old_status,new_status) IS DISTINCT FROM ('in_progress','todo')) OR
+      (action='task.completed' AND (old_status NOT IN ('todo','in_progress') OR new_status<>'completed')) OR
+      (action='task.cancelled' AND (old_status NOT IN ('todo','in_progress') OR new_status<>'cancelled')) OR
+      (action='task.reopened' AND (old_status,new_status) IS DISTINCT FROM ('completed','todo')) OR
+      (action IN ('task.cancelled','task.reopened') AND (reason IS NULL OR length(btrim(reason))=0)) OR
+      (action IN ('task.updated','task.assigned') AND (old_status NOT IN ('todo','in_progress') OR new_status IS DISTINCT FROM old_status))
+  `);
+  integrity.task_command_mismatches = await countIntegrityFailures(database, `
+    SELECT count(*)::text AS count FROM work_task_events e
+    LEFT JOIN work_task_commands c ON c.event_id=e.id
+    JOIN memberships m ON m.id=e.actor_membership_id AND m.organization_id=e.organization_id
+    WHERE c.event_id IS NULL OR c.actor_membership_id<>e.actor_membership_id OR m.user_id<>e.actor_user_id
+      OR c.command<>CASE e.action WHEN 'task.created' THEN 'create' WHEN 'task.updated' THEN 'update'
+        WHEN 'task.assigned' THEN 'update' WHEN 'task.cancelled' THEN 'cancel' WHEN 'task.reopened' THEN 'reopen' ELSE 'status' END
+  `);
   if (Object.values(integrity).some((count) => count !== '0')) {
     throw new Error('Restored database contains referential or domain-integrity failures');
   }
@@ -275,7 +315,7 @@ const verifySnapshot = async (
     status: 'verified',
     coverage: {
       contractVersion: 'v2-10-recovery-integrity-v1',
-      reviewedThrough: '020_hr_plus.sql',
+      reviewedThrough: '021_work_tasks.sql',
       // Later migrations are checksum/catalogue checked, not automatically
       // certified for their new domain-specific business invariants.
       additionalMigrations: names.slice(expectedMigrations.length),

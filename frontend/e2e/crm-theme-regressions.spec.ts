@@ -1,18 +1,24 @@
 import { test, expect } from '@playwright/test';
 import { workspace } from './fixtures';
 import { relationshipFixture } from '../e2e-relationships-visual/fixtures';
+import { expectAccountAppearance } from './accountAppearance';
 
 for (const width of [320,1024,1920]) test(`reduced motion keeps inherited account colors synchronized ${width}px`, async ({ page }) => {
   await workspace(page); await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.addInitScript(() => localStorage.setItem('ekavio-ui-preferences', JSON.stringify({ mode: 'system', primaryColor: '#087443' })));
-  await page.goto('/customers'); await page.getByRole('button', { name: 'Account menu', exact: true }).click();
+  await page.goto('/customers'); const trigger = page.getByRole('button', { name: 'Account menu', exact: true }); await trigger.click();
+  const account = page.getByRole('dialog', { name: 'Your account' });
+  await expect(account.getByRole('button', { name: 'Close modal' })).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(account.getByRole('link', { name: 'My profile', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Shift+Tab');
+  await expect(account.getByRole('button', { name: 'Sign out', exact: true })).toBeFocused();
   for (const scheme of ['light','dark','light','dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme }); await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
-    const styles = await page.locator('.account-name,.account-sheet a,.theme-mode-option:not([data-selected=true])').evaluateAll(nodes => nodes.map(node => ({ color: getComputedStyle(node).color, duration: getComputedStyle(node).transitionDuration })));
-    expect(styles.length).toBe(6);
-    for (const style of styles) { expect(style.duration).toBe('0s'); expect(style.color).toBe(scheme === 'dark' ? 'rgb(243, 246, 252)' : 'rgb(25, 36, 56)'); }
+    await expectAccountAppearance(account);
+    await expect(account.getByRole('radio', { name: 'System', exact: true })).toBeChecked();
   }
   await page.screenshot({ path: `test-results/crm-theme/${width}-reduced-motion-account.png` });
+  await page.keyboard.press('Escape'); await expect(account).toBeHidden(); await expect(trigger).toBeFocused();
 });
 
 for (const width of [320,1024]) for (const mode of ['light','dark','system']) test(`long workspace and account names remain usable ${width}px ${mode}`, async ({ page }) => {

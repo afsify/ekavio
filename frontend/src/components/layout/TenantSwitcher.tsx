@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAppStore } from '../../store/useAppStore';
+import { OptionSelect } from '../ui/OptionSelect';
 
 export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }> = ({ onSwitching }) => {
   const queryClient = useQueryClient();
@@ -38,7 +39,7 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
 
   return (
     <div className="context-selectors" aria-busy={switching || undefined}>
-        <label className="context-control">
+        {memberships.length > 5 ? <div className="context-control"><OptionSelect label="Active workspace" context="workspace" required options={memberships.map(item => ({ id: item.organizationId, name: item.orgName ?? 'Workspace' }))} value={activeTenantId ?? user?.tenantId ?? ''} disabled={switching || mutations > 0} onChange={value => { void switchContext(() => setActiveTenant(value), 'workspace'); }} /></div> : <label className="context-control">
           <span>Workspace</span>
           <select
             aria-label="Active workspace"
@@ -53,8 +54,8 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
               </option>
             ))}
           </select>
-        </label>
-        <label className="context-control">
+        </label>}
+        {(activeMembership?.branches.length ?? 0) > 5 ? <div className="context-control" key={activeTenantId}><OptionSelect label="Active branch" context="branch" required options={activeMembership?.branches.map(item => ({ id: item.id, name: item.name })) ?? []} value={activeBranchId ?? ''} disabled={switching || mutations > 0} onChange={value => { void switchContext(() => setActiveBranch(value), 'branch'); }} /></div> : <label className="context-control">
           <span>Branch</span>
           <select
             aria-label="Active branch"
@@ -67,7 +68,7 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
               <option key={branch.id} value={branch.id}>{branch.name}</option>
             ))}
           </select>
-        </label>
+        </label>}
     </div>
   );
 };

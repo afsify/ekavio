@@ -1,6 +1,7 @@
 import { isAxiosError } from 'axios';
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useOperationalScope } from '../../hooks/useOperationalContext';
 import { useLayoutStudio } from '../../hooks/useLayoutStudio';
 import { useDynamicForm } from '../../hooks/useDynamicForm';
@@ -19,8 +20,13 @@ export default function CustomFieldsPage() {
   return <CustomFieldsWorkspace key={JSON.stringify(scope)} />;
 }
 function CustomFieldsWorkspace() {
-  const [entity, setEntity] = useState<FieldEntity>('customer');
-  return <EntityWorkspace key={entity} entity={entity} changeEntity={setEntity} />;
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('entity');
+  const entity = entities.find(item => item === requested) ?? 'customer';
+  const changeEntity = (next: FieldEntity) => {
+    setParams(previous => { const query = new URLSearchParams(previous); query.set('entity', next); return query; });
+  };
+  return <EntityWorkspace key={entity} entity={entity} changeEntity={changeEntity} />;
 }
 function EntityWorkspace({ entity, changeEntity }: { entity: FieldEntity; changeEntity: (entity: FieldEntity) => void }) {
   const form = useDynamicForm(entity, null);

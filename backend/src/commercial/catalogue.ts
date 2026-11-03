@@ -1,4 +1,5 @@
 export const MODULES = {
+  TASKS: 'tasks',
   LEDGER: 'ledger',
   INVENTORY: 'inventory',
   ATTENDANCE: 'attendance',
@@ -52,6 +53,7 @@ export const PLAN_KEYS = {
 } as const;
 
 export const ADD_ON_KEYS = {
+  TASKS: 'module-tasks',
   HR_PLUS: 'module-hr-plus',
   CRM: 'module-crm',
   PURCHASING: 'module-purchasing',
@@ -62,6 +64,7 @@ export const ADD_ON_KEYS = {
 } as const;
 
 export const addOnKeyByModule: Readonly<Record<ModuleKey, string>> = {
+  tasks: ADD_ON_KEYS.TASKS,
   hr_plus: ADD_ON_KEYS.HR_PLUS,
   crm: ADD_ON_KEYS.CRM,
   purchasing: ADD_ON_KEYS.PURCHASING,
@@ -82,6 +85,7 @@ export interface CatalogueModuleSeed {
 }
 
 export const initialModuleCatalogue: readonly CatalogueModuleSeed[] = [
+  { key: MODULES.TASKS, displayName: 'Tasks', description: 'Branch-scoped assigned work and immutable task history.', category: 'workforce', commercialType: 'purchasable', status: 'active', version: 1 },
   { key: MODULES.HR_PLUS, displayName: 'HR Plus', description: 'Leave requests, approvals, work calendars, shift scheduling and availability. Attendance remains independent.', category: 'workforce', commercialType: 'purchasable', status: 'active', version: 1 },
   { key: MODULES.PURCHASING, displayName: 'Suppliers & Purchasing', description: 'Supplier directory, purchase orders and partial goods receiving. Inventory access is independently required for item orders and receiving.', category: 'operations', commercialType: 'purchasable', status: 'active', version: 1 },
   { key: MODULES.CRM, displayName: 'CRM & Follow-ups', description: 'Manage leads, pipeline stages, staff assignments, manual follow-ups, Customer conversion and CRM reports.', category: 'customer-experience', commercialType: 'purchasable', status: 'active', version: 1 },

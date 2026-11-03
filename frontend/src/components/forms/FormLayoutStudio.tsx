@@ -1,4 +1,5 @@
 import { isAxiosError } from 'axios';
+import { useRef } from 'react';
 import { AdvancedModal } from '../ui/AdvancedModal';
 import { Input } from '../ui/Input';
 import { StatusBadge } from '../ui/WorkspacePrimitives';
@@ -7,8 +8,11 @@ import type { LayoutStudioController } from '../../hooks/useLayoutStudio';
 import { layoutChanges } from './layoutDraft';
 import { entityNames, moveOption, typeNames } from './fieldDefinitionUtils';
 import { LayoutPreview } from './LayoutPreview';
+import { FieldPlacementCatalogue } from './FieldPlacementCatalogue';
+import './studioExperience.css';
 
 export function FormLayoutStudio({ studio, manage }: { studio: LayoutStudioController; manage: boolean }) {
+  const placementRefs = useRef(new Map<string, HTMLDivElement>());
   const { source: schema, sections, busy, blocked, dirty, draft, errors, review } = studio;
   if (!schema) return null;
   const names = new Map([...schema.builtins, ...schema.definitions].map(field => [field.key, field.label]));
@@ -22,9 +26,10 @@ export function FormLayoutStudio({ studio, manage }: { studio: LayoutStudioContr
     <div className="record-actions"><button className="quiet-button" disabled={busy} onClick={() => studio.setPreview('desktop')}>Desktop preview</button><button className="quiet-button" disabled={busy} onClick={() => studio.setPreview('mobile')}>Mobile preview</button><button className="quiet-button" disabled={busy} onClick={studio.reload}>Reload current layout</button></div>
     {!manage && <p className="panel muted">Read-only layout inspection. Configuration permissions do not grant record access.</p>}
     <div className="layout-studio-workspace">
-      <aside className="panel page-stack layout-placement-catalogue" aria-label="Layout field placements"><h3>Field placements</h3><p className="muted">Loaded built-in and active custom fields. Use section controls to organize them.</p>{[...schema.builtins, ...schema.definitions.filter(field => field.status === 'active')].map(field => { const custom = schema.definitions.find(item => item.key === field.key); return <div className="layout-placement-fact" key={field.key}><strong>{field.label}</strong><code>{field.key}</code><span className="muted">{custom ? typeNames[custom.field_type] : 'Built-in'} · {field.required ? 'Required' : 'Optional'} · {sections.find(section => section.fields.some(placement => placement.key === field.key))?.title || 'Additional information'}</span></div>; })}</aside>
+      <FieldPlacementCatalogue schema={schema} sections={sections} onLocate={key => { const node = placementRefs.current.get(key); node?.scrollIntoView({ block: 'center', behavior: 'auto' }); node?.focus({ preventScroll: true }); }} />
       <div className="page-stack layout-section-list">{sections.map((section, index) => <section className="panel page-stack layout-section" key={section.id} aria-label={`Layout section ${index + 1}`}>
         <div className="section-heading"><h3>Section {index + 1}</h3><StatusBadge>{section.status ?? 'active'} · {section.fields.length} fields</StatusBadge></div>
+        <p className="studio-section-guide">Section {index + 1} of {sections.length}. Fields appear in the order below. Move within this section or choose another section; stored values are preserved.</p>
         <Input label={`Section ${index + 1} title`} disabled={locked} maxLength={100} value={section.title} onChange={event => studio.edit(items => items.map((item, position) => position === index ? { ...item, title: event.target.value } : item))} />
         <label className="field">Section {index + 1} status<select disabled={locked || section.fields.length > 0} value={section.status ?? 'active'} onChange={event => studio.edit(items => items.map((item, position) => position === index ? { ...item, status: event.target.value as 'active' | 'archived' } : item))}><option value="active">Active</option><option value="archived">Archived (empty section only)</option></select></label>
         <p className="muted">Move every field out before archiving. Archived sections count toward the 20-section limit.</p>
@@ -32,12 +37,12 @@ export function FormLayoutStudio({ studio, manage }: { studio: LayoutStudioContr
         {section.fields.map((placement, position) => {
           const field = schema.definitions.find(item => item.key === placement.key), required = schema.builtins.some(item => item.key === placement.key && item.required) || Boolean(field?.required && field.status === 'active');
           const label = names.get(placement.key) ?? placement.key;
-          return <div className="page-stack layout-field-row" key={placement.key}><strong>{label}</strong><p className="muted"><code>{placement.key}</code> · {field ? typeNames[field.field_type] : 'Built-in'} · {required ? 'Required — must remain visible' : 'Optional'}{field?.status === 'archived' ? ' · Archived history' : ''}</p>
+          return <div className="page-stack layout-field-row studio-field-focus" key={placement.key} tabIndex={-1} ref={node => { if (node) placementRefs.current.set(placement.key, node); else placementRefs.current.delete(placement.key); }}><span className="studio-field-position">Field {position + 1} of {section.fields.length}</span><strong>{label}</strong><p className="muted"><code>{placement.key}</code> · {field ? typeNames[field.field_type] : 'Built-in'} · {required ? 'Required — must remain visible' : 'Optional'}{field?.status === 'archived' ? ' · Archived history' : ''}</p>
             <div className="layout-field-controls">{manage && <><div className="record-actions"><button className="quiet-button" disabled={locked || !position} onClick={() => studio.edit(items => items.map((item, sectionIndex) => sectionIndex === index ? { ...item, fields: moveOption(item.fields, position, -1) } : item))}>Move {label} up</button><button className="quiet-button" disabled={locked || position === section.fields.length - 1} onClick={() => studio.edit(items => items.map((item, sectionIndex) => sectionIndex === index ? { ...item, fields: moveOption(item.fields, position, 1) } : item))}>Move {label} down</button></div><label className="field">Section for {label}<select disabled={locked} value={section.id} onChange={event => { const target = event.target.value; studio.edit((items, unplacedId) => items.map(item => ({ ...item, fields: item.id === (target === 'unplaced' ? unplacedId : target) ? [...item.fields, placement] : item.fields.filter(other => other.key !== placement.key) }))); }}>{sections.filter(item => item.status !== 'archived').map((item, sectionIndex) => <option key={item.id} value={item.id}>{item.title || `Section ${sectionIndex + 1}`}</option>)}</select></label></>}
             <label className="field-setting"><input type="checkbox" checked={placement.visible || required} disabled={locked || required} onChange={event => studio.edit(items => items.map(item => ({ ...item, fields: item.fields.map(other => other.key === placement.key ? { ...other, visible: event.target.checked } : other) })))} /><span>Visible{required ? ' (required)' : ''}</span></label></div>
           </div>;
         })}
-        {!section.fields.length && <p className="muted">Empty section. Place fields here or archive it.</p>}
+        {!section.fields.length && <p className="muted">Empty section. Choose this section in another field’s “Section for” control to move it here, or archive the empty section. No field definition or stored value is deleted.</p>}
       </section>)}</div>
     </div>
     {manage && <><div className="record-actions layout-studio-actions"><button className="quiet-button" disabled={locked || sections.length >= 20} onClick={() => studio.edit(items => [...items, { id: crypto.randomUUID(), title: 'New section', status: 'active', fields: [] }])}>Add section</button><button className="action-link" disabled={locked || !dirty || errors.length > 0} onClick={studio.reviewSave}>Save layout</button><button className="quiet-button" disabled={busy || !dirty || blocked} onClick={() => studio.guard(studio.discard)}>Discard layout draft</button><button className="quiet-button" disabled={locked} onClick={studio.reviewReset}>Reset default layout</button></div>{dirty && errors.map(error => <p className="error-text" role="alert" key={error}>{error}</p>)}</>}

@@ -8,7 +8,7 @@ import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate } from '../src/postgres/migrations.js';
 import { verifyRestoredDatabase } from '../src/postgres/restoreIntegrity.js';
 
-test('current recovery verifier fails closed on 020 schema and restored corruption', async t => {
+test('current recovery verifier fails closed on 021 schema and restored corruption', async t => {
   const url = new URL(process.env.POSTGRES_TEST_URL ?? '');
   assert.ok(['127.0.0.1', 'localhost', 'postgres'].includes(url.hostname) && url.pathname === '/postgres');
   const admin = new PostgresDatabase(url.href);
@@ -18,15 +18,16 @@ test('current recovery verifier fails closed on 020 schema and restored corrupti
   const db = new PostgresDatabase(url.href);
   try {
     await migrate(db);
-    await t.test('fresh latest schema reports 20 checksums and every new domain without row data', async () => {
+    await t.test('fresh latest schema reports 21 checksums and every new domain without row data', async () => {
       const proof = await verifyRestoredDatabase(db);
-      assert.equal(proof.migrations.applied, 20);
-      assert.equal(proof.migrations.expected, 20);
+      assert.equal(proof.migrations.applied, 21);
+      assert.equal(proof.migrations.expected, 21);
       assert.equal(proof.coverage.contractVersion, 'v2-10-recovery-integrity-v1');
-      assert.equal(proof.coverage.reviewedThrough, '020_hr_plus.sql');
+      assert.equal(proof.coverage.reviewedThrough, '021_work_tasks.sql');
       assert.deepEqual(proof.coverage.additionalMigrations, []);
       for (const table of ['identity_challenges', 'organization_roles', 'custom_field_values',
-        'user_notifications', 'crm_leads', 'purchase_receipts', 'hr_leave_requests', 'hr_shift_assignments']) {
+        'user_notifications', 'crm_leads', 'purchase_receipts', 'hr_leave_requests', 'hr_shift_assignments',
+        'work_tasks', 'work_task_events', 'work_task_commands']) {
         assert.equal(proof.counts[table], '0');
       }
       assert.ok(Object.keys(proof.integrity).some(key => key.startsWith('fk:hr_leave_requests:')));
@@ -35,8 +36,8 @@ test('current recovery verifier fails closed on 020 schema and restored corrupti
     });
     await t.test('a missing current migration cannot inherit historical recovery PASS', async () => {
       const row = (await db.query('DELETE FROM schema_migrations WHERE name=$1 RETURNING *',
-        ['020_hr_plus.sql'])).rows[0]!;
-      try { await assert.rejects(() => verifyRestoredDatabase(db), /001 through 020/); }
+        ['021_work_tasks.sql'])).rows[0]!;
+      try { await assert.rejects(() => verifyRestoredDatabase(db), /001 through 021/); }
       finally { await db.query('INSERT INTO schema_migrations(name,checksum,applied_at) VALUES($1,$2,$3)',
         [row.name, row.checksum, row.applied_at]); }
     });
@@ -91,14 +92,14 @@ test('current recovery verifier fails closed on 020 schema and restored corrupti
         for (const file of (await readdir('postgres/migrations')).filter(file => file.endsWith('.sql'))) {
           await copyFile(path.join('postgres/migrations', file), path.join(directory, file));
         }
-        await writeFile(path.join(directory, '021_acceptance_fixture.sql'), '-- Disposable future migration contract fixture\nSELECT 1;\n');
+        await writeFile(path.join(directory, '022_acceptance_fixture.sql'), '-- Disposable future migration contract fixture\nSELECT 1;\n');
         await assert.rejects(() => verifyRestoredDatabase(db, directory), /zero pending migrations/);
         await migrate(db, directory);
         const proof = await verifyRestoredDatabase(db, directory);
-        assert.equal(proof.migrations.applied, 21);
-        assert.equal(proof.migrations.expected, 21);
-        assert.equal(proof.coverage.reviewedThrough, '020_hr_plus.sql');
-        assert.deepEqual(proof.coverage.additionalMigrations, ['021_acceptance_fixture.sql']);
+        assert.equal(proof.migrations.applied, 22);
+        assert.equal(proof.migrations.expected, 22);
+        assert.equal(proof.coverage.reviewedThrough, '021_work_tasks.sql');
+        assert.deepEqual(proof.coverage.additionalMigrations, ['022_acceptance_fixture.sql']);
       } finally {
         const resolved = path.resolve(directory);
         assert.ok(resolved.startsWith(path.resolve(tmpdir()) + path.sep) && path.basename(resolved).startsWith('ekavio-v210-future-schema-'));

@@ -1,0 +1,72 @@
+/* UX-02C Batch 1: public landing presentation. Tokens only, so Light, Dark and System stay consistent. */
+.public-site .public-hero { position: relative; isolation: isolate; padding-block: 72px 64px; gap: 56px; }
+.public-site .public-hero::before { content: ''; position: absolute; inset: 0 -24px auto; height: 100%; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse closest-side at 78% 38%, color-mix(in srgb, var(--primary) 12%, transparent), transparent); }
+.public-site .public-hero-copy { min-width: 0; animation: public-rise var(--motion-normal) ease-out both; }
+.public-site .public-hero h1 { font-size: clamp(2.1rem, 4.4vw, 3.6rem); text-wrap: balance; }
+.public-site .public-lead { font-size: 1.1rem; max-width: 60ch; }
+.public-site .public-actions .action-link, .public-site .public-actions .quiet-button { min-height: 48px; padding-inline: 1.3rem; }
+.public-site .public-reassurance { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .875rem; line-height: 1.5; }
+.public-site .public-reassurance li { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.public-site .public-reassurance li > span { color: var(--success); font-weight: 800; }
+
+.public-site .workspace-preview { margin: 0; padding: 0; overflow: hidden; border-radius: var(--radius-dialog); animation: public-rise calc(var(--motion-normal) + 120ms) ease-out both; }
+.public-site .preview-nav { gap: 6px; padding: 16px 8px; }
+.public-site .preview-nav > span { padding: 8px; border-radius: 8px; }
+.public-site .preview-nav > .is-active { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary-readable); font-weight: 700; }
+.public-site .preview-main > .public-small { margin: 14px 0 0; }
+.public-site .public-badge { color: var(--text); border: 1px solid var(--border); }
+
+.public-site .public-section h2 { text-wrap: balance; }
+.public-site .public-audience { list-style: none; padding: 0; margin: 28px 0 20px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); font-size: inherit; line-height: 1.5; }
+.public-site .public-audience > li { display: flex; flex-direction: column; gap: 6px; padding: 18px; }
+.public-site .public-audience strong { font-size: 1rem; }
+.public-site .public-audience span { font-size: .875rem; line-height: 1.55; }
+
+.public-site .public-steps { list-style: none; padding: 0; font-size: inherit; line-height: 1.5; counter-reset: none; }
+.public-site .public-steps > li { padding: 22px; }
+.public-site .public-step-number { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: var(--primary-ink); font-weight: 750; }
+.public-site .public-steps h3 { margin-top: 16px; }
+
+.public-site .public-module { padding: 24px; }
+.public-site .public-icon { width: 40px; height: 40px; padding: 8px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary-readable); }
+.public-site .public-module ul { list-style: none; padding-left: 0; }
+.public-site .public-module li { position: relative; padding-left: 22px; }
+.public-site .public-module li::before { content: '✓'; position: absolute; left: 0; color: var(--success); font-weight: 800; }
+.public-site .public-core { border-radius: var(--radius-dialog); }
+
+.public-site .public-desktop-nav a[aria-current='location'], .public-site .public-mobile-nav a[aria-current='location'] { color: var(--primary-readable); font-weight: 700; box-shadow: inset 0 -2px 0 var(--primary-readable); }
+.public-site .public-mobile-nav a[aria-current='location'] { box-shadow: inset 3px 0 0 var(--primary-readable); }
+.public-site :is(a, button, summary, select):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; border-radius: 6px; }
+.public-site .public-faq summary { min-height: 44px; display: flex; align-items: center; }
+
+/* UX-03: the access request reads as one guided panel instead of loose headings. */
+.public-site .public-request { margin-top: 32px; padding: 28px; display: grid; gap: 4px; }
+.public-site .public-request-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.public-site .public-request-head h3 { margin: 0; font-size: 1.375rem; letter-spacing: -.02em; }
+.public-site .public-cycle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-subtle); }
+.public-site .public-cycle > button { min-height: 44px; padding-inline: 1.1rem; }
+.public-site .public-cycle > .quiet-button { border-color: transparent; background: transparent; }
+.public-site .public-request .public-wizard-heading { margin-top: 12px; }
+.public-site .public-request .public-wizard-heading h3 { font-size: 1rem; color: var(--text-secondary); }
+.public-site .public-request .commercial-stepper { margin: 8px 0; }
+.public-site .public-request h3 { margin-top: 16px; }
+.public-site .public-empty { padding: 16px; border: 1px dashed var(--border); border-radius: var(--radius-control); font-size: .9rem; }
+.public-site .public-request .public-wizard { max-width: none; margin-top: 20px; background: var(--surface-subtle); box-shadow: none; }
+.public-site .public-request .public-quote { margin-top: 0; }
+
+@keyframes public-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .public-site .public-hero-copy, .public-site .workspace-preview { animation: none; } }
+
+@media (max-width: 1023px) { .public-site .public-hero { padding-block: 44px 40px; gap: 32px; } .public-site .public-hero::before { inset-inline: -16px; } }
+@media (max-width: 767px) {
+  .public-site .public-hero h1 { font-size: clamp(1.9rem, 9vw, 2.4rem); }
+  .public-site .public-lead { font-size: 1rem; }
+  .public-site .public-actions { flex-direction: column; align-items: stretch; }
+  .public-site .public-actions .action-link, .public-site .public-actions .quiet-button { width: 100%; }
+  .public-site .public-reassurance { flex-direction: column; }
+  .public-site .public-module { padding: 20px; }
+  .public-site .public-request { padding: 20px 16px; }
+  .public-site .public-cycle { width: 100%; }
+  .public-site .public-cycle > button { flex: 1; }
+}

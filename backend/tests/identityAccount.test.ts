@@ -28,7 +28,7 @@ test('login accepts exactly one preferred identifier or legacy phone field', () 
 });
 test('unknown phone, unknown email and unverified email have identical login failures', async () => {
   const identities: IdentityRepository = { findByPhone: async () => [], findByEmail: async () => [], findById: async () => null, buildContext: async () => { throw new Error('not reached'); } };
-  const auth = createAuthService({ identities, sessions: { create: async () => { throw new Error('not reached'); }, rotate: async () => { throw new Error('not reached'); }, revoke: async () => undefined, revokeAllForUser: async () => undefined }, verifyPassword: async () => false, signAccessToken: () => '' });
+  const auth = createAuthService({ identities, sessions: { create: async () => { throw new Error('not reached'); }, validate: async () => { throw new Error('not reached'); }, rotate: async () => { throw new Error('not reached'); }, revoke: async () => undefined, revokeAllForUser: async () => undefined }, verifyPassword: async () => false, signAccessToken: () => '' });
   for (const identifier of ['unknown', 'unknown@example.invalid', 'unverified@example.invalid']) await assert.rejects(auth.login({ identifier, password: 'old' }), { message: 'Invalid credentials' });
 });
 test('email configuration fails closed, disabled boot is safe and capture is never environment enabled', async () => {

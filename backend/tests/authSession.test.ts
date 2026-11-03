@@ -11,6 +11,7 @@ import {
   createAuthService,
   type AuthContext,
   type AuthService,
+  type AuthServiceDependencies,
   type IdentityRepository,
   type IdentityUser,
 } from '../src/services/authService.js';
@@ -23,6 +24,7 @@ import {
 } from '../src/services/sessionService.js';
 import { AppError } from '../src/utils/AppError.js';
 import { setRefreshCookie } from '../src/utils/authCookies.js';
+import { createPasswordChange } from '../src/services/accountPersistence.js';
 import { permissionsForRole } from '../src/services/authorizationPolicy.js';
 import { MODULES, emptyEffectiveLimits } from '../src/commercial/catalogue.js';
 import type { EffectiveEntitlements } from '../src/services/entitlementService.js';
@@ -176,9 +178,13 @@ const buildContext = (user: IdentityUser): AuthContext => {
 const createHarness = ({
   users = [primaryUser],
   now,
+  prepareAuthorization,
+  signAccessToken,
 }: {
   users?: IdentityUser[];
   now?: () => Date;
+  prepareAuthorization?: AuthServiceDependencies['prepareAuthorization'];
+  signAccessToken?: AuthServiceDependencies['signAccessToken'];
 } = {}) => {
   const repository = new MemorySessionRepository();
   const sessions = createRefreshSessionManager({
@@ -204,10 +210,11 @@ const createHarness = ({
     identities,
     sessions,
     verifyPassword: async (password, passwordHash) => password === passwordHash,
-    signAccessToken: (authContext, sessionId) => `access.${authContext.userId}.${sessionId}`,
+    signAccessToken: signAccessToken ?? ((authContext, sessionId) => `access.${authContext.userId}.${sessionId}`),
+    ...(prepareAuthorization ? { prepareAuthorization } : {}),
   });
 
-  return { repository, service };
+  return { repository, service, sessions, identities };
 };
 
 const login = (service: AuthService) =>
@@ -486,4 +493,208 @@ test('hosted sibling-domain session flow keeps production cookie security throug
     headers: { cookie: requestCookie(refreshCookie) },
   });
   assert.equal(revokedRefresh.status, 401);
+});
+
+// S1 recovery regressions: real handlers/services, synthetic in-memory storage.
+// No database initialization or hosted request is involved.
+const unauthorized = (error: unknown) => error instanceof AppError && error.statusCode === 401;
+
+for (const stage of ['identity', 'authorization', 'context', 'signing'] as const) {
+  test(`S1 ${stage} failure does not consume a credential; retry succeeds`, async () => {
+    let unavailable = false;
+    const harness = createHarness({
+      prepareAuthorization: async () => { if (unavailable && stage === 'authorization') throw new Error('synthetic authorization unavailable'); },
+      signAccessToken: (context, sessionId) => {
+        if (unavailable && stage === 'signing') throw new Error('synthetic signer unavailable');
+        return `access.${context.userId}.${sessionId}`;
+      },
+    });
+    const originalFind = harness.identities.findById;
+    const originalContext = harness.identities.buildContext;
+    harness.identities.findById = async id => {
+      if (unavailable && stage === 'identity') throw new Error('synthetic identity unavailable');
+      return originalFind(id);
+    };
+    harness.identities.buildContext = async (user, selection) => {
+      if (unavailable && stage === 'context') throw new Error('synthetic context unavailable');
+      return originalContext(user, selection);
+    };
+    const initial = await login(harness.service);
+    const before = structuredClone([...harness.repository.records.values()]);
+    unavailable = true;
+    await assert.rejects(harness.service.refresh(initial.refreshCredential), /synthetic .* unavailable/);
+    assert.deepEqual([...harness.repository.records.values()], before, 'failed preparation must not rotate, extend or revoke');
+    unavailable = false;
+    const recovered = await harness.service.refresh(initial.refreshCredential);
+    assert.notEqual(recovered.refreshCredential, initial.refreshCredential);
+    assert.equal(recovered.response.organizationId, primaryUser.tenantId);
+    await assert.rejects(harness.service.refresh(initial.refreshCredential), unauthorized);
+  });
+}
+
+for (const kind of ['plain error', 'explicit 503'] as const) {
+  test(`S1 HTTP ${kind} preserves cookie and valid session, redacts failure, then recovers`, async context => {
+    const { identities, service } = createHarness();
+    const initial = await login(service);
+    const originalFind = identities.findById;
+    const logs: unknown[][] = [];
+    for (const method of ['log', 'warn', 'error'] as const) context.mock.method(console, method, (...args: unknown[]) => { logs.push(args); });
+    identities.findById = async () => {
+      if (kind === 'explicit 503') throw new AppError('Authentication unavailable', 503);
+      throw new Error(`synthetic dependency failure ${initial.refreshCredential}`);
+    };
+    const baseUrl = await startAuthServer(context, service);
+    const response = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', headers: { cookie: `ekavio_refresh=${initial.refreshCredential}` } });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('set-cookie'), null, '503 must not delete the browser credential');
+    const body = await response.text();
+    assert.doesNotMatch(body, /refreshCredential|refreshToken|ekavio_refresh|synthetic dependency/i);
+    assert.equal(body.includes(initial.refreshCredential), false);
+    assert.equal(JSON.stringify(logs).includes(initial.refreshCredential), false);
+    identities.findById = originalFind;
+    const retry = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', headers: { cookie: `ekavio_refresh=${initial.refreshCredential}` } });
+    assert.equal(retry.status, 200);
+    const rotated = retry.headers.get('set-cookie');
+    assert.ok(rotated); assert.notEqual(requestCookie(rotated), `ekavio_refresh=${initial.refreshCredential}`);
+    assert.doesNotMatch(await retry.text(), /refreshCredential|refreshToken|ekavio_refresh/i);
+  });
+}
+
+for (const selection of [{ organizationId: 'foreign-tenant' }, { branchId: 'foreign-branch' }]) {
+  test(`S1 unauthorized ${Object.keys(selection)[0]} denies access without consuming valid credential`, async context => {
+    const { identities, service, repository } = createHarness();
+    const original = identities.buildContext;
+    identities.buildContext = async (user, selected) => {
+      if (selected?.organizationId === 'foreign-tenant' || selected?.branchId === 'foreign-branch') throw new AppError('Access denied to this context', 403);
+      return original(user, selected);
+    };
+    const initial = await login(service);
+    const before = structuredClone([...repository.records.values()]);
+    const baseUrl = await startAuthServer(context, service);
+    const response = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', headers: {
+      cookie: `ekavio_refresh=${initial.refreshCredential}`,
+      ...('organizationId' in selection ? { 'x-tenant-id': selection.organizationId } : { 'x-branch-id': selection.branchId }),
+    } });
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get('set-cookie'), null);
+    assert.equal('accessToken' in await response.json() as object, false);
+    assert.deepEqual([...repository.records.values()], before);
+    assert.equal((await service.refresh(initial.refreshCredential)).response.organizationId, primaryUser.tenantId);
+  });
+}
+
+test('S1 malformed and wrong-secret credentials fail before identity/context work', async () => {
+  const { identities, service } = createHarness();
+  const initial = await login(service);
+  identities.findById = async () => assert.fail('invalid credential must not reach identity preparation');
+  for (const invalid of ['', 'invalid', `${initial.refreshCredential.split('.')[0]}.${'x'.repeat(43)}`]) {
+    await assert.rejects(service.refresh(invalid), unauthorized);
+  }
+});
+
+test('S1 genuine unauthorized HTTP refresh still clears its cookie', async context => {
+  const { service } = createHarness();
+  const baseUrl = await startAuthServer(context, service);
+  const response = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST', headers: { cookie: 'ekavio_refresh=invalid' } });
+  assert.equal(response.status, 401);
+  assert.match(response.headers.get('set-cookie') ?? '', /^ekavio_refresh=;.*Expires=Thu, 01 Jan 1970/i);
+});
+
+for (const invalidation of ['revoke', 'expire'] as const) {
+  test(`S1 ${invalidation} during preparation is rechecked before rotation/response`, async () => {
+    let currentTime = new Date('2026-01-01T00:00:00Z');
+    const { identities, service, sessions } = createHarness({ now: () => new Date(currentTime) });
+    const initial = await login(service);
+    const original = identities.buildContext;
+    identities.buildContext = async (user, selection) => {
+      const context = await original(user, selection);
+      if (invalidation === 'revoke') await sessions.revokeAllForUser(primaryUser.id);
+      else currentTime = new Date(currentTime.getTime() + REFRESH_SESSION_MAX_AGE_MS);
+      return context;
+    };
+    await assert.rejects(service.refresh(initial.refreshCredential), unauthorized);
+  });
+}
+
+test('S1 CAS rejects revocation between final validation and atomic update', async () => {
+  const { service, repository } = createHarness();
+  const initial = await login(service);
+  const rotate = repository.rotate.bind(repository);
+  repository.rotate = async (...args) => {
+    await repository.revokeAllForUser(primaryUser.id, new Date());
+    return rotate(...args);
+  };
+  await assert.rejects(service.refresh(initial.refreshCredential), unauthorized);
+});
+
+test('S1 repository outage before rotation leaves original credential recoverable', async () => {
+  const { service, repository } = createHarness();
+  const initial = await login(service);
+  const before = structuredClone([...repository.records.values()]);
+  const rotate = repository.rotate.bind(repository);
+  repository.rotate = async () => { throw new Error('synthetic database unavailable before commit'); };
+  await assert.rejects(service.refresh(initial.refreshCredential), /synthetic database unavailable/);
+  assert.deepEqual([...repository.records.values()], before);
+  repository.rotate = rotate;
+  assert.ok((await service.refresh(initial.refreshCredential)).response.accessToken);
+});
+
+test('S1 response-loss limitation: a committed rotation never makes the old credential reusable', async () => {
+  const { service } = createHarness();
+  const initial = await login(service);
+  await service.refresh(initial.refreshCredential); // Deliberately discard the response, as if it was lost.
+  await assert.rejects(service.refresh(initial.refreshCredential), unauthorized);
+});
+
+test('S1 missing HTTP refresh cookie rejects without identity lookup or token issuance', async context => {
+  const { identities, service } = createHarness();
+  identities.findById = async () => assert.fail('missing cookie must not reach identity preparation');
+  const baseUrl = await startAuthServer(context, service);
+  const response = await fetch(`${baseUrl}/api/auth/refresh`, { method: 'POST' });
+  assert.equal(response.status, 401);
+  assert.match(response.headers.get('set-cookie') ?? '', /^ekavio_refresh=;.*Expires=Thu, 01 Jan 1970/i);
+  assert.equal('accessToken' in (await response.json() as object), false);
+});
+
+test('S1 competing rotation during context preparation prevents stale response issuance', async () => {
+  const { identities, service, sessions } = createHarness();
+  const initial = await login(service);
+  const original = identities.buildContext;
+  let winnerCredential = '';
+  identities.buildContext = async (user, selection) => {
+    const context = await original(user, selection);
+    winnerCredential = (await sessions.rotate(initial.refreshCredential)).refreshCredential;
+    return context;
+  };
+  await assert.rejects(service.refresh(initial.refreshCredential), unauthorized);
+  assert.ok(winnerCredential);
+  identities.buildContext = original;
+  assert.equal((await service.refresh(winnerCredential)).response.userId, primaryUser.id);
+});
+
+test('S1 password change revokes old sessions while normal reauthentication remains available', async () => {
+  const user = structuredClone(primaryUser);
+  const { service, sessions } = createHarness({ users: [user] });
+  const first = await login(service);
+  const second = await login(service);
+  const changePassword = createPasswordChange({
+    repository: {
+      findPasswordHash: async () => user.passwordHash,
+      replacePasswordHashAndRevokeSessions: async (userId, nextHash, expectedHash) => {
+        if (userId !== user.id || user.passwordHash !== expectedHash) return false;
+        user.passwordHash = nextHash;
+        await sessions.revokeAllForUser(userId);
+        return true;
+      },
+    },
+    verifyPassword: async (password, hash) => password === hash,
+    hashPassword: async password => password, // Synthetic identity adapter only.
+  });
+  await assert.rejects(changePassword(user.id, 'incorrect-old-password', 'replacement-password'), { statusCode: 400 });
+  assert.equal((await sessions.validate(first.refreshCredential)).userId, user.id);
+  await changePassword(user.id, primaryUser.passwordHash, 'replacement-password');
+  for (const old of [first, second]) await assert.rejects(service.refresh(old.refreshCredential), unauthorized);
+  await assert.rejects(login(service), unauthorized);
+  const signedIn = await service.login({ phone: user.phone, password: 'replacement-password' });
+  assert.equal((await service.refresh(signedIn.refreshCredential)).response.userId, user.id);
 });

@@ -22,6 +22,7 @@ import notificationRoutes from './notificationRoutes.js';
 import crmRoutes from './crmRoutes.js';
 import purchasingRoutes,{supplierRoutes} from './purchasingRoutes.js';
 import hrRoutes from './hrRoutes.js';
+import taskRoutes from './taskRoutes.js';
 
 export const createRoutes = (identityService = getIdentityAccountService) => {
 const router = Router();
@@ -42,6 +43,7 @@ router.use('/crm',crmRoutes);
 router.use('/suppliers',supplierRoutes);
 router.use('/purchasing',purchasingRoutes);
 router.use('/hr',hrRoutes);
+router.use('/tasks',taskRoutes);
 router.use('/corporate', corporateRoutes);
 router.use('/staff', staffRoutes);
 router.use('/billing', billingRoutes);

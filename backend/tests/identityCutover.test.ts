@@ -47,6 +47,7 @@ test('PostgreSQL identity failure is propagated without a Mongo fallback', async
   let sessionCreates = 0;
   const sessions: RefreshSessionManager = {
     create: async () => { sessionCreates += 1; throw new Error('unexpected session create'); },
+    validate: async () => { throw new Error('unexpected session validate'); },
     rotate: async () => { throw new Error('unexpected session rotate'); },
     revoke: async () => undefined,
     revokeAllForUser: async () => undefined,

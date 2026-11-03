@@ -11,6 +11,7 @@ import { TechnicalDetails } from '../../components/ui/TechnicalDetails';
 import { EmailSettings } from '../Identity/EmailSettings';
 import NotificationPreferences from '../Notifications/NotificationPreferences';
 import { ThemeModeChoice } from '../../components/ui/ThemeControl';
+import { SettingsHub } from '../../components/settings/SettingsHub';
 
 const accents = [{ name: 'Indigo', color: '#4F46E5' }, { name: 'Forest', color: '#087443' }, { name: 'Violet', color: '#7040BC' }, { name: 'Rose', color: '#B42358' }];
 export default function SettingsPage() {
@@ -20,7 +21,7 @@ export default function SettingsPage() {
 function AccountSettings() {
   const { user, theme, setTheme, activeTenantId, activeBranchId } = useAppStore();
   const [params, setParams] = useSearchParams();
-  const sections = ['profile', 'appearance', 'organization', 'security', 'notifications'] as const;
+  const sections = ['hub', 'profile', 'appearance', 'organization', 'security', 'notifications'] as const;
   const section = sections.find((value) => value === params.get('section')) ?? 'profile';
   const [name, setName] = useState(user?.name ?? '');
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -28,7 +29,7 @@ function AccountSettings() {
   useEffect(() => { alive.current = true; return () => { alive.current = false; profileController.current?.abort(); }; }, []);
   const membership = user?.memberships?.find((item) => item.organizationId === activeTenantId);
   const branch = membership?.branches.find((item) => item.id === activeBranchId);
-  const organizationAdmin = user?.permissions?.includes('organization.manage');
+  const organizationAdmin = user?.permissions?.includes('organization.read');
   const profile = useMutation({
     mutationFn: async (submittedName: string) => {
       if (!alive.current || !user?.id || useAppStore.getState().user?.id !== user.id) throw new Error('Account changed. Reopen your profile before saving.');
@@ -45,8 +46,9 @@ function AccountSettings() {
       toast.success('Profile saved');
     },
   });
-  return <div className="page-stack"><header className="page-heading"><div><h1>Settings</h1><p>Manage your profile, appearance and workspace information.</p></div></header>
-    <nav className="settings-tabs" aria-label="Settings sections">{sections.map((value) => <button key={value} className="quiet-button capitalize" aria-current={section === value ? 'page' : undefined} onClick={() => setParams({ section: value })}>{value === 'profile' ? 'My Profile' : value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
+  return <div className="page-stack"><header className="page-heading"><div><h1>Settings</h1><p>Manage your account and find authorized workspace configuration.</p></div>{section !== 'hub' && <button className="action-link" onClick={() => setParams({section:'hub'})}>Browse all settings</button>}</header>
+    <nav className="settings-tabs" aria-label="Settings sections">{sections.map((value) => <button key={value} className="quiet-button capitalize" aria-current={section === value ? 'page' : undefined} onClick={() => setParams({ section: value })}>{value === 'hub' ? 'All settings' : value === 'profile' ? 'My Profile' : value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
+    {section === 'hub' && <SettingsHub />}
     {section === 'profile' && <section className="panel page-stack"><h2 className="font-semibold">My Profile</h2><form className="page-stack" onSubmit={(event) => { event.preventDefault(); profile.mutate(name.trim()); }}><Input label="Your name" required maxLength={200} value={name} onChange={(event) => setName(event.target.value)} /><div><p className="muted">Phone</p><p>{user?.phone ?? 'Not supplied'}</p></div><div><p className="muted">Role</p><p className="capitalize">{user?.role ?? 'Member'}</p></div>{profile.isError && <p className="error-text" role="alert">{getErrorMessage(profile.error, 'Profile could not be saved.')}</p>}<button type="submit" className="action-link" disabled={!name.trim() || profile.isPending}>{profile.isPending ? 'Saving…' : 'Save profile'}</button></form><EmailSettings /><TechnicalDetails values={{ 'User identifier': user?.id, 'Organization identifier': activeTenantId, 'Branch identifier': activeBranchId }} /></section>}
     {section === 'appearance' && <section className="panel page-stack"><h2 className="font-semibold">Appearance</h2><ThemeModeChoice/><p className="muted">System follows your device appearance, including changes while this page is open. Signed-in preferences sync to your account across devices; this device keeps a local fallback.</p><fieldset><legend>Accent</legend><div className="record-actions">{accents.map((accent) => <button key={accent.color} className="quiet-button gap-2" aria-pressed={theme.primaryColor.toLowerCase() === accent.color.toLowerCase()} onClick={() => setTheme(theme.mode, accent.color)}><span aria-hidden="true" className="h-4 w-4 rounded-full" style={{ background: accent.color }} />{accent.name}</button>)}</div></fieldset></section>}
     {section === 'organization' && <section className="panel page-stack"><h2 className="font-semibold">Organization settings</h2><div><p className="muted">Workspace</p><p>{membership?.orgName ?? 'Your workspace'}</p></div><div><p className="muted">Selected branch</p><p>{branch?.name ?? 'No branch selected'}</p></div>{organizationAdmin && <Link className="action-link" to="/admin">Open organization administration</Link>}<p className="muted">Business profile, branches, staff, roles, modules, billing and audit are separate from your personal profile and preferences.</p></section>}

@@ -4,6 +4,7 @@ import { FeaturesSection } from "./FeaturesSection";
 import { PricingSection } from "./PricingSection";
 import { PublicFooter } from "./PublicFooter";
 import { FaqSection } from './FaqSection';
+import './Landing.css';
 
 export const LandingPage: React.FC = () => {
   return (

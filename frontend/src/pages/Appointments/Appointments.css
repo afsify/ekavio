@@ -1,0 +1,21 @@
+.appointments-workspace .appointment-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 20px; }
+.appointment-toolbar > .w-full { width: auto; flex: 0 1 220px; min-width: 0; }
+.appointment-date-navigation { display: flex; gap: 8px; }
+.appointment-date-navigation button { min-height: 44px; }
+.appointment-scope { flex: 1; min-width: 180px; font-size: .875rem; }
+.appointment-scope p { margin-top: 4px; }
+.appointments-workspace .appointment-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.appointments-workspace .appointment-record-actions { gap: 12px; }
+.appointments-workspace .appointment-record-actions button { min-height: 44px; }
+.appointments-workspace .appointment-customer-name { font-size: 1.125rem; line-height: 1.5; font-weight: 600; margin: 12px 0 4px; }
+.appointment-detail-heading { display: grid; justify-items: start; gap: 12px; }
+.appointment-detail-heading h2 { font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.appointment-detail .detail-section { border-top: 1px solid var(--border); padding-top: 16px; }
+@media (max-width: 767px) {
+  .appointments-workspace .appointment-toolbar { display: grid; gap: 16px; }
+  .appointment-toolbar > .w-full { width: 100%; }
+  .appointment-date-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .appointment-date-navigation button { padding-inline: 8px; }
+  .appointments-workspace .appointment-record-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); margin-top: 16px; }
+  .appointments-workspace .appointment-record-actions button:only-child { grid-column: 1 / -1; }
+}

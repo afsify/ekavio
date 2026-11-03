@@ -52,7 +52,11 @@ export const createAuthHandlers = (service: AuthService): AuthHandlers => ({
       setRefreshCookie(response, result.refreshCredential, getRuntimeConfig());
       response.status(200).json(result.response);
     } catch (error: unknown) {
-      clearRefreshCookie(response, getRuntimeConfig());
+      // A transient failure or rejected context selection does not establish
+      // credential invalidity. Preserve the cookie so a safe retry is possible.
+      if (error instanceof AppError && error.statusCode === 401) {
+        clearRefreshCookie(response, getRuntimeConfig());
+      }
       next(error instanceof AppError ? error : new AppError('Authentication unavailable', 503));
     }
   },

@@ -51,6 +51,13 @@ it('failure retains permitted links without manufacturing metrics', async () => 
   expect(screen.getByRole('region', { name: 'Quick actions' })).toBeTruthy();
   expect(screen.queryByRole('region', { name: 'Workspace metrics' })).toBeNull();
 });
+it('keeps the complete permitted directory discoverable without duplicating it above the business activity', async () => {
+  mount(); await screen.findByRole('heading', { name: 'Available services' });
+  const directory = screen.getByText('Browse all workflows').closest('details');
+  expect(directory).toBeTruthy(); expect(directory?.open).toBe(false);
+  expect(directory?.querySelector('a[href="/services"]')).toBeTruthy();
+  expect(directory?.querySelector('a[href="/inventory"]')).toBeNull();
+});
 it('stat icon is decorative and exact values and destinations remain unchanged', () => {
   render(<MemoryRouter><StatCard label="Exact balance" value="₹9007199254740993.99" description="Existing server scope" to="/ledger" icon={<svg data-testid="stat-icon" />} /></MemoryRouter>);
   expect(screen.getByRole('heading', { name: 'Exact balance' })).toBeTruthy();

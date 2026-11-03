@@ -11,7 +11,14 @@ for (const width of [320,360,390,430,768,1024,1440,1920]) for (const theme of ['
   if (theme === 'system') { await page.emulateMedia({ colorScheme: 'light' }); await expect(page.locator('html')).toHaveAttribute('data-theme','light'); await page.emulateMedia({ colorScheme: 'dark' }); }
   await page.getByRole('button', { name: 'Edit business profile' }).click(); await shot('profile-form'); await review('profile-review');
   await page.goto('/branches'); await expect(page.getByRole('button', { name: 'Edit Main' })).toBeVisible(); await shot('branches'); await page.getByRole('button', { name: 'Edit Main' }).click(); await shot('branch-form'); await review('branch-review');
-  await page.goto('/roles'); await expect(page.getByRole('button', { name: 'Edit '+f.role.name, exact: true })).toBeVisible(); await shot('roles'); await page.getByRole('button', { name: 'Edit '+f.role.name, exact: true }).click(); await review('role-review');
+  await page.goto('/roles'); await expect(page.getByRole('button', { name: 'Edit '+f.role.name, exact: true })).toBeVisible(); await shot('roles'); await page.getByRole('button', { name: 'Edit '+f.role.name, exact: true }).click();
+  const roleDialog = page.getByRole('dialog');
+  await expect(roleDialog.getByRole('button', { name: 'Review', exact: true })).toBeDisabled();
+  // Review requires a dirty draft. Change only synthetic wording, never authority.
+  await roleDialog.getByLabel('Role description', { exact: true }).fill(`${f.role.description} QA review-only description edit.`);
+  await expect(roleDialog.getByRole('checkbox', { name: /View customers/ })).toBeChecked();
+  await expect(roleDialog.getByRole('button', { name: 'Review', exact: true })).toBeEnabled();
+  await review('role-review');
   await page.goto('/staff'); await expect(page.getByRole('button', { name: 'Edit '+f.member.name, exact: true })).toBeVisible(); await shot('staff'); await page.getByRole('button', { name: 'Details', exact: true }).scrollIntoViewIfNeeded(); await shot('staff-records'); await page.getByRole('button', { name: 'Details', exact: true }).click(); await expect(page.getByRole('dialog').getByRole('heading', { name: f.member.name, exact: true })).toBeVisible(); await shot('staff-detail'); await close(page);
   await page.getByRole('button', { name: 'Edit '+f.member.name, exact: true }).click(); await expect(page.getByRole('button', { name: 'Review', exact: true })).toBeEnabled(); await review('staff-review');
   await page.getByRole('button', { name: 'Invite staff', exact: true }).click(); await page.getByLabel('Full name').fill('QA invitation recipient'); await page.getByLabel('Phone number', { exact: true }).fill('9876540004'); await review('invitation-review');
