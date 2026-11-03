@@ -38,6 +38,35 @@ test('email configuration fails closed, disabled boot is safe and capture is nev
   assert.throws(() => loadEmailConfig({ EMAIL_TRANSPORT: 'smtp', APP_PUBLIC_URL: 'https://app.example.invalid' }));
   await assert.rejects(createEmailService(loadEmailConfig({})).send({ to: 'test@example.invalid', purpose: 'password_reset', url: 'https://app.example.invalid/reset-password' }));
 });
+const resendEnvironment = { NODE_ENV: 'production', EMAIL_TRANSPORT: 'resend', APP_PUBLIC_URL: 'https://app.example.invalid', EMAIL_FROM: 'noreply@example.invalid', RESEND_API_KEY: 're_test_not_a_real_key_0000' };
+test('Resend configuration requires a sender, key and safe HTTPS origin', () => {
+  const config = loadEmailConfig(resendEnvironment);
+  assert.equal(config.transport, 'resend'); assert.equal(createEmailService(config, async () => new Response(null)).enabled, true);
+  assert.throws(() => loadEmailConfig({ ...resendEnvironment, RESEND_API_KEY: undefined }), /RESEND_API_KEY/);
+  assert.throws(() => loadEmailConfig({ ...resendEnvironment, RESEND_API_KEY: 'smtp-password' }), /RESEND_API_KEY/);
+  assert.throws(() => loadEmailConfig({ ...resendEnvironment, EMAIL_FROM: 'EkaVio' }), /sender/);
+  assert.throws(() => loadEmailConfig({ ...resendEnvironment, APP_PUBLIC_URL: undefined }), /APP_PUBLIC_URL/);
+  assert.throws(() => loadEmailConfig({ ...resendEnvironment, APP_PUBLIC_URL: 'http://app.example.invalid' }), /HTTPS/);
+});
+test('Resend delivery posts one idempotent HTTPS request and never surfaces provider bodies', async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  let reply = new Response('{"id":"provider-id"}', { status: 200 });
+  const service = createEmailService(loadEmailConfig(resendEnvironment), async (url, init) => { calls.push({ url: String(url), init: init! }); return reply; });
+  await service.send({ to: 'test@example.invalid', purpose: 'password_reset', url: 'https://app.example.invalid/reset-password#token=x', idempotencyKey: 'challenge-1' });
+  const [call] = calls;
+  assert.equal(call!.url, 'https://api.resend.com/emails'); assert.equal(call!.init.method, 'POST'); assert.equal(call!.init.redirect, 'error');
+  assert.ok(call!.init.signal);
+  assert.deepEqual(call!.init.headers, { Authorization: `Bearer ${resendEnvironment.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'User-Agent': 'ekavio-backend/1.0', 'Idempotency-Key': 'challenge-1' });
+  const body = JSON.parse(String(call!.init.body));
+  assert.deepEqual(Object.keys(body).sort(), ['from', 'html', 'subject', 'text', 'to']);
+  assert.equal(body.from, 'noreply@example.invalid'); assert.deepEqual(body.to, ['test@example.invalid']); assert.match(body.text, /reset-password#token=x/);
+  reply = new Response('{"message":"test@example.invalid is not allowed","name":"validation_error"}', { status: 403 });
+  const rejected = await service.send({ to: 'test@example.invalid', purpose: 'password_reset', url: 'https://app.example.invalid/reset-password' }).then(() => null, (error: Error) => error);
+  assert.equal(rejected?.message, 'Email provider rejected delivery (403)');
+  assert.doesNotMatch(rejected!.message, /example\.invalid|re_test/);
+  const offline = createEmailService(loadEmailConfig(resendEnvironment), async () => { throw new TypeError('fetch failed'); });
+  await assert.rejects(offline.send({ to: 'test@example.invalid', purpose: 'email_verification', url: 'https://app.example.invalid/verify-email' }));
+});
 test('action email templates are HTML/text, bounded, escaped and contain no password or remote image', () => {
   for (const purpose of ['password_reset','email_verification','staff_invitation'] as const) {
     const value = renderActionEmail({ to: 'test@example.invalid', purpose, url: 'https://app.example.invalid/action#token=test&x="unsafe"' });
