@@ -28,6 +28,16 @@ variables, source, command lines, screenshots or logs. Capture/console transport
 cannot be configured for deployment. Review provider policies, sender/domain
 verification and quotas before enabling; real-provider smoke is later hosted acceptance.
 
+Render Free blocks outbound SMTP ports 25/465/587, so SMTP cannot deliver there.
+Use the HTTPS Resend adapter instead: EMAIL_TRANSPORT=resend, RESEND_API_KEY (a
+sending-access key), EMAIL_FROM on a domain verified in Resend, and APP_PUBLIC_URL.
+It sends one `POST https://api.resend.com/emails` per challenge with a 15-second
+timeout, no redirects and the challenge id as `Idempotency-Key`; it does not retry.
+Only the HTTP status leaves the adapter; provider bodies are discarded. Resend's
+`onboarding@resend.dev` test sender only reaches the Resend account's own address.
+Check the current Resend plan quota (Free: 100/day, 3,000/month when reviewed) before
+enabling. A rejected or unreachable provider revokes the challenge as for SMTP.
+
 ## User recovery and verification
 
 Phone-or-verified-email login uses `{identifier,password}`. The legacy `{phone,password}`

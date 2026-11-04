@@ -41,7 +41,7 @@ export class IdentityAccountService {
     return { id: result.rows[0]!.id, raw, url: `${this.email.publicUrl}${routes[purpose]}#token=${raw}` };
   }
   private async deliver(to: string, purpose: Purpose, issued: { id: string; url: string }, actor?: string, invitation?: string): Promise<boolean> {
-    try { await this.email.send({ to, purpose, url: issued.url }); return true; }
+    try { await this.email.send({ to, purpose, url: issued.url, idempotencyKey: issued.id }); return true; }
     catch {
       await this.database.transaction(async (client) => {
         await client.query('UPDATE identity_challenges SET revoked_at=now() WHERE id=$1 AND consumed_at IS NULL', [issued.id]);

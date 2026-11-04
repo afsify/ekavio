@@ -71,7 +71,11 @@ test('real branch switch, server custom filter, customer detail, read-only and c
   for (const path of [`customers/${customer.id}`, `forms/customer/values/${customer.id}`]) expect((await request.get(`${api}/api/${path}`, { headers: fh })).status()).toBe(404);
   expect((await request.get(`${api}/api/customers`, { headers: { ...fh, 'x-tenant-id': account.organizationId } })).status()).toBe(403);
   expect((await request.get(`${api}/api/customers`, { headers: { ...fh, 'x-branch-id': account.branchId } })).status()).toBe(403);
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click(); await login(page, foreign); await page.goto('/customers');
+  // Sign out clears local state first and revokes the refresh cookie asynchronously.
+  // Navigating before that response aborts revocation and the reload restores the session.
+  const loggedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/logout' && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click(); expect((await loggedOut).ok()).toBe(true);
+  await login(page, foreign); await page.goto('/customers');
   await expect(page.getByRole('heading', { level: 1, name: 'Customers', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create customer', exact: true })).toHaveCount(0); await expect(page.getByRole('heading', { name: 'QA scoped customer', exact: true })).toHaveCount(0);
 });

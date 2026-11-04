@@ -18,6 +18,7 @@ import { initializeRuntimeConfig } from '../src/config/env.js';
 import { runtimePostgresDatabase } from '../src/persistence/runtimePersistence.js';
 import { createApp } from '../src/app.js';
 import { EmailCapture } from './helpers/emailCapture.js';
+import { createEmailService, loadEmailConfig } from '../src/services/emailService.js';
 import { emptyEffectiveLimits } from '../src/commercial/catalogue.js';
 import type { AuthorizationContext } from '../src/services/requestContextService.js';
 
@@ -146,6 +147,29 @@ test('identity email, recovery, invitations and preferences against disposable P
     const next = capture.token('password_reset');
     await database.query('UPDATE identity_challenges SET revoked_at=now() WHERE secret_hash=$1', [hashActionSecret(next)]);
     await assert.rejects(service.resetPassword(next,newPassword));
+  });
+  await t.test('Resend adapter recovery is idempotent per challenge and a provider rejection revokes the link', async () => {
+    const sent: { headers: Record<string, string>; body: { to: string[]; text: string } }[] = [];
+    let status = 200;
+    const resendService = new IdentityAccountService(database, createEmailService(loadEmailConfig({ EMAIL_TRANSPORT: 'resend', APP_PUBLIC_URL: 'http://127.0.0.1:4175',
+      EMAIL_FROM: 'noreply@example.invalid', RESEND_API_KEY: 're_test_not_a_real_key_0000' }), async (_url, init) => {
+      sent.push({ headers: init!.headers as Record<string, string>, body: JSON.parse(String(init!.body)) });
+      return new Response('{"name":"provider detail"}', { status });
+    }));
+    const token = (text: string) => new URLSearchParams(text.match(/#(token=[A-Za-z0-9_-]{43})/)![1]).get('token')!;
+    await cool(); assert.deepEqual(await resendService.forgotPassword(replacement), await resendService.forgotPassword('unknown@example.invalid'));
+    await resendService.awaitPendingDeliveries();
+    assert.equal(sent.length, 1); assert.deepEqual(sent[0]!.body.to, [replacement]);
+    const raw = token(sent[0]!.body.text);
+    const issued = await database.query<{ id: string }>('SELECT id FROM identity_challenges WHERE secret_hash=$1', [hashActionSecret(raw)]);
+    assert.equal(sent[0]!.headers['Idempotency-Key'], issued.rows[0]!.id);
+    await resendService.resetPassword(raw, newPassword);
+    await cool(); status = 503;
+    assert.deepEqual(await resendService.forgotPassword(replacement), await resendService.forgotPassword('unknown@example.invalid'));
+    await resendService.awaitPendingDeliveries();
+    const failed = token(sent.at(-1)!.body.text);
+    assert.equal((await database.query('SELECT 1 FROM identity_challenges WHERE secret_hash=$1 AND revoked_at IS NOT NULL', [hashActionSecret(failed)])).rowCount, 1);
+    await assert.rejects(resendService.resetPassword(failed, newPassword));
   });
   await t.test('delivery outage is private and disabled email yields the same unavailable result for every identifier', async () => {
     await cool(); capture.fail=true;
