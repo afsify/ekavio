@@ -21,9 +21,13 @@ import type { SharedCoreSnapshot, ShadowSourceRepository } from '../src/postgres
 import { createCommercialAdministrationService } from '../src/services/commercialAdministrationService.js';
 import { createEntitlementService } from '../src/services/entitlementService.js';
 
-const at = new Date('2026-09-15T06:00:00.000Z');
-const before = new Date('2026-09-15T05:00:00.000Z');
-const after = new Date('2026-09-15T07:00:00.000Z');
+// Keep the legacy scenario's windows relative to the database clock used by
+// new online seat enforcement, without changing its temporal assertions.
+const at = new Date();
+const before = new Date(at.getTime() - 3_600_000);
+const after = new Date(at.getTime() + 3_600_000);
+const expiredStart = new Date(at.getTime() - 10_800_000);
+const expiredEnd = new Date(at.getTime() - 7_200_000);
 const legacy = {
   userA: '110000000000000000000001',
   userB: '110000000000000000000002',
@@ -255,8 +259,8 @@ test('V2-05D PostgreSQL commercial parity, authority, and two-organization isola
       startsAt: before.toISOString(), currentPeriodEndsAt: after.toISOString(),
       addOns: [{
         key: 'module-inventory',
-        startsAt: new Date('2026-09-15T03:00:00.000Z').toISOString(),
-        endsAt: new Date('2026-09-15T04:00:00.000Z').toISOString(),
+        startsAt: expiredStart.toISOString(),
+        endsAt: expiredEnd.toISOString(),
       }],
     });
     assert.equal(enabled(await entitlements.getEffective(organizationA)).includes('inventory'), false);
@@ -266,8 +270,8 @@ test('V2-05D PostgreSQL commercial parity, authority, and two-organization isola
   await context.test('expired overrides and suspended/cancelled subscriptions fail closed at request time', async () => {
     await administration.upsertEntitlement(organizationA, userA, MODULES.LEDGER, {
       effect: 'grant', status: 'active', source: 'pilot', reason: 'Expired ledger pilot',
-      validFrom: new Date('2026-09-15T03:00:00.000Z').toISOString(),
-      validUntil: new Date('2026-09-15T04:00:00.000Z').toISOString(),
+      validFrom: expiredStart.toISOString(),
+      validUntil: expiredEnd.toISOString(),
     });
     assert.equal(enabled(await entitlements.getEffective(organizationA)).includes('ledger'), false);
     for (const status of ['suspended', 'cancelled'] as const) {

@@ -5,7 +5,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate } from '../src/postgres/migrations.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { initializeRuntimeConfig } from '../src/config/env.js';
 import { runtimePostgresDatabase } from '../src/persistence/runtimePersistence.js';
 import { IdentityAccountService } from '../src/services/identityAccountService.js';

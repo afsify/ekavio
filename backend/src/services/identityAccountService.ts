@@ -8,6 +8,7 @@ import type { AuthorizationContext } from './requestContextService.js';
 import { AppError } from '../utils/AppError.js';
 import { generateLegacyMongoUserId, generateLegacyMongoMembershipId } from '../persistence/identifiers.js';
 import { adminEvent, assertGrant, assignmentPermissions, lockAdministration } from '../postgres/organizationAuthorization.js';
+import { assertSeatCapacity, lockOrganizationSeats } from '../postgres/seatCapacity.js';
 
 type Purpose = ActionEmail['purpose'];
 interface Challenge { id: string; purpose: Purpose; user_id: string | null; email_identity_id: string | null; invitation_id: string | null; expires_at: Date; consumed_at: Date | null; revoked_at: Date | null }
@@ -44,6 +45,15 @@ export class IdentityAccountService {
     try { await this.email.send({ to, purpose, url: issued.url, idempotencyKey: issued.id }); return true; }
     catch {
       await this.database.transaction(async (client) => {
+        if (invitation) {
+          const found = await client.query<{ organization_id: string }>('SELECT organization_id FROM staff_invitations WHERE id=$1', [invitation]);
+          if (found.rows[0]) {
+            await lockOrganizationSeats(client, found.rows[0].organization_id);
+            const revoked = await client.query('UPDATE staff_invitations SET revoked_at=now() WHERE id=$1 AND consumed_at IS NULL AND revoked_at IS NULL RETURNING id', [invitation]);
+            if (revoked.rowCount) await this.audit(client, 'invitation.revoked', actor, invitation);
+            await client.query('UPDATE identity_challenges SET revoked_at=now() WHERE invitation_id=$1 AND consumed_at IS NULL AND revoked_at IS NULL', [invitation]);
+          }
+        }
         await client.query('UPDATE identity_challenges SET revoked_at=now() WHERE id=$1 AND consumed_at IS NULL', [issued.id]);
         await this.audit(client, 'email.delivery_failed', actor, invitation, 'unavailable');
       });
@@ -214,6 +224,7 @@ export class IdentityAccountService {
       }
       const invitation = await client.query<{ id: string }>(`INSERT INTO staff_invitations(organization_id,actor_user_id,name,phone,email,role,target_user_id,custom_role_id,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now()+interval '48 hours') RETURNING id`, [context.organizationId, context.userId, input.name, phone, email, input.role,target,input.customRoleId??null]);
       const id = invitation.rows[0]!.id;
+      await assertSeatCapacity(this.database, client, context.organizationId);
       for (const branchId of input.branchIds) await client.query('INSERT INTO staff_invitation_branches(invitation_id,organization_id,branch_id) VALUES ($1,$2,$3)', [id, context.organizationId, branchId]);
       const issued = await this.issue(client, 'staff_invitation', null, null, id);
       await this.audit(client, 'invitation.created', context.userId, id);
@@ -255,6 +266,7 @@ export class IdentityAccountService {
       const selected = await client.query<Invitation>('SELECT * FROM staff_invitations WHERE id=$1 FOR UPDATE', [challenge.invitation_id]);
       const invite = selected.rows[0];
       if (!invite || invite.revoked_at || invite.consumed_at || invite.expires_at <= new Date()) throw invalidLink();
+      await assertSeatCapacity(this.database, client, invite.organization_id);
       // Re-check issuer authority and assigned branches at acceptance, not only issuance.
       const branches = await client.query<{ branch_id: string; status: string }>('SELECT a.branch_id,b.status FROM staff_invitation_branches a JOIN branches b ON b.id=a.branch_id WHERE a.invitation_id=$1 FOR SHARE OF b', [invite.id]);
       if (!branches.rowCount || branches.rows.some((row) => row.status !== 'active')) throw invalidLink();
@@ -269,6 +281,7 @@ export class IdentityAccountService {
       await client.query('UPDATE staff_invitations SET consumed_at=now() WHERE id=$1', [invite.id]);
       await client.query('UPDATE identity_challenges SET consumed_at=now() WHERE id=$1', [challenge.id]);
       await this.audit(client, 'invitation.accepted', userId, invite.id);
+      await assertSeatCapacity(this.database, client, invite.organization_id);
       await adminEvent(client,invite.organization_id,userId,'invitation.accepted',invite.id);
     });
   }

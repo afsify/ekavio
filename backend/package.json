@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "test:seat-capacity": "tsx --test --test-concurrency=1 tests/seatCapacity.test.ts tests/seatCapacity.integration.ts",
     "test:identity-account": "tsx --test tests/identityAccount.integration.ts",
     "test:organization-admin": "tsx --test tests/organizationAdministration.integration.ts",
     "test:dynamic-fields": "tsx --test tests/dynamicFields.integration.ts",

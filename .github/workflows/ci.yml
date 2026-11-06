@@ -109,6 +109,10 @@ jobs:
         working-directory: backend
         run: npm run test:postgres
 
+      - name: Test organization seat capacity and concurrency
+        working-directory: backend
+        run: npm run test:seat-capacity
+
       - name: Test persistence parity contracts
         working-directory: backend
         run: npm run test:parity

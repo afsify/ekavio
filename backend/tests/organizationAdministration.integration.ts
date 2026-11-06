@@ -8,7 +8,7 @@ import { createServer } from 'node:http';
 import jwt from 'jsonwebtoken';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate,getMigrationStatus } from '../src/postgres/migrations.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { OrganizationAdministrationService } from '../src/services/organizationAdministrationService.js';
 import { IdentityAccountService } from '../src/services/identityAccountService.js';
 import { membershipAuthority } from '../src/postgres/organizationAuthorization.js';

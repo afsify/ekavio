@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import type { AddressInfo } from 'node:net';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate, getMigrationStatus } from '../src/postgres/migrations.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { PostgresIdentityRepository } from '../src/postgres/identityRepository.js';
 import { IdentityAccountService, hashActionSecret } from '../src/services/identityAccountService.js';
 import { createAuthService } from '../src/services/authService.js';

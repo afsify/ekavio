@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate,getMigrationStatus } from '../src/postgres/migrations.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { PostgresCustomerRepository } from '../src/domains/customers/repository.js';
 import { createEntitlementService } from '../src/services/entitlementService.js';
