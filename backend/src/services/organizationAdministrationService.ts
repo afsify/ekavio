@@ -9,6 +9,7 @@ import { PostgresCommercialRepository } from '../postgres/commercialRepository.j
 import { createEntitlementService } from './entitlementService.js';
 import { normalizeEmail, requirePhone } from './identityPolicy.js';
 import { notifyOrganizationChange } from '../domains/notifications/service.js';
+import { assertSeatCapacity } from '../postgres/seatCapacity.js';
 
 export interface RoleInput { name: string; description: string; permissions: Permission[]; version?: number; status?: 'active'|'archived' }
 export interface BranchInput { name: string; code: string; timezone: string; status: 'active'|'inactive'; version?: number }
@@ -121,6 +122,7 @@ export class OrganizationAdministrationService {
       if((old.role==='owner' || old.user_id===c.userId) && (input.role!==old.role || input.customRoleId!==old.custom_role_id || input.status!==old.status)) throw new AppError('Owner and self authority changes require a separate controlled workflow',409);
       if(old.role!=='owner' && input.role==='owner') throw new AppError('Owner transfer requires a separate controlled workflow',409);
       if(old.version!==input.version) throw new AppError('Membership changed; reload before saving',409);
+      if(old.status==='revoked' && input.status!=='revoked') await assertSeatCapacity(this.database,client,c.organizationId,1);
       // An actor cannot demote/revoke someone whose authority exceeds their own.
       assertGrant(actor,await assignmentPermissions(client,c.organizationId,old.role,old.custom_role_id));
       assertGrant(actor,await assignmentPermissions(client,c.organizationId,input.role,input.customRoleId));
