@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate } from '../src/postgres/migrations.js';
 import { verifyRestoredDatabase } from '../src/postgres/restoreIntegrity.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { TaskService } from '../src/domains/tasks/service.js';
 import { permissionsForRole } from '../src/services/authorizationPolicy.js';

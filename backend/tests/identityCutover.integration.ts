@@ -23,7 +23,7 @@ import {
   isLegacyMongoId,
   isUuid,
 } from '../src/persistence/identifiers.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { PostgresAuditRepository } from '../src/postgres/auditRepository.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
