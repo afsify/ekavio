@@ -21,10 +21,9 @@
 @theme { --color-primary: #4f46e5; }
 .brand-lockup { display:inline-flex; align-items:center; gap:10px; white-space:nowrap; color:var(--primary); }
 .brand-mark { width:36px; height:36px; flex-shrink:0; color:var(--primary); }
-.brand-wordmark { color:var(--text); font-size:1.45rem; font-weight:800; letter-spacing:-.06em; }
-.brand-wordmark>span { color:var(--public-accent,var(--primary)); }
-.public-site { --public-accent:var(--primary); }
-.dark .public-site { --public-accent:#a5b4fc; }
+.brand-wordmark { color:var(--text); font-size:1.45rem; font-weight:750; letter-spacing:-.035em; }
+.brand-wordmark>span { color:var(--primary-readable); }
+.public-site { --public-accent:var(--primary-readable); }
 .public-site .skip-link { position:absolute; left:16px; top:8px; z-index:60; padding:12px; background:var(--surface); transform:translateY(-200%); }
 .public-site .skip-link:focus { transform:translateY(0); }
 .public-site .catalogue-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),360px)); }
@@ -34,7 +33,14 @@
 .public-header-inner { min-height:80px; display:flex; align-items:center; gap:24px; }
 .public-desktop-nav { display:flex; align-items:center; gap:24px; margin-left:auto; font-size:.9rem; }
 .public-desktop-nav a:not(.action-link),.public-footer a:not([aria-label]) { padding-block:12px; }
-.public-appearance select { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 6px; min-height:44px; font-size:.8rem; max-width:90px; }
+.public-appearance { flex-shrink:0; }
+.theme-menu { position:relative; }
+.theme-menu-trigger { min-width:44px; gap:8px; }
+.theme-menu-panel { position:absolute; right:0; top:calc(100% + 12px); width:min(320px,calc(100vw - 32px)); padding:16px; background:var(--surface-elevated); color:var(--text); border:1px solid var(--border); border-radius:var(--radius-panel); box-shadow:var(--shadow-elevated); }
+.theme-menu-panel p { font-size:var(--font-xs); color:var(--text-secondary); margin-block:12px; }
+.theme-menu-panel .theme-mode-option { min-width:0; flex-direction:column; }
+.theme-menu-panel>.quiet-button { width:100%; }
+@media(max-width:479px) { .theme-menu-trigger>span { display:none; } .theme-menu-trigger { padding-inline:12px; } .theme-menu-panel { right:-72px; } }
 .public-menu-toggle.quiet-button { display:none; }
 .public-menu-backdrop { position:fixed; inset:0; z-index:55; background:#0008; display:flex; justify-content:flex-end; padding:16px; }
 .public-mobile-nav { width:min(320px,100%); display:flex; flex-direction:column; gap:12px; align-self:flex-start; }
@@ -109,9 +115,9 @@
 /* Semantic tokens and compatibility palette for existing utility-based pages. */
 :root {
   color-scheme: light;
-  --background: #f5f6f5; --surface: #ffffff; --surface-muted: #edf0ee;
-  --border: #d3d9d6; --text: #202824; --text-muted: #536259;
-  --workspace-accent: #16704b; --sidebar-surface: #f9faf9;
+  --background: #f8fafc; --surface: #ffffff; --surface-muted: #eef2f6;
+  --border: #d3dce7; --text: #0f172a; --text-muted: #475569;
+  --workspace-accent: var(--primary-readable); --sidebar-surface: #f8fafc;
   --primary-color: #4f46e5; --primary: var(--primary-color); --primary-hover: color-mix(in srgb, var(--primary) 85%, black);
   --success: #087443; --warning: #8b5700; --error: #b4233c; --info: #096c9e;
   --color-slate-950: var(--background); --color-slate-900: var(--surface);
@@ -127,9 +133,9 @@
   --color-sky-300: var(--info); --color-blue-400: var(--info);
 }
 :root.dark {
-  color-scheme: dark; --background: #111416; --surface: #1b2023; --surface-muted: #262d31;
-  --border: #3b464b; --text: #f1f4f3; --text-muted: #adbbb4;
-  --workspace-accent: #78d5ab; --sidebar-surface: #171c1f;
+  color-scheme: dark; --background: #0f172a; --surface: #172235; --surface-muted: #223047;
+  --border: #40516b; --text: #f1f5f9; --text-muted: #b8c5d8;
+  --workspace-accent: var(--primary-readable); --sidebar-surface: #131e30;
   --success: #6ee7ad; --warning: #fbd477; --error: #ffa3b3; --info: #8dd4ff;
   --color-slate-700: #46534e; --color-slate-300: #d3dfd8;
   --color-indigo-200: #c8c5ff; --color-indigo-300: #b2adff; --color-indigo-400: #a59eff;
@@ -215,7 +221,7 @@
 :root {
   --surface-elevated: var(--surface); --surface-subtle: var(--surface-muted);
   --secondary: var(--surface-muted); --text-secondary: var(--text-muted);
-  --muted-text: var(--text-muted); --focus-ring: var(--primary);
+  --muted-text: var(--text-muted); --focus-ring: var(--primary-readable);
   --danger: var(--error); --disabled: var(--text-muted); --overlay: #07122399;
   --primary-ink: #fff; --primary-readable: var(--primary);
   --font-xs: .75rem; --font-sm: .875rem; --font-base: 1rem;

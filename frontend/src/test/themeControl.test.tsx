@@ -1,12 +1,33 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { ThemeModeChoice, ThemeSwitch } from '../components/ui/ThemeControl';
+import { ThemeMenu, ThemeModeChoice, ThemeSwitch } from '../components/ui/ThemeControl';
 import { ThemeProvider } from '../components/ThemeProvider';
 import { useAppStore } from '../store/useAppStore';
 import { client } from '../api/client';
 vi.mock('../api/client', () => ({ client: { put: vi.fn() } }));
 beforeEach(() => { useAppStore.setState({ user: null, theme: { mode: 'light', primaryColor: '#087443' } }); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
+
+it('compact appearance opens on the selected radio, persists choice and restores focus on Escape', () => {
+  render(<ThemeMenu/>);
+  const trigger = screen.getByRole('button', { name: 'Appearance: Light' });
+  trigger.focus(); fireEvent.click(trigger);
+  expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Light' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'System' }));
+  expect(useAppStore.getState().theme.mode).toBe('system');
+  expect(JSON.parse(localStorage.getItem('ekavio-ui-preferences')!).mode).toBe('system');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).toBeNull(); expect(document.activeElement).toBe(trigger);
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+});
+it('compact appearance closes on outside pointer or Done without changing preference', () => {
+  render(<ThemeMenu/>);
+  const trigger = screen.getByRole('button', { name: 'Appearance: Light' });
+  fireEvent.click(trigger); fireEvent.pointerDown(document.body);
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(trigger); fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  expect(document.activeElement).toBe(trigger); expect(useAppStore.getState().theme.mode).toBe('light');
+});
 
 it('direct switch selects explicit Light/Dark and retains the accent and local persistence', () => {
   render(<ThemeSwitch/>); const control = screen.getByRole('switch', { name: 'Dark appearance' });

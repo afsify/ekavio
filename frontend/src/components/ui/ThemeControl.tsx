@@ -1,4 +1,4 @@
-import { useId, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
@@ -8,6 +8,43 @@ const subscribe = (listener: () => void) => {
   return () => media.removeEventListener('change', listener);
 };
 const snapshot = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+/** Compact disclosure over the same native radio choices and preference store. */
+export function ThemeMenu() {
+  const mode = useAppStore(state => state.theme.mode);
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const id = useId();
+  const Icon = mode === 'light' ? Sun : mode === 'dark' ? Moon : Monitor;
+  const label = mode[0].toUpperCase() + mode.slice(1);
+  useEffect(() => {
+    if (!open) return;
+    root.current?.querySelector<HTMLInputElement>('input:checked')?.focus();
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.current?.focus(); }
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+  }, [open]);
+  return <div ref={root} className="theme-menu" onBlur={event => {
+    if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+  }}>
+    <button ref={trigger} type="button" className="quiet-button theme-menu-trigger" aria-label={`Appearance: ${label}`}
+      aria-expanded={open} aria-controls={open ? id : undefined} aria-haspopup="dialog" onClick={() => setOpen(value => !value)}>
+      <Icon size={18} aria-hidden="true"/><span>{label}</span>
+    </button>
+    {open && <div id={id} role="dialog" aria-label="Appearance" className="theme-menu-panel">
+      <ThemeModeChoice legend="Appearance"/>
+      <p>System follows your device’s light or dark appearance.</p>
+      <button type="button" className="quiet-button" onClick={() => { setOpen(false); trigger.current?.focus(); }}>Done</button>
+    </div>}
+  </div>;
+}
 
 /** Presentation over the existing store; OS resolution is not another theme state. */
 export function ThemeSwitch() {
