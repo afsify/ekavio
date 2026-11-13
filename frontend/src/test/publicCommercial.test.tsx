@@ -31,7 +31,9 @@ it('public navigation, preference and focus-managed mobile drawer', () => {
   wrap(<PublicLayout><p>Public content</p></PublicLayout>);
   const menu = screen.getByRole('button', { name: 'Open public navigation' }); menu.focus(); fireEvent.click(menu);
   expect(screen.getByRole('dialog', { name: 'Public navigation' })).toBeTruthy(); fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(document.activeElement).toBe(menu);
-  fireEvent.change(screen.getByLabelText('Appearance'), { target: { value: 'dark' } }); expect(useAppStore.getState().theme.mode).toBe('dark');
+  fireEvent.click(screen.getByRole('button', { name: 'Appearance: Light' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Dark' })); expect(useAppStore.getState().theme.mode).toBe('dark');
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 });
 it('sensitive routes noindex, token-free canonical and meaningful title', () => { expect(metadataForPath('/onboarding').robots).toBe('noindex,nofollow'); expect(metadataForPath('/privacy').canonical).toBe('https://ekavio.afsify.com/privacy'); const robots = document.createElement('meta'); robots.name = 'robots'; document.head.append(robots); wrap(<PageMetadata />); expect(document.title).toContain('EkaVio'); expect(robots.content).toBe('index,follow'); robots.remove(); });
 it('wizard keeps plan with contact add-on, reviews normalized phone and human-only receipt', async () => {
