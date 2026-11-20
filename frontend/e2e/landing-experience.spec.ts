@@ -41,7 +41,7 @@ const prepare = async (page: import('@playwright/test').Page, width: number, mod
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 };
 
-for (const width of [320, 768, 1440]) for (const mode of ['light', 'dark', 'system']) {
+for (const width of [320, 390, 768, 1440]) for (const mode of ['light', 'dark', 'system']) {
   test(`Landing accessible presentation ${width} ${mode}`, async ({ page }, info) => {
     await prepare(page, width, mode);
     await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'light' ? 'light' : 'dark');
@@ -49,17 +49,55 @@ for (const width of [320, 768, 1440]) for (const mode of ['light', 'dark', 'syst
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
     await expect(page.getByRole('region', { name: 'Illustrative EkaVio workspace' }).or(page.getByRole('figure', { name: 'Illustrative EkaVio workspace' }))).toBeVisible();
     await expectReadableText(page.locator('.public-hero h1,.public-hero .public-lead,.public-hero .public-eyebrow,.public-reassurance li,.public-actions a,.public-section h2,.public-section p.muted,.public-module li,.public-audience span,.public-core p'), 12);
-    for (const control of await page.locator('.public-actions a, .public-header .quiet-button, .public-header select').filter({ visible: true }).all()) {
+    for (const control of await page.locator('.public-actions a, .public-header .quiet-button').filter({ visible: true }).all()) {
       const box = (await control.boundingBox())!;
       expect(box.height, await control.innerText().catch(() => 'control')).toBeGreaterThanOrEqual(44);
       expect(box.width).toBeGreaterThanOrEqual(44);
     }
     // Reduced motion: no entrance animation is running.
     expect(await page.locator('.public-hero-copy').evaluate(e => getComputedStyle(e).animationName)).toBe('none');
+    await page.getByRole('button', { name: /^Appearance:/ }).click();
+    const appearance = page.getByRole('dialog', { name: 'Appearance', exact: true });
+    await expect(appearance.getByRole('radio', { name: mode, exact: false })).toBeChecked();
+    await expectReadableText(appearance.locator('legend,.theme-mode-option>span,p,button'), 6);
+    for (const radio of await appearance.locator('.theme-mode-option').all()) {
+      const box = (await radio.boundingBox())!; expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`appearance-${width}-${mode}.png`) });
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: /^Appearance:/ })).toBeFocused();
     await page.screenshot({ path: info.outputPath(`landing-${width}-${mode}.png`), fullPage: true });
     await info.attach(`landing-${width}-${mode}`, { path: info.outputPath(`landing-${width}-${mode}.png`), contentType: 'image/png' });
   });
 }
+
+test('public appearance keyboard, saved preference, live System and login entry', async ({ page }) => {
+  await workspace(page, { authenticated: false });
+  await page.route('**/api/public/commercial/catalogue', route => route.fulfill({ json: { data: catalogue } }));
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: /^Appearance:/ });
+  await trigger.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('radio', { name: 'Light', exact: true })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('radio', { name: 'System', exact: true })).toBeChecked();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.keyboard.press('Escape'); await expect(trigger).toBeFocused();
+  await page.reload(); await expect(trigger).toHaveAccessibleName('Appearance: System');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await trigger.click(); await page.getByRole('button', { name: 'Done', exact: true }).focus();
+  await page.keyboard.press('Tab'); await expect(page.getByRole('dialog', { name: 'Appearance' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open public navigation' }).click();
+  await page.getByRole('dialog', { name: 'Public navigation' }).getByRole('link', { name: 'Login', exact: true }).click();
+  await expect(page.getByLabel('Phone or email', { exact: true })).toBeVisible();
+});
 
 test('Landing keyboard: skip link, visible focus, menu focus return and section state', async ({ page }) => {
   await prepare(page, 390, 'light');

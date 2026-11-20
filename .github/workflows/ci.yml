@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, feature/ux-01-premium-workspace, feature/ux-02a-business-screens, feature/ux-02b-batch1-business-screens, feature/ux-02c-batch1-public-landing, feature/ux-02d-batch1-mobile-nav, feature/ux-02e-batch1-search-select]
+    branches: [main, feature/ux-01-premium-workspace, feature/ux-02a-business-screens, feature/ux-02b-batch1-business-screens, feature/ux-02c-batch1-public-landing, feature/ux-02d-batch1-mobile-nav, feature/ux-02e-batch1-search-select, feature/ux-03-unified-premium-experience]
 
 jobs:
   foundation:
