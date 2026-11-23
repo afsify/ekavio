@@ -1,4 +1,5 @@
 import type { QueryResultRow } from 'pg';
+import { assertSeatCapacity, lockOrganizationSeats } from './seatCapacity.js';
 import type { PostgresDatabase } from './database.js';
 import type {
   CreateStaffPersistenceInput,
@@ -77,6 +78,9 @@ export class PostgresStaffRepository implements StaffRepository {
 
   public create(input: CreateStaffPersistenceInput): Promise<StaffRecord | 'phone-conflict'> {
     return this.database.transaction(async (client) => {
+      const organizationId = asPostgresOrganizationId(input.organizationId);
+      await lockOrganizationSeats(client, organizationId);
+      await assertSeatCapacity(this.database, client, organizationId, 1);
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.phone]);
       const duplicate = await client.query<{ exists: boolean }>(
         'SELECT EXISTS (SELECT 1 FROM users WHERE phone = $1) AS exists',
@@ -128,6 +132,7 @@ export class PostgresStaffRepository implements StaffRepository {
       );
       const row = rows[0];
       if (!row) throw new Error('PostgreSQL staff creation could not be read back');
+      await assertSeatCapacity(this.database, client, organizationId);
       return toStaffRecord(row);
     });
   }
@@ -136,14 +141,17 @@ export class PostgresStaffRepository implements StaffRepository {
     organizationId: string,
     userId: string,
   ): Promise<{ membershipId: string } | null> {
-    const result = await this.database.query<{ id: string }>(
-      `UPDATE memberships
-       SET status = 'revoked', updated_at = NOW()
-       WHERE user_id = $1 AND organization_id = $2 AND status = 'active'
-       RETURNING id`,
-      [asPostgresUserId(userId), asPostgresOrganizationId(organizationId)],
-    );
-    const row = result.rows[0];
-    return row ? { membershipId: row.id } : null;
+    return this.database.transaction(async client => {
+      await lockOrganizationSeats(client, asPostgresOrganizationId(organizationId));
+      const result = await client.query<{ id: string }>(
+        `UPDATE memberships
+         SET status = 'revoked', updated_at = NOW()
+         WHERE user_id = $1 AND organization_id = $2 AND status = 'active'
+         RETURNING id`,
+        [asPostgresUserId(userId), asPostgresOrganizationId(organizationId)],
+      );
+      const row = result.rows[0];
+      return row ? { membershipId: row.id } : null;
+    });
   }
 }

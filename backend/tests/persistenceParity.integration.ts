@@ -22,6 +22,7 @@ import {
   asLegacyMongoUserId,
 } from '../src/persistence/identifiers.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts, licenseTestOrganization } from './helpers/licensedAccounts.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
 import { PostgresDatabase } from '../src/postgres/database.js';
@@ -261,6 +262,7 @@ test('Mongo and PostgreSQL shared-core adapters return equivalent domain results
   });
 
   await context.test('staff listing and creation parity without platform-role mutation', async () => {
+    await licenseTestOrganization(database, postgresIds.organizationA);
     const mongoBefore = await mongooseStaffRepository.list(ids.organizationA);
     const postgresStaff = new PostgresStaffRepository(database);
     const postgresBefore = await postgresStaff.list(postgresIds.organizationA);
@@ -306,8 +308,8 @@ test('Mongo and PostgreSQL shared-core adapters return equivalent domain results
     )).rows[0]?.platform_role, null);
   });
 
-  await context.test('registration, profile, credential, and theme adapter parity', async () => {
-    const postgresAccounts = new PostgresAccountRepository(database);
+  await context.test('licensed identity setup, profile, credential, and theme adapter parity', async () => {
+    const postgresAccounts = new LicensedTestAccounts(database);
     const registrationInput = {
       orgName: 'Parity Registered Org',
       orgType: 'salon',
@@ -315,6 +317,9 @@ test('Mongo and PostgreSQL shared-core adapters return equivalent domain results
       phone: 'parity-registration',
       passwordHash,
     };
+    // Legacy Mongo has no seat enforcement; PostgreSQL intentionally rejects
+    // unlicensed registration. Compare identity projections only after licensing.
+    await assert.rejects(new PostgresAccountRepository(database).registerAdmin(registrationInput), /capacity is not available/);
     const [mongoRegistration, postgresRegistration] = await Promise.all([
       mongooseAccountRepository.registerAdmin(registrationInput),
       postgresAccounts.registerAdmin(registrationInput),

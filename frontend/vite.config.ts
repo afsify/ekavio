@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           scope: '/',
           theme_color: "#4f46e5",
-          background_color: "#f5f7fb",
+          background_color: "#f8fafc",
           display: "standalone",
           icons: [
             { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },

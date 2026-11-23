@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { assertSeatCapacity, lockOrganizationSeats, lockSeatCatalogue } from './seatCapacity.js';
 import { lockNewPhone, requirePhone } from '../services/identityPolicy.js';
 import type {
   FinalizeAgreementInput,
@@ -720,6 +721,7 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
     input: OnboardingProvisioningInput,
   ): Promise<{ businessName: string }> {
     return this.database.transaction(async (client) => {
+      await lockSeatCatalogue(client);
       const locked = await client.query<AgreementRow & {
         invitation_id: string;
         expires_at: Date;
@@ -844,6 +846,8 @@ export class PostgresManualCommercialRepository implements ManualCommercialRepos
         `, [subscription.rows[0]!.id, addOnIdByKey.get(key), row.starts_at, row.current_period_ends_at]);
       }
 
+      await lockOrganizationSeats(client, organizationId);
+      await assertSeatCapacity(this.database, client, organizationId);
       await client.query(`
         UPDATE commercial_onboarding_invitations
         SET consumed_at = $2, consumed_user_id = $3, consumed_organization_id = $4

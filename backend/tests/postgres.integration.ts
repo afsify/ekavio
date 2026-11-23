@@ -6,6 +6,8 @@ import { createAuthorizationContextResolver } from '../src/services/requestConte
 import { createAuthService } from '../src/services/authService.js';
 import { createRefreshSessionManager } from '../src/services/sessionService.js';
 import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts, licenseTestOrganization } from './helpers/licensedAccounts.js';
+import { readSeatCapacity } from '../src/postgres/seatCapacity.js';
 import { PostgresAttendanceIdentityResolver } from '../src/postgres/attendanceIdentityResolver.js';
 import { activateCommercialAuthority } from '../src/postgres/commercialAuthority.js';
 import { PostgresAuthorizationContextRepository } from '../src/postgres/authorizationContextRepository.js';
@@ -301,6 +303,20 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
     membershipA: await mappings.membershipToPostgres(asLegacyMongoMembershipId(ids.membershipA)),
   };
 
+  await context.test('historical replay retains over-capacity facts but cannot authorize new allocation', async () => {
+    const capacity = await database.transaction(client => readSeatCapacity(database, client, postgresIds.organizationA));
+    assert.equal(capacity.allowed, null);
+    assert.equal(capacity.occupied, 1);
+    assert.equal(capacity.overCapacity, true);
+    await assert.rejects(new PostgresStaffRepository(database).create({
+      organizationId: postgresIds.organizationA, branchId: postgresIds.branchA,
+      name: 'Denied new allocation', phone: 'denied-historical-growth', passwordHash, role: 'staff',
+    }), /capacity is not available/);
+    const malformed = fixture();
+    malformed.memberships[0]!.legacyMongoId = 'not-a-legacy-identity';
+    await assert.rejects(repository.apply(malformed), /Historical snapshot validation failed/);
+  });
+
   await context.test('ID mappings are reversible, format-safe, and entity-separated', async () => {
     assert.equal(await mappings.userToLegacy(postgresIds.userA), ids.userA);
     assert.equal(await mappings.organizationToLegacy(postgresIds.organizationA), ids.organizationA);
@@ -540,6 +556,9 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
   });
 
   await context.test('staff and account writes are transactional and organization-scoped', async () => {
+    // Historical preservation was verified above; NEW allocations need an
+    // explicit synthetic commercial allowance before exercising these writes.
+    await licenseTestOrganization(database, postgresIds.organizationA);
     const staffRepository = new PostgresStaffRepository(database);
     const beforeUsers = Number((await database.query<{ count: string }>(
       'SELECT COUNT(*)::text AS count FROM users',
@@ -584,7 +603,10 @@ test('PostgreSQL shared-core migration, shadow copy, constraints, and verificati
     assert.equal(statuses.rows.find((row) => row.organization_id === postgresIds.organizationA)?.status, 'revoked');
     assert.equal(statuses.rows.find((row) => row.organization_id === postgresIds.organizationB)?.status, 'active');
 
-    const accounts = new PostgresAccountRepository(database);
+    await assert.rejects(new PostgresAccountRepository(database).registerAdmin({
+      orgName: 'Unlicensed', orgType: 'shop', userName: 'Denied', phone: 'denied-registration', passwordHash,
+    }), /capacity is not available/);
+    const accounts = new LicensedTestAccounts(database);
     const registration = await accounts.registerAdmin({
       orgName: 'New org',
       orgType: 'shop',

@@ -64,7 +64,11 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
     Array.from({ length: 21 }, () => 'applied'),
   );
 
-  const now = new Date('2026-10-01T00:00:00.000Z');
+  // Preserve the scenario's relative dates while keeping database-clock seat
+  // eligibility current. Fixed historical dates falsely expire reactivation.
+  const offset = Date.now() - Date.parse('2026-10-01T00:00:00.000Z');
+  const scenarioDate = (value: string) => new Date(Date.parse(value) + offset);
+  const now = scenarioDate('2026-10-01T00:00:00.000Z');
   const operatorId = randomUUID();
   const tenantAdminId = randomUUID();
   await database.query(`
@@ -148,9 +152,9 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
     ...overrides,
   });
 
-  const activeStart = new Date('2026-09-15T00:00:00.000Z');
-  const activeEnd = new Date('2026-10-15T00:00:00.000Z');
-  const renewedEnd = new Date('2026-11-15T00:00:00.000Z');
+  const activeStart = scenarioDate('2026-09-15T00:00:00.000Z');
+  const activeEnd = scenarioDate('2026-10-15T00:00:00.000Z');
+  const renewedEnd = scenarioDate('2026-11-15T00:00:00.000Z');
   const active = await createSubscription({
     name: 'STAGING RENEWAL ACTIVE', startsAt: activeStart, endsAt: activeEnd,
   });
@@ -196,7 +200,7 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
       service.finalizeRenewal(
         active.subscriptionId,
         operatorId,
-        inputFor(active.organizationId, new Date('2026-10-16T00:00:00.000Z'), renewedEnd),
+        inputFor(active.organizationId, scenarioDate('2026-10-16T00:00:00.000Z'), renewedEnd),
       ),
       /authoritative current-period end/,
     );
@@ -408,7 +412,7 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
     await service.applyRenewal(activeRenewalId, operatorId);
     const after = await createEntitlementService(
       commercial,
-      () => new Date('2026-10-20T00:00:00.000Z'),
+      () => scenarioDate('2026-10-20T00:00:00.000Z'),
     ).getEffective(active.organizationId);
     assert.equal(after.subscription?.status, 'active');
     assert.equal(after.modules.find(({ key }) => key === 'queue')?.enabled, true);
@@ -425,9 +429,9 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
   });
 
   await context.test('expired subscription reactivation is explicit and restores entitlements safely', async () => {
-    const expiredStart = new Date('2026-08-01T00:00:00.000Z');
-    const expiredEnd = new Date('2026-09-01T00:00:00.000Z');
-    const reactivatedEnd = new Date('2026-11-01T00:00:00.000Z');
+    const expiredStart = scenarioDate('2026-08-01T00:00:00.000Z');
+    const expiredEnd = scenarioDate('2026-09-01T00:00:00.000Z');
+    const reactivatedEnd = scenarioDate('2026-11-01T00:00:00.000Z');
     const expired = await createSubscription({
       name: 'STAGING RENEWAL EXPIRED', startsAt: expiredStart, endsAt: expiredEnd,
     });
@@ -457,7 +461,7 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
     assert.equal(applied.renewal.status, 'applied');
     const effective = await createEntitlementService(
       commercial,
-      () => new Date('2026-10-15T00:00:00.000Z'),
+      () => scenarioDate('2026-10-15T00:00:00.000Z'),
     ).getEffective(expired.organizationId);
     assert.equal(effective.subscription?.status, 'active');
     assert.equal(effective.modules.find(({ key }) => key === 'inventory')?.enabled, true);
@@ -469,8 +473,8 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
   });
 
   await context.test('application rollback leaves subscription and renewal unchanged', async () => {
-    const rollbackEnd = new Date('2026-10-20T00:00:00.000Z');
-    const rollbackRenewedEnd = new Date('2026-11-20T00:00:00.000Z');
+    const rollbackEnd = scenarioDate('2026-10-20T00:00:00.000Z');
+    const rollbackRenewedEnd = scenarioDate('2026-11-20T00:00:00.000Z');
     const rollback = await createSubscription({
       name: 'STAGING RENEWAL ROLLBACK', startsAt: activeStart, endsAt: rollbackEnd,
     });
@@ -513,8 +517,8 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
   });
 
   await context.test('concurrent finalization creates one actionable renewal for a period', async () => {
-    const targetEnd = new Date('2026-10-25T00:00:00.000Z');
-    const targetRenewedEnd = new Date('2026-11-25T00:00:00.000Z');
+    const targetEnd = scenarioDate('2026-10-25T00:00:00.000Z');
+    const targetRenewedEnd = scenarioDate('2026-11-25T00:00:00.000Z');
     const target = await createSubscription({
       name: 'STAGING RENEWAL CONCURRENCY', startsAt: activeStart, endsAt: targetEnd,
     });
@@ -537,6 +541,44 @@ test('V2-06B5C manual renewal lifecycle, tenancy, settlement, and concurrency', 
       WHERE subscription_id = $1 AND status IN ('awaiting_payment', 'paid')
     `, [target.subscriptionId]);
     assert.equal(count.rows[0]?.count, '1');
+  });
+
+  await context.test('future renewal and reactivation reject excess reservations without consuming settlement', async () => {
+    for (const expired of [false, true]) {
+      const end = expired ? scenarioDate('2026-09-01T00:00:00.000Z') : activeEnd;
+      const start = expired ? scenarioDate('2026-08-01T00:00:00.000Z') : activeStart;
+      const target = await createSubscription({ name: 'SYNTHETIC SEAT RENEWAL', startsAt: start, endsAt: end });
+      const renewal = await service.finalizeRenewal(target.subscriptionId, operatorId,
+        inputFor(target.organizationId, expired ? now : end, renewedEnd,
+          { agreedTotalMinor: '0', adjustmentReason: 'Synthetic complimentary capacity regression' }));
+      // Historical over-capacity reservations must be preserved, not silently
+      // dropped to make a new renewal fit. These are disposable test facts.
+      for (let i=0;i<6;i++) await database.query(`
+        INSERT INTO staff_invitations(organization_id,actor_user_id,name,phone,role,expires_at)
+        VALUES ($1,$2,'Synthetic reservation',$3,'staff',now()+interval '1 day')`,
+      [target.organizationId,tenantAdminId,`+91900111000${i}`]);
+      await assert.rejects(service.applyRenewal(renewal.renewal.id,operatorId), /capacity exceeded/);
+      assert.equal((await service.getRenewal(renewal.renewal.id,operatorId)).renewal.status,'paid');
+      assert.equal((await database.query('SELECT current_period_ends_at FROM subscriptions WHERE id=$1',[target.subscriptionId])).rows[0].current_period_ends_at.toISOString(),end.toISOString());
+      await database.query("UPDATE staff_invitations SET revoked_at=now() WHERE id=(SELECT id FROM staff_invitations WHERE organization_id=$1 ORDER BY id LIMIT 1)",[target.organizationId]);
+      assert.equal((await service.applyRenewal(renewal.renewal.id,operatorId)).renewal.status,'applied');
+    }
+  });
+
+  await context.test('application and finalization racing on one subscription do not deadlock', async () => {
+    const target = await createSubscription({name:'SYNTHETIC LOCK ORDER',startsAt:activeStart,endsAt:activeEnd});
+    const terms=inputFor(target.organizationId,activeEnd,renewedEnd,{agreedTotalMinor:'0',adjustmentReason:'Synthetic lock-order regression'});
+    const renewal=await service.finalizeRenewal(target.subscriptionId,operatorId,terms);
+    const results=await Promise.allSettled([
+      service.applyRenewal(renewal.renewal.id,operatorId),
+      service.finalizeRenewal(target.subscriptionId,operatorId,terms),
+      commercial.reconcileCatalogue(),
+    ]);
+    assert.equal(results[0]!.status,'fulfilled');
+    assert.equal(results[1]!.status,'rejected');
+    assert.equal(results[2]!.status,'fulfilled');
+    for(const result of results) if(result.status==='rejected') assert.notEqual((result.reason as {code?:string}).code,'40P01');
+    assert.equal((await service.getRenewal(renewal.renewal.id,operatorId)).renewal.status,'applied');
   });
 
   await context.test('tenant renewal history is scoped and events contain no payment secrets', async () => {

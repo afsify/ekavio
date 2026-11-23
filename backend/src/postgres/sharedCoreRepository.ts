@@ -2,6 +2,8 @@ import type { PoolClient } from 'pg';
 import type { PostgresDatabase } from './database.js';
 import type { SharedCoreSnapshot } from './sharedCoreTypes.js';
 import { isCommercialAuthorityActivated } from './commercialAuthority.js';
+import { lockSeatCatalogue } from './seatCapacity.js';
+import { validateShadowSnapshot } from './shadowValidation.js';
 
 type IdMap = Map<string, string>;
 
@@ -39,8 +41,14 @@ export class PostgresSharedCoreRepository {
     private readonly options: { allowCommercialRecovery?: boolean } = {},
   ) {}
 
-  public apply(snapshot: SharedCoreSnapshot): Promise<void> {
+  public async apply(snapshot: SharedCoreSnapshot): Promise<void> {
+    // Internal historical replay only: production entry is postgresShadow.ts,
+    // loading the independently reconciled legacy source, never an HTTP payload.
+    // Validate even direct internal calls; legacy IDs/relations remain mandatory.
+    const issues = validateShadowSnapshot(snapshot);
+    if (issues.length) throw new Error('Historical snapshot validation failed');
     return this.database.transaction(async (client) => {
+      await lockSeatCatalogue(client, true);
       if (
         await isCommercialAuthorityActivated(client) &&
         !this.options.allowCommercialRecovery
@@ -50,6 +58,7 @@ export class PostgresSharedCoreRepository {
           'Use the explicit documented commercial recovery mode only after reconciliation approval.',
         );
       }
+      await client.query('SELECT id FROM organizations ORDER BY id FOR UPDATE');
       const userIds: IdMap = new Map();
       for (const row of snapshot.users) {
         userIds.set(row.legacyMongoId, await upsertLegacyRow(client, 'users', row.legacyMongoId, {
@@ -261,6 +270,9 @@ export class PostgresSharedCoreRepository {
           updated_at: row.updatedAt,
         });
       }
+      // Restored historical occupancy is not a new allocation. Preserve missing,
+      // suspended and expired commercial facts; subsequent online writes still
+      // require current capacity. Legacy-key upserts make replay idempotent.
     });
   }
 }

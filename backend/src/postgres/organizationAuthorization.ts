@@ -2,6 +2,7 @@ import type { PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { permissionsForRole, type Permission } from '../services/authorizationPolicy.js';
 import type { MembershipRole } from '../models/Membership.js';
 import { AppError } from '../utils/AppError.js';
+import { lockOrganizationSeats } from './seatCapacity.js';
 
 type Query = {query<Row extends QueryResultRow = QueryResultRow>(text:string,values?:unknown[]):Promise<QueryResult<Row>>};
 export async function membershipAuthority(query: Query, userId: string, organizationId: string) {
@@ -18,7 +19,7 @@ export async function membershipAuthority(query: Query, userId: string, organiza
 // All administration mutations and invitation acceptance serialize on this row.
 // Re-read authority after acquiring it: a stale HTTP context is never grant authority.
 export async function lockAdministration(query: PoolClient, userId: string, organizationId: string, permission: Permission) {
-  await query.query('SELECT id FROM organizations WHERE id=$1 FOR UPDATE',[organizationId]);
+  await lockOrganizationSeats(query, organizationId);
   const actor=await membershipAuthority(query,userId,organizationId);
   if(!actor.effective.includes(permission)) throw new AppError('Permission denied',403);
   return actor;

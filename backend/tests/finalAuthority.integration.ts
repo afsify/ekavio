@@ -8,7 +8,7 @@ import { io as socketClient } from '../../frontend/node_modules/socket.io-client
 import { setupSocket, closeSocket, emitToBranch } from '../src/config/socket.js';
 import { PostgresDatabase } from '../src/postgres/database.js';
 import { migrate } from '../src/postgres/migrations.js';
-import { PostgresAccountRepository } from '../src/postgres/accountRepository.js';
+import { LicensedTestAccounts as PostgresAccountRepository } from './helpers/licensedAccounts.js';
 import { PostgresCommercialRepository } from '../src/postgres/commercialRepository.js';
 import { PostgresSessionRepository } from '../src/postgres/sessionRepository.js';
 import { initializeRuntimeConfig } from '../src/config/env.js';
@@ -84,7 +84,7 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
           startsAt:new Date(Date.now()+offset).toISOString(),billingCycle:'monthly'});
         for (const [,path] of modules) assert.equal((await request(path)).status,403);
       }
-      await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'active',source:'manual',
+      await commercial.updateSubscription(org,user,{planKey:'qa-licensed',addOns:[],status:'active',source:'manual',
         startsAt:new Date(Date.now()-60_000).toISOString(),billingCycle:'monthly'});
       for (const [,path] of modules) assert.equal((await request(path)).status,200);
     });
@@ -150,7 +150,7 @@ test('final live HTTP authority matrix for seven commercial modules', async t =>
         await db.query("UPDATE memberships SET status='revoked' WHERE id=$1",[membership]); assert.equal((await write(command.path,command.body)).status,403); await db.query("UPDATE memberships SET status='active' WHERE id=$1",[membership]);
         await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'suspended',source:'manual',startsAt:new Date(Date.now()-60000).toISOString(),billingCycle:'monthly'});
         assert.equal((await write(command.path,command.body)).status,403);
-        await commercial.updateSubscription(org,user,{planKey:null,addOns:[],status:'active',source:'manual',startsAt:new Date(Date.now()-60000).toISOString(),billingCycle:'monthly'});
+        await commercial.updateSubscription(org,user,{planKey:'qa-licensed',addOns:[],status:'active',source:'manual',startsAt:new Date(Date.now()-60000).toISOString(),billingCycle:'monthly'});
       }
       await db.query("UPDATE memberships SET role='admin',custom_role_id=NULL WHERE id=$1",[membership]);
       await db.query('DELETE FROM organization_role_permissions WHERE role_id=$1',[role]); app=createApp({config});

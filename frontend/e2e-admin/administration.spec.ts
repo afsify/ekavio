@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page,type Request} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 const api='http://127.0.0.1:5011';
 interface Fixture {phone:string;password:string;email:string;userId:string;organizationId:string;branchId:string}
@@ -22,4 +22,73 @@ test('audit has human actor and category filtering',async({page})=>{await login(
 test('Customers/Services CORE without Queue entitlement; Queue still denied',async({page})=>{await login(page);await page.goto('/customers');await expect(page.getByRole('button',{name:'Create customer',exact:true})).toBeVisible();await page.goto('/services');await expect(page.getByRole('button',{name:'Create service',exact:true})).toBeVisible();await page.goto('/queue');await expect(page.getByRole('heading',{name:'Upgrade Required'})).toBeVisible();});
 test('limited custom member direct admin routes denied and role cannot enable Queue',async({page,request})=>{const restricted=await(await request.post(api+'/__test/fixture',{data:{permissions:['customers.read','services.read','queue.read','queue.manage']}})).json();await login(page,restricted);await page.goto('/customers');await expect(page.getByRole('heading',{name:'Customers',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Create customer',exact:true})).toHaveCount(0);for(const route of ['/admin','/roles','/audit','/platform']){await page.goto(route);await expect(page).toHaveURL(/dashboard/);}await page.goto('/queue');await expect(page.getByRole('heading',{name:'Upgrade Required'})).toBeVisible();});
 test('operator directory remains separate from ordinary admin',async({page,request})=>{await login(page);await page.goto('/platform');await expect(page).toHaveURL(/dashboard/);await page.getByRole('button',{name:'Sign out',exact:true}).click();const operator=await(await request.post(api+'/__test/fixture',{data:{operator:true}})).json();await login(page,operator);await page.goto('/platform');await expect(page.getByRole('heading',{name:'Platform Operations',exact:true})).toBeVisible();await page.getByLabel('Search organizations').fill(randomUUID());await expect(page.getByText('No matching organizations.')).toBeVisible();});
-for(const width of [390,768,1440])for(const theme of ['light','dark','system'])test(`admin fits ${width}px in ${theme}`,async({page})=>{await page.setViewportSize({width,height:900});await login(page);await page.goto('/settings?section=appearance');await page.getByRole('radio',{name:new RegExp(theme,'i')}).click();for(const route of ['/admin','/branches','/roles','/staff','/audit']){await page.goto(route);await expect(page.getByRole('heading',{level:1}).last()).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();}if(width===1440&&theme==='light'){await page.goto('/admin');await expect(page.getByRole('heading',{name:'Business profile'})).toBeVisible();await page.screenshot({path:'test-results/organization-admin/safe-admin-overview.png'});}});
+for(const width of [390,768,1440])for(const theme of ['light','dark','system'])test(`admin fits ${width}px in ${theme}`,async({page})=>{
+  await page.setViewportSize({width,height:900});await login(page);
+  await page.goto('/settings?section=appearance');await page.getByRole('radio',{name:new RegExp(theme,'i')}).click();
+  const overviewCheck=width===1440&&theme==='light';
+  const routes=[
+    {path:'/admin',heading:'Organization administration',loaded:page.getByRole('heading',{name:'Business profile',exact:true})},
+    {path:'/branches',heading:'Branches',loaded:page.getByRole('heading',{level:2,name:'Main',exact:true})},
+    {path:'/roles',heading:'Roles & permissions',loaded:page.getByRole('heading',{name:'No custom roles yet.',exact:true})},
+    {path:'/staff',heading:'Staff',loaded:page.getByRole('heading',{level:2,name:'QA owner',exact:true})},
+    {path:'/audit',heading:'Audit history',loaded:page.getByRole('article').and(page.locator('.administration-workspace article'))
+      .or(page.getByText('No matching audit events.',{exact:true}))},
+  ];
+  // Only fixed endpoint labels and server-generated correlation IDs belong in CI logs.
+  // Never log bodies, cookies, arbitrary URLs, visible field values or raw errors.
+  let visit='';
+  type Observation={visit:string;endpoint:string;status?:number;transportFailed?:boolean;requestId?:string};
+  const observations:Observation[]=[];
+  const layoutChecks:{visit:string;onRequestedRoute:boolean;startupHeading:boolean}[]=[];
+  if(overviewCheck){
+    const endpoints=new Map([[api+'/api/auth/refresh','refresh'],[api+'/api/organization','profile']]);
+    const inflight=new WeakMap<Request,Observation>();
+    page.on('request',request=>{
+      const endpoint=endpoints.get(request.url());
+      if(!endpoint)return;
+      const observation={visit,endpoint};
+      observations.push(observation);inflight.set(request,observation);
+    });
+    page.on('requestfailed',request=>{
+      const observation=inflight.get(request);
+      if(observation)observation.transportFailed=true;
+    });
+    page.on('response',response=>{
+      const observation=inflight.get(response.request());
+      if(!observation)return;
+      observation.status=response.status();
+      const id=response.headers()['x-request-id'];
+      if(id&&/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id))observation.requestId=id;
+    });
+  }
+  async function requireReady({path,heading,loaded}:typeof routes[number]){
+    await expect(page).toHaveURL(url=>url.pathname===path);
+    await expect(page.getByRole('heading',{level:1,name:heading,exact:true})).toBeVisible();
+    // The route heading also renders during data loading. Wait for populated
+    // fixture content or, where relevant, the server-backed empty result.
+    await expect(loaded.filter({visible:true}).first()).toBeVisible();
+  }
+  try{
+    for(const route of routes){
+      visit=route.path;await page.goto(route.path);await requireReady(route);
+      const layout=await page.evaluate(expected=>({fits:document.documentElement.scrollWidth<=window.innerWidth,
+        onRequestedRoute:location.pathname===expected,startupHeading:!!document.querySelector('#startup-heading')}),route.path);
+      if(overviewCheck)layoutChecks.push({visit,onRequestedRoute:layout.onRequestedRoute,startupHeading:layout.startupHeading});
+      expect(layout.fits).toBeTruthy();
+    }
+    if(overviewCheck){
+      visit='final overview';await page.goto('/admin');await requireReady(routes[0]!);
+      await page.screenshot({path:'test-results/organization-admin/safe-admin-overview.png'});
+    }
+  }catch(error){
+    if(overviewCheck&&!page.isClosed()){
+      const path=new URL(page.url()).pathname;
+      console.info('Admin readiness',JSON.stringify({visit,route:[...routes.map(route=>route.path),'/login','/dashboard'].includes(path)?path:'other',layoutChecks,observations,
+        startupVisible:await page.locator('#startup-heading').isVisible(),
+        adminVisible:await page.getByRole('heading',{name:'Organization administration',exact:true}).isVisible(),
+        profileLoading:await page.getByRole('status').filter({hasText:/^Loading…$/}).first().isVisible(),
+        profileRetry:await page.getByRole('alert').getByRole('button',{name:'Retry',exact:true}).first().isVisible()}));
+    }
+    throw error;
+  }
+});

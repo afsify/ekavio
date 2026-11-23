@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { lockOrganizationSeats, lockSeatCatalogue, readSeatCapacity, requireSeatCapacity } from './seatCapacity.js';
 import type {
   CommercialRenewalQueueView,
   FinalizeCommercialRenewalInput,
@@ -414,7 +415,10 @@ export class PostgresCommercialRenewalRepository implements CommercialRenewalRep
   ): Promise<CommercialRenewalBundle> {
     return this.database.transaction(async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      await lockSeatCatalogue(client);
       await requireOperator(client, actorUserId);
+      const preliminary = await loadSubscription(client, subscriptionId);
+      await lockOrganizationSeats(client, preliminary.organization_id);
       const subscription = await loadSubscription(client, subscriptionId, true);
       if (subscription.organization_id !== input.organizationId) {
         throw new AppError('Subscription does not belong to the selected organization', 409);
@@ -747,8 +751,9 @@ export class PostgresCommercialRenewalRepository implements CommercialRenewalRep
         [renewalId],
       );
       if (!preliminary.rows[0]) throw new AppError('Commercial renewal not found', 404);
-      // Finalization locks subscription -> renewal. Keep the same lock order here
-      // so a concurrent finalize/apply pair cannot deadlock.
+      await lockOrganizationSeats(client, preliminary.rows[0].organization_id);
+      // Both finalization and application lock catalogue -> organization ->
+      // subscription -> renewal, including organization foreign-key checks.
       const subscription = await loadSubscription(
         client,
         preliminary.rows[0].subscription_id,
@@ -815,6 +820,7 @@ export class PostgresCommercialRenewalRepository implements CommercialRenewalRep
         SET starts_at = $2, ends_at = $3
         WHERE subscription_id = $1
       `, [renewal.subscription_id, renewal.renewal_starts_at, renewal.renewal_ends_at]);
+      requireSeatCapacity(await readSeatCapacity(this.database, client, renewal.organization_id, renewal.renewal_starts_at));
       await client.query(`
         UPDATE commercial_renewals
         SET status = 'applied', applied_by_user_id = $2, applied_at = $3, updated_at = $3

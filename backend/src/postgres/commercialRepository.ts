@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { assertSeatCapacity, lockOrganizationSeats, lockSeatCatalogue, readSeatCapacity, requireSeatCapacity } from './seatCapacity.js';
 import {
   initialAddOns,
   initialModuleCatalogue,
@@ -192,10 +193,11 @@ const parseOptionalDate = (value: string | null | undefined): Date | null =>
 export class PostgresCommercialRepository implements EntitlementRepository {
   public constructor(private readonly database: PostgresDatabase) {}
 
-  public async loadSnapshot(organizationIdValue: string): Promise<EntitlementSnapshot> {
+  public async loadSnapshot(organizationIdValue: string, transactionClient?: PoolClient): Promise<EntitlementSnapshot> {
     const organizationId = asPostgresOrganizationId(organizationIdValue);
-    return this.database.withClient(async (client) => {
-      if (!this.database.inAtomicTransaction) await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const read = async (client: PoolClient): Promise<EntitlementSnapshot> => {
+      const ownsTransaction = !transactionClient && !this.database.inAtomicTransaction;
+      if (ownsTransaction) await client.query('BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
       try {
         const modulesResult = await client.query<ModuleRow>(`
             SELECT key, display_name, description, category, commercial_type, status
@@ -276,7 +278,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
             }
           : null;
 
-        if (!this.database.inAtomicTransaction) await client.query('COMMIT');
+        if (ownsTransaction) await client.query('COMMIT');
         return {
           modules: modulesResult.rows.map(moduleProjection),
           subscription,
@@ -290,10 +292,11 @@ export class PostgresCommercialRepository implements EntitlementRepository {
           })),
         };
       } catch (error) {
-        if (!this.database.inAtomicTransaction) await client.query('ROLLBACK');
+        if (ownsTransaction) await client.query('ROLLBACK');
         throw error;
       }
-    });
+    };
+    return transactionClient ? read(transactionClient) : this.database.withClient(read);
   }
 
   public async getPublicCatalogue(): Promise<PublicCommercialCatalogue> {
@@ -341,6 +344,10 @@ export class PostgresCommercialRepository implements EntitlementRepository {
 
   public reconcileCatalogue(): Promise<CatalogueReconciliationResult> {
     return this.database.transaction(async (client) => {
+      await lockSeatCatalogue(client, true);
+      const organizations = await client.query<{ id: string }>('SELECT id FROM organizations ORDER BY id FOR UPDATE');
+      const prior = new Map<string, number | null>();
+      for (const { id } of organizations.rows) prior.set(id, (await readSeatCapacity(this.database, client, id)).allowed);
       const moduleIdByKey = new Map<string, string>();
       for (const module of initialModuleCatalogue) {
         const result = await client.query<{ id: string }>(`
@@ -414,6 +421,10 @@ export class PostgresCommercialRepository implements EntitlementRepository {
         }
       }
 
+      for (const { id } of organizations.rows) {
+        const capacity = await readSeatCapacity(this.database, client, id);
+        if (capacity.allowed !== prior.get(id)) requireSeatCapacity(capacity);
+      }
       return {
         modules: initialModuleCatalogue.length,
         plans: initialPlans.length,
@@ -436,6 +447,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
 
     await this.database.transaction(async (client) => {
       await requireOrganizationAndActor(client, organizationId, actorUserId);
+      await lockOrganizationSeats(client, organizationId);
       const existing = await client.query<{ id: string; starts_at: Date }>(
         'SELECT id, starts_at FROM subscriptions WHERE organization_id = $1',
         [organizationId],
@@ -500,6 +512,7 @@ export class PostgresCommercialRepository implements EntitlementRepository {
         `, [subscriptionId, addOnIdByKey.get(assignment.key),
           parseOptionalDate(assignment.startsAt), parseOptionalDate(assignment.endsAt)]);
       }
+      if (!['suspended','cancelled'].includes(input.status)) await assertSeatCapacity(this.database, client, organizationId);
     });
   }
 

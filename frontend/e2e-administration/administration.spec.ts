@@ -48,7 +48,14 @@ test('personal bulk read review covers filtered-out categories without changing 
 });
 test('tenant Billing exposes persisted facts only and cannot reach operator mutation authority', async ({ page, request }) => {
   const f = await fixture(request), h = await authority(request, f); await login(page, f); await page.goto('/billing');
-  await expect(page.getByText('No commercial subscription has been assigned.')).toBeVisible(); await expect(page.getByText('No manual payment records are available.')).toBeVisible();
+  const response = await request.get(api + '/api/billing/subscription', { headers: h });
+  expect(response.status()).toBe(200);
+  expect((await response.json()).data).toMatchObject({ subscription: { plan: { key: 'qa-licensed', name: 'QA licensed' }, status: 'active' }, limits: { staff: 100 } });
+  const subscription = page.getByRole('heading', { name: 'Current subscription', exact: true }).locator('..');
+  await expect(subscription.getByText('QA licensed', { exact: true }).first()).toBeVisible();
+  await expect(subscription.getByText('Active', { exact: true })).toBeVisible();
+  await expect(page.getByRole('term').filter({ hasText: /^Staff$/ }).locator('..').getByRole('definition')).toHaveText('100');
+  await expect(page.getByText('No manual payment records are available.')).toBeVisible();
   await expect(page.getByRole('button', { name: /Pay Now|Record payment|Apply renewal/ })).toHaveCount(0);
   expect((await request.get(api + '/api/billing/operator/renewals', { headers: h })).status()).toBe(403); expect((await request.put(api + '/api/billing/operator/public-pricing/plan/pilot_core', { headers: h, data: {} })).status()).toBe(403);
   await page.goto('/commercial/requests'); await expect(page).toHaveURL(/dashboard/);

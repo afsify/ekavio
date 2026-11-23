@@ -1,5 +1,6 @@
 import type { PostgresDatabase } from './database.js';
 import { lockNewPhone } from '../services/identityPolicy.js';
+import { assertSeatCapacity, lockOrganizationSeats, lockSeatCatalogue } from './seatCapacity.js';
 import type {
   AccountRepository,
   RegistrationPersistenceInput,
@@ -21,6 +22,7 @@ export class PostgresAccountRepository implements AccountRepository {
 
   public registerAdmin(input: RegistrationPersistenceInput): Promise<RegistrationResult> {
     return this.database.transaction(async (client) => {
+      await lockSeatCatalogue(client);
       await lockNewPhone(client, input.phone);
       const now = new Date();
       const organization = await client.query<{ id: string }>(
@@ -32,6 +34,10 @@ export class PostgresAccountRepository implements AccountRepository {
       );
       const organizationId = organization.rows[0]?.id;
       if (!organizationId) throw new Error('PostgreSQL registration returned no organization ID');
+      await lockOrganizationSeats(client, organizationId);
+      // No subscription is granted by legacy registration: this fails closed
+      // and rolls back the new organization, rather than creating a free seat.
+      await assertSeatCapacity(this.database, client, organizationId, 1);
       const branch = await client.query<{ id: string }>(
         `INSERT INTO branches
           (legacy_mongo_id, organization_id, name, code, status, created_at, updated_at)
