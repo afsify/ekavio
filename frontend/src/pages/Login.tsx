@@ -10,7 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import {
-  Phone,
+  UserRound,
   Lock,
   ShieldCheck,
   ArrowRight,
@@ -95,8 +95,8 @@ export const Login: React.FC = () => {
               type="text"
               autoComplete="username"
               {...register('identifier')}
-              placeholder="Phone number or verified email"
-              icon={<Phone className="h-4 w-4" />}
+              helper="Use your phone number or verified email address to sign in."
+              icon={<UserRound aria-hidden="true" className="h-4 w-4" />}
               error={errors.identifier?.message}
               disabled={isLoading}
             />

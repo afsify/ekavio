@@ -23,6 +23,24 @@ test('phone and case-insensitive verified email login use actual PostgreSQL sess
   await login(page); await verify(page); await page.goto('/settings'); await expect(page.getByText(`Verified: ${fixture.email}`,{exact:true})).toBeVisible();
   await logout(page); await login(page,fixture.email.toUpperCase());
 });
+test('pending email with the correct password gets the generic sign-in error', async ({ page }) => {
+  await login(page);
+  await page.goto('/settings');
+  await page.getByLabel('New email').fill(fixture.email);
+  await page.getByRole('button', { name: 'Send verification', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Check your email');
+  await logout(page);
+
+  const identifier = page.getByRole('textbox', { name: 'Phone or email' });
+  await identifier.fill(fixture.email);
+  await expect(identifier).toHaveAccessibleDescription('Use your phone number or verified email address to sign in.');
+  const password = page.getByLabel('Password', { exact: true });
+  await password.fill(fixture.password);
+  await password.press('Enter');
+  await expect(page.getByRole('main').getByRole('alert')).toHaveText('Invalid credentials');
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test('unknown and wrong credentials show generic failures',async({page}) => {
   await page.goto('/login'); await page.getByLabel('Phone or email').fill('unknown@example.invalid'); await page.getByLabel('Password',{exact:true}).fill(randomUUID()); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByRole('main').getByText('Invalid credentials',{exact:true})).toBeVisible();
   await page.getByLabel('Phone or email').fill(fixture.phone); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page.getByRole('main').getByText('Invalid credentials',{exact:true})).toBeVisible();
