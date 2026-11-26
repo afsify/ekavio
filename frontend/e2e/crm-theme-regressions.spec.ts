@@ -70,10 +70,22 @@ test('Follow-up edit read failure is contained, retry is explicit and no version
 });
 
 for (const mode of ['light','dark','system']) test(`CRM scoped accessibility and read-only follow-ups ${mode}`, async ({ page }) => {
-  await relationshipFixture(page, true); await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  const { lead } = await relationshipFixture(page, true);
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.addInitScript(mode => localStorage.setItem('ekavio-ui-preferences', JSON.stringify({ mode, primaryColor: '#4F46E5' })), mode);
-  await page.goto('/crm'); await expect(page.getByRole('heading', { name: 'Lead directory' })).toBeVisible();
+  await page.goto('/crm');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', mode === 'light' ? 'light' : 'dark');
+
+  const directory = page.getByRole('region', { name: 'Lead directory' });
+  await expect(directory.getByRole('heading', { name: 'Lead directory' })).toBeVisible();
+  // The directory heading can render before the independently loaded summary and Lead records.
+  const summary = page.getByRole('region', { name: 'CRM attention' });
+  await expect(summary.locator('.stat-value')).toHaveText(['1', '1', '0', '1']);
+  const dueToday = summary.getByRole('button', { name: 'View due today', exact: true });
+  await expect(dueToday).toBeVisible();
+  await expect(directory.getByRole('button', { name: `View ${lead.name}`, exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create lead', exact: true })).toHaveCount(0);
+  await expect(directory.getByRole('button', { name: `Edit ${lead.name}`, exact: true })).toHaveCount(0);
   const ratios = await page.locator('.crm-metric h2,.crm-metric .stat-value,.crm-lead-actions .quiet-button').evaluateAll(nodes => nodes.map(node => {
     const canvas = document.createElement('canvas').getContext('2d')!;
     const luminance = (color: string) => { canvas.clearRect(0,0,1,1); canvas.fillStyle = color; canvas.fillRect(0,0,1,1); const rgb = Array.from(canvas.getImageData(0,0,1,1).data).slice(0,3).map(value => { const s = value/255; return s <= .04045 ? s/12.92 : ((s+.055)/1.055)**2.4; }); return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722; };
@@ -94,7 +106,16 @@ for (const mode of ['light','dark','system']) test(`CRM scoped accessibility and
   }));
   expect(ratios.length).toBeGreaterThanOrEqual(8); for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
   const toggle = page.getByRole('switch', { name: 'Dark appearance' }); await expect(toggle).toHaveAccessibleName('Dark appearance');
-  await page.getByRole('button', { name: 'View due today' }).click(); await expect(page.getByRole('button', { name: 'Complete follow-up', exact: true })).toHaveCount(0); await expect(page.getByRole('button', { name: 'Edit follow-up', exact: true })).toHaveCount(0);
-  const open = page.getByRole('button', { name: 'Open lead', exact: true }); await open.click(); const drawer = page.getByRole('dialog', { name: 'Lead details' }); await expect(drawer.getByRole('button', { name: 'Edit lead', exact: true })).toHaveCount(0);
-  await page.keyboard.press('Escape'); await expect(open).toBeFocused();
+  await dueToday.click();
+  await expect(page.getByRole('heading', { name: 'QA discuss the next consultation', exact: true })).toBeVisible();
+  const open = page.getByRole('button', { name: 'Open lead', exact: true });
+  await expect(open).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Complete follow-up', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit follow-up', exact: true })).toHaveCount(0);
+  await open.click();
+  const drawer = page.getByRole('dialog', { name: 'Lead details' });
+  await expect(drawer.getByRole('heading', { name: lead.name, exact: true })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Edit lead', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(open).toBeFocused();
 });
