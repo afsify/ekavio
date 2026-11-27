@@ -45,7 +45,7 @@ describe('server-verified startup authority', () => {
   it('treats a genuine 401 as an anonymous session', async () => {
     api.restoreSession.mockRejectedValue({ response: { status: 401 } });
     await useAppStore.getState().bootstrapSession();
-    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, isBootstrapping: false, startupError: null, token: null });
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, isBootstrapping: false, startupError: null, token: null, reauthenticationRequired: true });
   });
   it.each([new Error('offline'), { code: 'ECONNABORTED' }, { response: { status: 503 } }])('offers recovery instead of claiming session expiry for %j', async (error) => {
     api.restoreSession.mockRejectedValue(error);
@@ -110,5 +110,15 @@ describe('server-verified startup authority', () => {
     await useAppStore.getState().logout(); pending.resolve(payload());
     expect(await switchBranch).toBe(false);
     expect(useAppStore.getState().activeBranchId).toBeNull();
+  });
+  it.each(['setActiveTenant', 'setActiveBranch'] as const)('%s keeps authorized context on 403 and clears it on 401', async select => {
+    useAppStore.getState().establishSession(payload());
+    api.restoreSession.mockRejectedValueOnce({ response: { status: 403 } }).mockRejectedValueOnce({ response: { status: 401 } });
+    expect(await useAppStore.getState()[select]('synthetic-other')).toBe(false);
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: true, activeTenantId: 'synthetic-org', reauthenticationRequired: false });
+    expect(await useAppStore.getState()[select]('synthetic-other')).toBe(false);
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, activeTenantId: null, activeBranchId: null, token: null, entitlements: null, reauthenticationRequired: true });
+    await useAppStore.getState().logout();
+    expect(useAppStore.getState()).toMatchObject({ reauthenticationRequired: false });
   });
 });

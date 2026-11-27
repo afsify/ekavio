@@ -6,6 +6,9 @@ import App from './App.tsx'
 import { useAppStore } from './store/useAppStore.ts'
 
 const queryClient = new QueryClient()
+useAppStore.subscribe((session, previous) => {
+  if (previous.isAuthenticated && !session.isAuthenticated && session.reauthenticationRequired) queryClient.clear()
+})
 
 void useAppStore.getState().bootstrapSession()
 

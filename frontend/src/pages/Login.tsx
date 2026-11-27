@@ -3,7 +3,7 @@
  * Strictly functional login screen leveraging controlled inputs, reusable UI components,
  * and database-driven theme injection upon login.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +40,12 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const loginMutation = useLogin();
+  const reauthenticationRequired = (location.state as { reauthenticationRequired?: boolean } | null)?.reauthenticationRequired === true;
+  const recoveryNotice = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (reauthenticationRequired) recoveryNotice.current?.focus();
+  }, [reauthenticationRequired]);
 
   useEffect(() => {
     if ((location.state as { accountReady?: boolean } | null)?.accountReady) {
@@ -88,6 +94,10 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 shadow-2xl">
+          {reauthenticationRequired && <div ref={recoveryNotice} role="status" aria-atomic="true" tabIndex={-1} className="mb-5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm text-[var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]">
+            <p className="font-semibold">Sign in again to continue.</p>
+            <p className="mt-1">We couldn’t verify your session. If you were saving a change, check the record before trying again.</p>
+          </div>}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <Input
               id="identifier"

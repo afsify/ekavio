@@ -71,6 +71,7 @@ export interface AppState {
   isAuthenticated: boolean;
   isBootstrapping: boolean;
   startupError: StartupError | null;
+  reauthenticationRequired: boolean;
   activeTenantId: string | null;
   activeBranchId: string | null;
   entitlements: EffectiveEntitlements | null;
@@ -78,7 +79,7 @@ export interface AppState {
   establishSession: (payload: SessionPayload) => void;
   bootstrapSession: () => Promise<void>;
   beginLogin: () => number;
-  clearSession: () => void;
+  clearSession: (reason?: 'refresh-rejected') => void;
   logout: () => Promise<void>;
   setTheme: (mode: ThemeConfig['mode'], primaryColor?: string) => void;
   setActiveTenant: (tenantId: string) => Promise<boolean>;
@@ -102,6 +103,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
   isBootstrapping: true,
   startupError: null,
+  reauthenticationRequired: false,
   activeTenantId: null,
   activeBranchId: null,
   entitlements: null,
@@ -133,6 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isAuthenticated: true,
       isBootstrapping: false,
       startupError: null,
+      reauthenticationRequired: false,
       activeTenantId: organizationId,
       activeBranchId,
       entitlements: payload.entitlements,
@@ -161,7 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (revision === sessionRevision()) get().establishSession(payload);
       } catch (error) {
         if (revision !== sessionRevision()) return;
-        if (sessionErrorStatus(error) === 401) get().clearSession();
+        if (sessionErrorStatus(error) === 401) get().clearSession('refresh-rejected');
         else set({ isBootstrapping: false, startupError: classifyStartupError(error) });
       } finally {
         if (bootstrapRequest?.revision === revision) bootstrapRequest = undefined;
@@ -178,7 +181,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return revision;
   },
 
-  clearSession: () => {
+  clearSession: (reason) => {
     advanceSessionRevision();
     set({
       user: null,
@@ -186,6 +189,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isAuthenticated: false,
       isBootstrapping: false,
       startupError: null,
+      reauthenticationRequired: reason === 'refresh-rejected',
       activeTenantId: null,
       activeBranchId: null,
       entitlements: null,
@@ -211,7 +215,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (revision !== sessionRevision()) return false;
       get().establishSession(payload);
       return true;
-    } catch {
+    } catch (error) {
+      if (revision === sessionRevision() && sessionErrorStatus(error) === 401) get().clearSession('refresh-rejected');
       return false;
     }
   },
@@ -228,7 +233,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (revision !== sessionRevision()) return false;
       get().establishSession(payload);
       return true;
-    } catch {
+    } catch (error) {
+      if (revision === sessionRevision() && sessionErrorStatus(error) === 401) get().clearSession('refresh-rejected');
       return false;
     }
   },

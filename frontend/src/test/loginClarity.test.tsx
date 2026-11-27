@@ -14,8 +14,18 @@ beforeEach(() => {
   login.isPending = false;
 });
 
+it('announces reauthentication from the protected redirect without submitting credentials', () => {
+  render(<MemoryRouter initialEntries={[{ pathname: '/login', state: { reauthenticationRequired: true } }]}><Login /></MemoryRouter>);
+  const status = screen.getByRole('status');
+  expect(status.textContent).toContain('Sign in again to continue.');
+  expect(status.textContent).toContain('check the record before trying again.');
+  expect(document.activeElement).toBe(status);
+  expect(login.mutate).not.toHaveBeenCalled();
+});
+
 it('keeps guidance associated with the identifier alongside an empty-field error', async () => {
   renderLogin();
+  expect(screen.queryByText('Sign in again to continue.')).toBeNull();
   const identifier = screen.getByRole('textbox', { name: 'Phone or email', description: guidance });
   expect(identifier.getAttribute('type')).toBe('text');
   expect(identifier.getAttribute('autocomplete')).toBe('username');

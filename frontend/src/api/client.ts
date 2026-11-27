@@ -1,8 +1,10 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { frontendConfig } from "../config/env";
 import { useAppStore, type SessionPayload } from "../store/useAppStore";
 import { sessionRevision, sessionSignal, sessionErrorStatus, SESSION_REQUEST_TIMEOUT_MS } from '../store/sessionLifecycle';
 import { markStartup } from '../utils/startupDiagnostics';
+import type { MutationRecoveryError } from './errors';
+export { isMutationRecoveryError } from './errors';
 
 const sessionClient = axios.create({
   baseURL: frontendConfig.apiUrl,
@@ -75,19 +77,6 @@ function authoritySnapshot(): string | undefined {
   ]);
 }
 
-export interface MutationRecoveryError extends AxiosError {
-  recovery: { kind: 'explicit-action-required'; outcome: 'unknown'; automaticReplay: false };
-}
-
-/** Callers should offer sign-in/verification, retain drafts, and require explicit submission. */
-export function isMutationRecoveryError(error: unknown): error is MutationRecoveryError {
-  if (!axios.isAxiosError(error) || !('recovery' in error)) return false;
-  const recovery = error.recovery;
-  return typeof recovery === 'object' && recovery !== null &&
-    'kind' in recovery && recovery.kind === 'explicit-action-required' &&
-    'outcome' in recovery && recovery.outcome === 'unknown' &&
-    'automaticReplay' in recovery && recovery.automaticReplay === false;
-}
 let refreshRequest: { revision: number; promise: Promise<{ token: string; revision: number }> } | undefined;
 
 export const restoreSession = async (
@@ -188,7 +177,7 @@ client.interceptors.response.use(
       }).catch((refreshError: unknown) => {
         // A timeout, network error, 403 context rejection or 5xx is not an expired session.
         if (revision === sessionRevision() && authority === authoritySnapshot() && sessionErrorStatus(refreshError) === 401) {
-          useAppStore.getState().clearSession();
+          useAppStore.getState().clearSession('refresh-rejected');
         }
         throw refreshError;
       }).finally(() => {
