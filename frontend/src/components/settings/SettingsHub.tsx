@@ -4,17 +4,18 @@ import { ArrowUpRight, Bell, Building2, CreditCard, GitBranch, KeyRound, LayoutT
 import { useAppStore } from '../../store/useAppStore';
 import { useOperationalScope } from '../../hooks/useOperationalContext';
 import { visibleDestinations } from '../layout/navigation';
+import { NavigationIcon } from '../layout/NavigationIcon';
 import { Input } from '../ui/Input';
 import './settingsHub.css';
 
-type Category = 'Account' | 'Organization' | 'Configuration' | 'Administration';
-interface Setting { label: string; path: string; description: string; category: Category; icon: LucideIcon; manage?: string; managementOnly?: boolean }
+type Category = 'Account' | 'Organization' | 'Configuration' | 'Administration' | 'Platform operations';
+interface Setting { label: string; path: string; description: string; category: Category; icon?: LucideIcon; manage?: string; managementOnly?: boolean }
 const settings: Setting[] = [
   { label: 'My Profile', path: '/settings?section=profile', description: 'Your name, contact identity and verified email.', category: 'Account', icon: UserRound },
   { label: 'Appearance', path: '/settings?section=appearance', description: 'Light, Dark or System and your account accent.', category: 'Account', icon: Palette },
   { label: 'Security', path: '/settings?section=security', description: 'Change your password using the existing secure account workflow.', category: 'Account', icon: ShieldCheck },
   { label: 'Notifications', path: '/settings?section=notifications', description: 'Your in-app notification preferences for the current organization.', category: 'Account', icon: Bell },
-  { label: 'Organization information', path: '/admin', description: 'Business profile and operating information, separate from your personal identity.', category: 'Organization', icon: Building2, manage: 'organization.manage' },
+  { label: 'Organization information', path: '/admin', description: 'View or manage the business profile for this organization, depending on your access.', category: 'Organization', icon: Building2, manage: 'organization.manage' },
   { label: 'Branches', path: '/branches', description: 'Organization locations, branch codes and timezones.', category: 'Organization', icon: GitBranch, manage: 'branches.manage' },
   { label: 'Staff', path: '/staff', description: 'Memberships, invitations and branch assignments.', category: 'Organization', icon: UsersRound, manage: 'staff.manage' },
   { label: 'Roles & permissions', path: '/roles', description: 'Inspect system roles and authorized custom replacement roles.', category: 'Organization', icon: KeyRound, manage: 'roles.manage' },
@@ -25,7 +26,13 @@ const settings: Setting[] = [
   { label: 'Billing', path: '/billing', description: 'Inspect your organization subscription and commercial agreement.', category: 'Administration', icon: CreditCard },
   { label: 'Audit history', path: '/audit', description: 'Review authorized organization security and administration events.', category: 'Administration', icon: ScrollText },
 ];
-const categories: Category[] = ['Account', 'Organization', 'Configuration', 'Administration'];
+const categories: Category[] = ['Account', 'Organization', 'Configuration', 'Administration', 'Platform operations'];
+const operatorDescriptions: Record<string, string> = {
+  '/commercial/requests': 'Review business access requests and agreements.',
+  '/platform': 'View the platform overview and organization directory.',
+  '/commercial/renewals': 'Review and apply authorized commercial renewals.',
+  '/corporate': 'Open Corporate HQ for authorized organization management.',
+};
 
 export function SettingsHub() {
   const scope = useOperationalScope();
@@ -35,8 +42,12 @@ function Hub() {
   const { user, activeTenantId, entitlements, isPlatformOperator } = useAppStore();
   const [search, setSearch] = useState('');
   const grants = user?.permissions ?? [];
-  const allowed = new Set(visibleDestinations(grants, entitlements, isPlatformOperator).map(item => item.path));
+  const destinations = visibleDestinations(grants, entitlements, isPlatformOperator);
+  const allowed = new Set(destinations.map(item => item.path));
   const available = settings.filter(item => allowed.has(item.path.split('?')[0]) && (!item.managementOnly || Boolean(item.manage && grants.includes(item.manage))));
+  for (const { name, path, operator } of destinations) {
+    if (operator) available.push({ label: name, path, description: operatorDescriptions[path] ?? '', category: 'Platform operations' });
+  }
   const query = search.trim().toLowerCase();
   const matches = available.filter(item => [item.label, item.description, item.category].some(value => value.toLowerCase().includes(query)));
   const organization = user?.memberships?.find(item => item.organizationId === activeTenantId)?.orgName ?? 'Your workspace';
@@ -45,7 +56,23 @@ function Hub() {
     <Input type="search" label="Search settings" maxLength={200} value={search} onChange={event => setSearch(event.target.value)} helper="Search available destinations only. No business records or hidden settings are searched." />
     <div className="record-actions"><p className="muted" role="status">{matches.length} available destinations{query ? ' matching your search' : ''}</p>{search && <button className="quiet-button" onClick={() => setSearch('')}>Clear settings search</button>}</div>
     {!matches.length && <section className="panel page-stack"><h3>No matching settings</h3><p>Try a different name or category. Only destinations authorized for your current workspace are shown.</p></section>}
-    {categories.map(category => { const items = matches.filter(item => item.category === category); return items.length > 0 && <section className="page-stack" key={category} aria-label={`${category} settings`}><div className="section-heading"><h3>{category}</h3><span className="muted">{category === 'Account' ? 'Personal preferences; notifications are workspace-scoped' : 'Current organization access'}</span></div><div className="settings-destination-grid">{items.map(({ icon: Icon, ...item }) => <Link className="panel settings-destination" key={item.label} to={item.path}><span className="settings-card-icon"><Icon size={21} aria-hidden="true" /></span><div><h4>{item.label}</h4><p>{item.description}</p>{item.manage && <span className="settings-access">{grants.includes(item.manage) ? 'Management access' : 'View only'}</span>}</div><ArrowUpRight className="settings-card-arrow" size={18} aria-hidden="true" /></Link>)}</div></section>; })}
-    {!available.some(item => item.category !== 'Account') && <p className="panel muted">No organization configuration destinations are available with your current access. Your personal settings remain available. Ask an authorized administrator if you need different access.</p>}
+    {categories.map(category => {
+      const items = matches.filter(item => item.category === category);
+      if (!items.length) return null;
+      const scope = category === 'Account' ? 'Personal preferences; notifications are workspace-scoped'
+        : category === 'Platform operations' ? 'Separate EkaVio operator access. Organization roles apply only within their own workspace.'
+        : 'Current organization access';
+      return <section className="page-stack" key={category} aria-label={`${category} settings`}>
+        <div className="section-heading"><h3>{category}</h3><span className="muted">{scope}</span></div>
+        <div className="settings-destination-grid">
+          {items.map(({ icon: Icon, ...item }) => <Link className="panel settings-destination" key={item.label} to={item.path}>
+            <span className="settings-card-icon">{Icon ? <Icon size={21} aria-hidden="true" /> : <NavigationIcon path={item.path} />}</span>
+            <div><h4>{item.label}</h4>{item.description && <p>{item.description}</p>}{item.manage && <span className="settings-access">{grants.includes(item.manage) ? 'Management access' : 'View only'}</span>}</div>
+            <ArrowUpRight className="settings-card-arrow" size={18} aria-hidden="true" />
+          </Link>)}
+        </div>
+      </section>;
+    })}
+    {!available.some(item => item.category !== 'Account' && item.category !== 'Platform operations') && <p className="panel muted">No organization configuration destinations are available with your current access. Your personal settings remain available. Ask an authorized administrator if you need different access.</p>}
   </section>;
 }
