@@ -25,6 +25,30 @@ it('owner/admin grants alone do not activate CRM or HR configuration', () => {
   mountHub(); expect(screen.getByRole('link', { name: /Organization information/ })).toBeTruthy();
   expect(screen.queryByRole('link', { name: /CRM configuration/ })).toBeNull(); expect(screen.queryByRole('link', { name: /HR configuration/ })).toBeNull();
 });
+it.each(['staff', 'admin', 'owner'])('keeps platform settings out of the %s workspace and search', role => {
+  useAppStore.setState({ user: { ...useAppStore.getState().user!, role, permissions: ['organization.read', 'corporate.manage'] } });
+  mountHub();
+  expect(screen.getByRole('link', { name: /Organization information/ }).getAttribute('href')).toBe('/admin');
+  expect(screen.queryByRole('region', { name: 'Platform operations settings' })).toBeNull();
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Commercial Intake' } });
+  expect(screen.getByRole('heading', { name: 'No matching settings' })).toBeTruthy();
+});
+it('shows existing operator destinations according to authority and removes them when authority is cleared', () => {
+  useAppStore.setState({ isPlatformOperator: true });
+  mountHub();
+  const platform = within(screen.getByRole('region', { name: 'Platform operations settings' }));
+  expect(platform.getByText(/Organization roles apply only within their own workspace/)).toBeTruthy();
+  expect(platform.getAllByRole('link').map(link => link.getAttribute('href'))).toEqual([
+    '/commercial/requests', '/platform', '/commercial/renewals',
+  ]);
+  act(() => useAppStore.setState({ user: { ...useAppStore.getState().user!, permissions: ['corporate.manage'] } }));
+  expect(screen.getByRole('link', { name: /Corporate HQ/ }).getAttribute('href')).toBe('/corporate');
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'renewals' } });
+  expect(screen.getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/commercial/renewals']);
+  act(() => useAppStore.setState({ isPlatformOperator: false }));
+  expect(screen.queryByRole('region', { name: 'Platform operations settings' })).toBeNull();
+  expect(screen.getByRole('searchbox')).toHaveProperty('value', '');
+});
 it('module configuration requires existing navigation authority and independent management grants', () => {
   useAppStore.setState({ user: { ...useAppStore.getState().user!, permissions: ['crm.read', 'crm.manage', 'hr_plus.manage', 'services.manage'] }, entitlements: { modules: [{ key: 'crm', enabled: true }, { key: 'hr_plus', enabled: true }] } as never });
   mountHub(); expect(screen.getByRole('link', { name: /CRM configuration/ }).getAttribute('href')).toBe('/crm'); expect(screen.getByRole('link', { name: /HR configuration/ })).toBeTruthy();
