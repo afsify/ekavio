@@ -111,6 +111,27 @@ test('committed Account A password response cannot clear Account B session or re
     await page.reload(); await expect(page.getByLabel('Your name')).toHaveValue('QA owner');
   } finally { release(); }
 });
+test('password recovery confirmation stays generic for known and unknown accounts', async ({ page, browser }) => {
+  await login(page);
+  await verify(page);
+  const context = await browser.newContext();
+  try {
+    const recovery = await context.newPage();
+    const generic = 'If this account has a verified email, a password reset message may be sent. Check your inbox.';
+    for (const identifier of [fixture.phone, `${randomUUID()}@example.invalid`]) {
+      await recovery.goto('/forgot-password');
+      const field = recovery.getByRole('textbox', { name: 'Phone or email', exact: true });
+      await expect(field).toHaveAccessibleDescription('Use the phone number or verified email on your account.');
+      await field.fill(identifier);
+      await field.press('Enter');
+      await expect(recovery.getByRole('status')).toHaveText(generic);
+      await expect(recovery.getByText(/spam folder.*one minute.*workspace administrator/)).toBeVisible();
+    }
+  } finally {
+    await context.close();
+  }
+});
+
 test('captured recovery resets once, revokes prior browser session and permits new password',async({page,browser}) => {
   await page.setViewportSize({width:390,height:900});
   await login(page); await verify(page);
