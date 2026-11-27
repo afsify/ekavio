@@ -154,6 +154,55 @@ test('manual staff invitation is shown once, cleared on close and accepted witho
   await staff.getByLabel('New password',{exact:true}).fill(password); await staff.getByLabel('Confirm password').fill(password); await staff.getByRole('button',{name:'Accept invitation'}).click(); await expect(staff.getByRole('status')).toContainText('Account ready');
   await login(staff,'+919876543299',password); await staff.goto('/settings'); await expect(staff.getByText('No verified email.',{exact:false})).toBeVisible(); await context.close();
 });
+test('existing-account invitation requires the invited session and explicit acceptance', async ({ page, browser, request }) => {
+  const response = await request.post(`${api}/__test/fixture`);
+  expect(response.ok()).toBeTruthy();
+  const invitee = await response.json() as Fixture;
+  await login(page);
+  await page.goto('/staff');
+  await page.getByRole('button', { name: 'Invite staff', exact: true }).click();
+  await page.getByLabel('Full name').fill('Disposable existing invitee');
+  await page.getByLabel('Phone number', { exact: true }).fill(invitee.phone);
+  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await page.getByRole('button', { name: 'Send invitation', exact: true }).click();
+  const handoff = page.getByLabel('One-time handoff link');
+  await expect(handoff).toBeVisible();
+  const link = await handoff.inputValue();
+  await page.getByRole('button', { name: 'I have handed off the link' }).click();
+
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: 'Join with your existing account' })).toBeVisible();
+  await expect(page.getByText('Disposable existing invitee', { exact: true })).toBeVisible();
+  await expect(page.getByText('Disposable browser workspace', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => location.hash === '')).toBe(true);
+  await page.getByRole('button', { name: 'Accept invitation', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Invitation belongs to a different account');
+  await expect(page.getByRole('alert')).toContainText('reopen this link');
+  await expect(page.getByRole('status')).toHaveCount(0);
+
+  const context = await browser.newContext();
+  try {
+    const staff = await context.newPage();
+    await staff.goto(link);
+    await expect(staff.getByRole('heading', { name: 'Join with your existing account' })).toBeVisible();
+    await expect(staff.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute('href', '/login');
+    await expect(staff.getByLabel('New password')).toHaveCount(0);
+    const accept = staff.getByRole('button', { name: 'Accept invitation', exact: true });
+    await expect(accept).toBeDisabled();
+    await login(staff, invitee.phone, invitee.password);
+    await staff.goto(link);
+    await expect(accept).toBeEnabled();
+    await expect(staff.getByRole('status')).toHaveCount(0);
+    await accept.click();
+    await expect(staff.getByRole('status')).toContainText('Organization joined');
+    await staff.goto(link);
+    await expect(staff.getByRole('alert')).toContainText('already used');
+    await expect(accept).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
 for(const width of [390,768,1440]) test(`authentication and recovery fit ${width}px without overflow`,async({page}) => {
   await page.setViewportSize({width,height:900});
   for(const route of ['/login','/forgot-password','/reset-password','/verify-email','/accept-invitation']) {
