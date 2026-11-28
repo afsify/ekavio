@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAppStore, type SessionPayload } from '../store/useAppStore';
-import { sessionRevision, classifyStartupError } from '../store/sessionLifecycle';
+import { sessionRevision, classifyStartupError, LOGOUT_INTENT_KEY, LOGOUT_BLOCKED_MESSAGE } from '../store/sessionLifecycle';
 
 const api = vi.hoisted(() => ({ restoreSession: vi.fn(), requestLogout: vi.fn(), connect: vi.fn(), disconnect: vi.fn() }));
 vi.mock('../api/client', () => ({ restoreSession: api.restoreSession, requestLogout: api.requestLogout }));
@@ -20,12 +20,15 @@ function deferred<T>() {
 }
 async function started() { await vi.waitFor(() => expect(api.restoreSession).toHaveBeenCalled()); }
 beforeEach(() => {
+  useAppStore.setState({ logoutStatus: 'idle', logoutIntentUnavailable: false });
   useAppStore.getState().clearSession();
   useAppStore.setState({ isBootstrapping: true, startupError: null });
   vi.clearAllMocks();
   api.requestLogout.mockResolvedValue(undefined);
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
+afterEach(() => vi.restoreAllMocks());
 
 describe('server-verified startup authority', () => {
   it('deduplicates pending bootstrap and establishes only server-returned authority', async () => {
@@ -45,7 +48,7 @@ describe('server-verified startup authority', () => {
   it('treats a genuine 401 as an anonymous session', async () => {
     api.restoreSession.mockRejectedValue({ response: { status: 401 } });
     await useAppStore.getState().bootstrapSession();
-    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, isBootstrapping: false, startupError: null, token: null });
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, isBootstrapping: false, startupError: null, token: null, reauthenticationRequired: true });
   });
   it.each([new Error('offline'), { code: 'ECONNABORTED' }, { response: { status: 503 } }])('offers recovery instead of claiming session expiry for %j', async (error) => {
     api.restoreSession.mockRejectedValue(error);
@@ -80,6 +83,79 @@ describe('server-verified startup authority', () => {
     expect(useAppStore.getState().token).toBeNull();
     pending.resolve(); await logout;
   });
+  it('suppresses startup and explicit login when logout intent survives reload', async () => {
+    sessionStorage.setItem(LOGOUT_INTENT_KEY, '1');
+    await useAppStore.getState().bootstrapSession();
+    expect(api.restoreSession).not.toHaveBeenCalled();
+    expect(api.requestLogout).not.toHaveBeenCalled();
+    expect(useAppStore.getState()).toMatchObject({
+      isAuthenticated: false, isBootstrapping: false, logoutStatus: 'unconfirmed', logoutIntentUnavailable: false,
+    });
+    expect(() => useAppStore.getState().beginLogin()).toThrow(LOGOUT_BLOCKED_MESSAGE);
+    expect(sessionStorage.getItem(LOGOUT_INTENT_KEY)).toBe('1');
+    await useAppStore.getState().logout();
+    expect(sessionStorage.getItem(LOGOUT_INTENT_KEY)).toBeNull();
+    expect(useAppStore.getState().logoutStatus).toBe('idle');
+    expect(() => useAppStore.getState().beginLogin()).not.toThrow();
+  });
+  it('requires explicit sign-out recovery when intent storage cannot be read', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage denied'); });
+    await useAppStore.getState().bootstrapSession();
+    expect(api.restoreSession).not.toHaveBeenCalled();
+    expect(useAppStore.getState()).toMatchObject({ logoutStatus: 'unconfirmed', logoutIntentUnavailable: true });
+    expect(() => useAppStore.getState().beginLogin()).toThrow(LOGOUT_BLOCKED_MESSAGE);
+  });
+  it('stays signed out in this document when persisting logout intent throws', async () => {
+    useAppStore.getState().establishSession(payload());
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage denied'); });
+    api.requestLogout.mockRejectedValueOnce(new Error('Synthetic offline'));
+    await useAppStore.getState().logout();
+    expect(useAppStore.getState()).toMatchObject({
+      isAuthenticated: false, token: null, activeTenantId: null, logoutStatus: 'unconfirmed', logoutIntentUnavailable: true,
+    });
+    await useAppStore.getState().bootstrapSession();
+    expect(api.restoreSession).not.toHaveBeenCalled();
+    expect(() => useAppStore.getState().beginLogin()).toThrow(LOGOUT_BLOCKED_MESSAGE);
+  });
+  it('keeps authentication blocked until marker absence can be verified', async () => {
+    useAppStore.getState().establishSession(payload());
+    const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => { throw new Error('Storage denied'); });
+    await useAppStore.getState().logout();
+    expect(read).toHaveBeenCalledWith(LOGOUT_INTENT_KEY);
+    expect(useAppStore.getState().logoutStatus).toBe('cleanup-required');
+    expect(() => useAppStore.getState().beginLogin()).toThrow(LOGOUT_BLOCKED_MESSAGE);
+    await useAppStore.getState().bootstrapSession();
+    expect(api.restoreSession).not.toHaveBeenCalled();
+    useAppStore.getState().retryLogoutCleanup();
+    expect(sessionStorage.getItem(LOGOUT_INTENT_KEY)).toBeNull();
+    expect(api.requestLogout).toHaveBeenCalledTimes(1);
+    expect(() => useAppStore.getState().beginLogin()).not.toThrow();
+  });
+  it.each(['success', 'failure'])('discards an obsolete logout %s after a newer session revision', async outcome => {
+    useAppStore.getState().establishSession(payload());
+    const pending = deferred<void>();
+    api.requestLogout.mockReturnValueOnce(pending.promise);
+    const logout = useAppStore.getState().logout();
+    try {
+      await vi.waitFor(() => expect(api.requestLogout).toHaveBeenCalledTimes(1));
+      // Inject a newer authorized epoch to exercise the completion guard.
+      // Normal authentication is blocked until the active logout settles.
+      useAppStore.setState({ logoutStatus: 'idle' });
+      useAppStore.getState().establishSession(payload('new-session'));
+      const revision = sessionRevision();
+      if (outcome === 'success') pending.resolve();
+      else pending.reject(new Error('Synthetic offline'));
+      await logout;
+      expect(sessionRevision()).toBe(revision);
+      expect(useAppStore.getState()).toMatchObject({
+        isAuthenticated: true, logoutStatus: 'idle', activeTenantId: 'new-session',
+      });
+      expect(sessionStorage.getItem(LOGOUT_INTENT_KEY)).toBe('1');
+    } finally {
+      pending.resolve();
+      await logout;
+    }
+  });
   it.each(['success', 'failure'])('ignores stale bootstrap %s after newer login', async (outcome) => {
     const pending = deferred<SessionPayload>(); api.restoreSession.mockReturnValue(pending.promise);
     const bootstrap = useAppStore.getState().bootstrapSession(); await started();
@@ -110,5 +186,15 @@ describe('server-verified startup authority', () => {
     await useAppStore.getState().logout(); pending.resolve(payload());
     expect(await switchBranch).toBe(false);
     expect(useAppStore.getState().activeBranchId).toBeNull();
+  });
+  it.each(['setActiveTenant', 'setActiveBranch'] as const)('%s keeps authorized context on 403 and clears it on 401', async select => {
+    useAppStore.getState().establishSession(payload());
+    api.restoreSession.mockRejectedValueOnce({ response: { status: 403 } }).mockRejectedValueOnce({ response: { status: 401 } });
+    expect(await useAppStore.getState()[select]('synthetic-other')).toBe(false);
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: true, activeTenantId: 'synthetic-org', reauthenticationRequired: false });
+    expect(await useAppStore.getState()[select]('synthetic-other')).toBe(false);
+    expect(useAppStore.getState()).toMatchObject({ isAuthenticated: false, activeTenantId: null, activeBranchId: null, token: null, entitlements: null, reauthenticationRequired: true });
+    await useAppStore.getState().logout();
+    expect(useAppStore.getState()).toMatchObject({ reauthenticationRequired: false });
   });
 });

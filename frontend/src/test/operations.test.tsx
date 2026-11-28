@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { OperationForm } from '../components/ui/OperationForm';
 import { branchTime, decimalUnits, nominalEnd, quantityText, shiftBusinessDate } from '../utils/operations';
 import { exportToCSV } from '../utils/exportUtils';
+import { AxiosError } from 'axios';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('money and stock previews are exact beyond Number precision and reject coercion', () => {
@@ -36,6 +37,25 @@ it('review is required, invalid/busy confirmation is disabled, and failed comman
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(close).not.toHaveBeenCalled(); expect(screen.getAllByRole('dialog')).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Discard changes' })); expect(close).toHaveBeenCalledOnce();
+});
+it('keeps a command with an unconfirmed session outcome from being submitted again', () => {
+  const confirm = vi.fn();
+  const props = { open: true, title: 'Stock command', valid: true, busy: false, dirty: true, onConfirm: confirm, onClose: vi.fn(), confirmLabel: 'Save', review: <p>Exact change</p>, children: <p>Draft</p> };
+  const view = render(<OperationForm {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  const error = Object.assign(new AxiosError('Synthetic rejection'), {
+    recovery: { kind: 'explicit-action-required', outcome: 'unknown', automaticReplay: false },
+  });
+  view.rerender(<OperationForm {...props} error={error} />);
+  expect(screen.getByRole('alert').textContent).toContain('sign in again, then check the record');
+  expect(screen.getByRole('alert').textContent).not.toContain('original command key');
+  const save = screen.getByRole<HTMLButtonElement>('button', { name: 'Save' });
+  expect(save.disabled).toBe(true);
+  fireEvent.click(save);
+  expect(confirm).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByText(/check the record to see whether the submitted change was saved/i)).toBeTruthy();
 });
 it('current-page CSV neutralizes formulas, quotes CR/newlines and releases its object URL', async () => {
   vi.useFakeTimers(); let content = '';

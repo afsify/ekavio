@@ -67,11 +67,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const isBootstrapping = useAppStore((state) => state.isBootstrapping);
   const startupError = useAppStore((state) => state.startupError);
+  const reauthenticationRequired = useAppStore((state) => state.reauthenticationRequired);
 
   if (isBootstrapping || startupError) return <WorkspaceStartup key={isBootstrapping ? 'pending' : 'error'} />;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={reauthenticationRequired ? { reauthenticationRequired: true } : null} />;
   }
 
   return <>{children}</>;

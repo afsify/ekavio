@@ -29,7 +29,9 @@ export const TenantSwitcher: React.FC<{ onSwitching?: (value: boolean) => void }
       const changed = await change();
       await queryClient.cancelQueries();
       queryClient.clear();
-      if (!changed) toast.error(`You no longer have access to that ${label}`);
+      if (!changed && useAppStore.getState().isAuthenticated) {
+        toast.error(`Couldn’t switch to that ${label}. Check your connection and access, then try again.`);
+      }
       await queryClient.resetQueries();
     } finally {
       setSwitching(false);

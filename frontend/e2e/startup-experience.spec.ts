@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { workspace } from './fixtures';
 import type { PublicCommercialCatalogue } from '../src/commercial/publicCommercial';
+import { LOGOUT_INTENT_KEY } from '../src/store/sessionLifecycle';
 
 async function holdSession(page: Page) {
   const fixture = await workspace(page);
@@ -81,3 +82,75 @@ test('warm authorized startup and genuinely expired startup keep their distinct 
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
 });
+
+for (const theme of ['light', 'dark', 'system'] as const) {
+  test(`logout recovery is keyboard-accessible in ${theme} across four viewport widths`, async ({ page }) => {
+    // All auth traffic is synthetic in this presentation test. No live session
+    // is created and the only stored value is a non-secret logout intent.
+    await workspace(page, { authenticated: false });
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    await page.addInitScript(({ theme, intentKey }) => {
+      localStorage.setItem('ekavio-ui-preferences', JSON.stringify({ mode: theme, primaryColor: '#4F46E5' }));
+      sessionStorage.setItem(intentKey, '1');
+    }, { theme, intentKey: LOGOUT_INTENT_KEY });
+    let refreshes = 0;
+    let logout: Route | undefined;
+    await page.route('**/api/auth/refresh', route => { refreshes++; return route.fulfill({ status: 401, json: {} }); });
+    await page.route('**/api/auth/logout', route => { logout = route; });
+
+    await page.goto('/login');
+    const notice = page.getByRole('main').getByRole('status');
+    const retry = page.getByRole('button', { name: 'Retry sign-out', exact: true });
+    const identifier = page.getByLabel('Phone or email');
+    await expect(notice).toContainText('Server sign-out couldn’t be confirmed.');
+    await expect(notice).toBeFocused();
+    await expect(identifier).toBeDisabled();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+
+    const verifyLayout = async () => {
+      for (const width of [320, 390, 768, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(notice).toBeVisible();
+        await expect(notice).toHaveCSS('outline-width', '2px');
+        expect(await notice.evaluate(node => node.scrollWidth <= node.clientWidth &&
+          node.scrollHeight <= node.clientHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        const contrast = await notice.evaluate(node => {
+          const style = getComputedStyle(node);
+          const color = document.createElement('canvas').getContext('2d')!;
+          const luminance = (value: string) => {
+            color.clearRect(0, 0, 1, 1);
+            color.fillStyle = value;
+            color.fillRect(0, 0, 1, 1);
+            const [r, g, b] = Array.from(color.getImageData(0, 0, 1, 1).data).slice(0, 3).map(component => {
+              const channel = component / 255;
+              return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+            });
+            return r * .2126 + g * .7152 + b * .0722;
+          };
+          const fg = luminance(style.color), bg = luminance(style.backgroundColor);
+          return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
+        });
+        expect(contrast).toBeGreaterThanOrEqual(4.5);
+      }
+    };
+
+    await verifyLayout();
+    await expect(retry).toHaveCSS('transition-duration', '0s');
+    await page.keyboard.press('Tab');
+    await expect(retry).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => Boolean(logout)).toBe(true);
+    try {
+      await expect(notice).toContainText('Signing out…');
+      await expect(notice).toBeFocused();
+      await expect(identifier).toBeDisabled();
+      await verifyLayout();
+    } finally {
+      await logout!.fulfill({ status: 200, json: {} });
+    }
+    await expect(identifier).toBeEnabled();
+    await expect(identifier).toBeFocused();
+    expect(await page.evaluate(key => sessionStorage.getItem(key), LOGOUT_INTENT_KEY)).toBeNull();
+    expect(refreshes).toBe(0);
+  });
+}
