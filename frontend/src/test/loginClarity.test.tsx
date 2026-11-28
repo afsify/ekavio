@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
 import Login from '../pages/Login';
+import { useAppStore } from '../store/useAppStore';
 
 const login = vi.hoisted(() => ({ mutate: vi.fn(), isPending: false }));
 vi.mock('../hooks/useAuth', () => ({ useLogin: () => login }));
@@ -59,4 +60,17 @@ it('keeps the guidance visible and disables both inputs and submit while signing
   const submit = screen.getByRole('button', { name: 'Processing...' });
   expect(submit.hasAttribute('disabled')).toBe(true);
   expect(submit.getAttribute('aria-busy')).toBe('true');
+});
+
+it('warns when same-tab sign-out intent could not be saved', () => {
+  useAppStore.setState({ logoutStatus: 'unconfirmed', logoutIntentUnavailable: true });
+  const view = renderLogin();
+  try {
+    expect(screen.getByRole('status').textContent).toContain('Keep this page open until sign-out is confirmed.');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Sign In to Ekavio' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Retry sign-out' }).disabled).toBe(false);
+  } finally {
+    view.unmount();
+    useAppStore.setState({ logoutStatus: 'idle', logoutIntentUnavailable: false });
+  }
 });

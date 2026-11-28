@@ -7,7 +7,9 @@ import { useAppStore } from './store/useAppStore.ts'
 
 const queryClient = new QueryClient()
 useAppStore.subscribe((session, previous) => {
-  if (previous.isAuthenticated && !session.isAuthenticated && session.reauthenticationRequired) queryClient.clear()
+  const logoutStarted = session.logoutStatus === 'pending' && previous.logoutStatus === 'idle'
+  const refreshRejected = previous.isAuthenticated && !session.isAuthenticated && session.reauthenticationRequired
+  if (logoutStarted || refreshRejected) queryClient.clear()
 })
 
 void useAppStore.getState().bootstrapSession()

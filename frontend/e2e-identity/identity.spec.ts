@@ -12,7 +12,16 @@ test.afterEach(() => expect(pageErrors).toEqual([]));
 const login=async(page:Page,identifier=fixture.phone,password=fixture.password) => {
   await page.goto('/login'); await page.getByLabel('Phone or email').fill(identifier); await page.getByLabel('Password',{exact:true}).fill(password); await page.getByRole('button',{name:'Sign In to Ekavio'}).click(); await expect(page).toHaveURL(/dashboard/);
 };
-const logout=async(page:Page) => { await page.getByRole('button',{name:'Sign out',exact:true}).click(); await expect(page).toHaveURL(/login/); };
+const logout = async (page: Page) => {
+  const completion = page.waitForResponse(response =>
+    response.url() === api + '/api/auth/logout' && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  const response = await completion;
+  expect(response.status()).toBe(200);
+  expect(await response.finished()).toBeNull();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('button', { name: 'Sign In to Ekavio', exact: true })).toBeEnabled();
+};
 const verify=async(page:Page,email=fixture.email) => {
   await page.goto('/settings'); await page.getByLabel('New email').fill(email); await page.getByRole('button',{name:'Send verification',exact:true}).click(); await expect(page.getByRole('status')).toContainText('Check your email');
   const messages=await (await page.request.get(`${api}/__test/mail`)).json() as Array<{purpose:string;url:string}>;

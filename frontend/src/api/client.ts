@@ -1,7 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 import { frontendConfig } from "../config/env";
 import { useAppStore, type SessionPayload } from "../store/useAppStore";
-import { sessionRevision, sessionSignal, sessionErrorStatus, SESSION_REQUEST_TIMEOUT_MS } from '../store/sessionLifecycle';
+import { LOGOUT_BLOCKED_MESSAGE, sessionRevision, sessionSignal, sessionErrorStatus, SESSION_REQUEST_TIMEOUT_MS } from '../store/sessionLifecycle';
 import { markStartup } from '../utils/startupDiagnostics';
 import type { MutationRecoveryError } from './errors';
 export { isMutationRecoveryError } from './errors';
@@ -32,9 +32,19 @@ for (const transport of [sessionClient, publicClient]) {
   });
 }
 
+sessionClient.interceptors.request.use(config => {
+  if (config.url === '/auth/refresh' && useAppStore.getState().logoutStatus !== 'idle') {
+    throw new axios.CanceledError(LOGOUT_BLOCKED_MESSAGE);
+  }
+  return config;
+});
+
 client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   markStartup('backend-first-request');
   const request = config as RetryableRequestConfig;
+  if (config.url === '/auth/login' && useAppStore.getState().logoutStatus !== 'idle') {
+    throw new axios.CanceledError(LOGOUT_BLOCKED_MESSAGE);
+  }
   // A retry is valid only in the authority context that authorized it.
   if (request._sessionRevision !== undefined && request._sessionRevision !== sessionRevision()) {
     throw new axios.CanceledError('Workspace session changed');

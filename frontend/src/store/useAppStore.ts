@@ -6,7 +6,10 @@ import {
   type ThemePreference,
 } from './sessionPersistence';
 import type { EffectiveEntitlements } from '../commercial/catalogue';
-import { advanceSessionRevision, classifyStartupError, sessionErrorStatus, sessionRevision, sessionSignal, type StartupError } from './sessionLifecycle';
+import {
+  advanceSessionRevision, classifyStartupError, clearLogoutIntent, LOGOUT_BLOCKED_MESSAGE, persistLogoutIntent, readLogoutIntent,
+  sessionErrorStatus, sessionRevision, sessionSignal, type LogoutStatus, type StartupError,
+} from './sessionLifecycle';
 import { markStartup } from '../utils/startupDiagnostics';
 
 export interface UserAssignment {
@@ -72,6 +75,8 @@ export interface AppState {
   isBootstrapping: boolean;
   startupError: StartupError | null;
   reauthenticationRequired: boolean;
+  logoutStatus: LogoutStatus;
+  logoutIntentUnavailable: boolean;
   activeTenantId: string | null;
   activeBranchId: string | null;
   entitlements: EffectiveEntitlements | null;
@@ -81,6 +86,7 @@ export interface AppState {
   beginLogin: () => number;
   clearSession: (reason?: 'refresh-rejected') => void;
   logout: () => Promise<void>;
+  retryLogoutCleanup: () => void;
   setTheme: (mode: ThemeConfig['mode'], primaryColor?: string) => void;
   setActiveTenant: (tenantId: string) => Promise<boolean>;
   setActiveBranch: (branchId: string) => Promise<boolean>;
@@ -93,8 +99,23 @@ const initialTheme = browserStorage
   ? migrateAndClearLegacyAuthStorage(browserStorage) ?? DEFAULT_THEME
   : DEFAULT_THEME;
 let bootstrapRequest: { revision: number; promise: Promise<void> } | undefined;
+let logoutRequest: Promise<void> | undefined;
 let preferenceSave: Promise<unknown> = Promise.resolve();
 let preferenceRevision = 0;
+
+function revokeLocalAuthority(
+  set: (state: Partial<AppState>) => void,
+  changes: Pick<AppState, 'reauthenticationRequired'> & Partial<Pick<AppState, 'logoutStatus' | 'logoutIntentUnavailable'>>,
+): number {
+  const revision = advanceSessionRevision();
+  set({
+    user: null, token: null, isAuthenticated: false, isBootstrapping: false, startupError: null,
+    activeTenantId: null, activeBranchId: null, entitlements: null, isPlatformOperator: false,
+    ...changes,
+  });
+  useSocketStore.getState().disconnectSocket();
+  return revision;
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
@@ -104,12 +125,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   isBootstrapping: true,
   startupError: null,
   reauthenticationRequired: false,
+  logoutStatus: 'idle',
+  logoutIntentUnavailable: false,
   activeTenantId: null,
   activeBranchId: null,
   entitlements: null,
   isPlatformOperator: false,
 
   establishSession: (payload) => {
+    if (get().logoutStatus !== 'idle') return;
     advanceSessionRevision();
     const organizationId =
       payload.organizationId ?? payload.user.organizationId ?? payload.user.tenantId;
@@ -149,9 +173,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   bootstrapSession: async () => {
+    if (get().logoutStatus !== 'idle') return;
     const currentRevision = sessionRevision();
     if (bootstrapRequest?.revision === currentRevision) return bootstrapRequest.promise;
     if (!get().isBootstrapping && !get().startupError) return;
+    const intent = readLogoutIntent();
+    if (intent !== 'none') {
+      revokeLocalAuthority(set, {
+        reauthenticationRequired: false, logoutStatus: 'unconfirmed',
+        logoutIntentUnavailable: intent === 'unavailable',
+      });
+      return;
+    }
     const revision = advanceSessionRevision();
     const signal = sessionSignal();
     set({ isBootstrapping: true, startupError: null });
@@ -176,36 +209,51 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   beginLogin: () => {
+    if (get().logoutStatus !== 'idle') throw new Error(LOGOUT_BLOCKED_MESSAGE);
     const revision = advanceSessionRevision();
     set({ isBootstrapping: false, startupError: null });
     return revision;
   },
 
   clearSession: (reason) => {
-    advanceSessionRevision();
-    set({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isBootstrapping: false,
-      startupError: null,
-      reauthenticationRequired: reason === 'refresh-rejected',
-      activeTenantId: null,
-      activeBranchId: null,
-      entitlements: null,
-      isPlatformOperator: false,
-    });
-    useSocketStore.getState().disconnectSocket();
+    if (get().logoutStatus !== 'idle') return;
+    revokeLocalAuthority(set, { reauthenticationRequired: reason === 'refresh-rejected' });
   },
 
-  logout: async () => {
-    // Revoke local authority immediately, even if the logout endpoint is offline.
-    get().clearSession();
-    const { requestLogout } = await import('../api/client');
-    await requestLogout();
+  logout: () => {
+    if (logoutRequest) return logoutRequest;
+    if (get().logoutStatus === 'cleanup-required') return Promise.resolve();
+    const logoutIntentUnavailable = !persistLogoutIntent();
+    // Defer transport until the shared operation and revoked state are in place.
+    const request = Promise.resolve().then(async () => {
+      let confirmed = false;
+      try {
+        const { requestLogout } = await import('../api/client');
+        await requestLogout();
+        confirmed = true;
+      } catch {
+        // Keep the intent after a timeout or failure. Retry is user-initiated.
+      }
+      if (logoutRequest !== request) return;
+      logoutRequest = undefined;
+      if (sessionRevision() !== revision) return;
+      if (!confirmed) {
+        set({ logoutStatus: 'unconfirmed' });
+        return;
+      }
+      set({ logoutStatus: clearLogoutIntent() ? 'idle' : 'cleanup-required', logoutIntentUnavailable: false });
+    });
+    logoutRequest = request;
+    const revision = revokeLocalAuthority(set, { reauthenticationRequired: false, logoutStatus: 'pending', logoutIntentUnavailable });
+    return request;
+  },
+
+  retryLogoutCleanup: () => {
+    if (get().logoutStatus === 'cleanup-required' && clearLogoutIntent()) set({ logoutStatus: 'idle' });
   },
 
   setActiveTenant: async (organizationId) => {
+    if (get().logoutStatus !== 'idle') return false;
     const revision = advanceSessionRevision();
     const signal = sessionSignal();
     try {
@@ -222,6 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveBranch: async (branchId) => {
+    if (get().logoutStatus !== 'idle') return false;
     const organizationId = get().activeTenantId;
     if (!organizationId) return false;
     const revision = advanceSessionRevision();
